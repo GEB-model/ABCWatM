@@ -200,9 +200,9 @@ class evaporationPot(object):
         # RDL is stored on disk as W/m2 but converted in MJ/m2/s in readmeteo.py
 
         # TODO: Make albedo dynamic based on land type
-        albedoLand = readnetcdf2('albedoMaps', dateVar['currDate'], useDaily='month',value='albedoLand')
+        albedoLand = readnetcdf2('albedoLand', dateVar['currDate'], useDaily='month')
         albedoLand = self.model.to_subvar(data=albedoLand, fn=None)  # checked
-        albedoOpenWater = readnetcdf2('albedoMaps', dateVar['currDate'], useDaily='month',value='albedoWater')
+        albedoOpenWater = readnetcdf2('albedoWater', dateVar['currDate'], useDaily='month')
         albedoOpenWater = self.model.to_subvar(data=albedoOpenWater, fn=None)  # checked
         RNA = np.maximum(((1 - albedoLand) * Rsds - RLN) / LatHeatVap, 0.0)
         RNAWater = np.maximum(((1 - albedoOpenWater) * Rsds - RLN) / LatHeatVap, 0.0)

@@ -452,8 +452,9 @@ class landcoverType(object):
         self.set_land_use_after_sowing()
 
     def set_land_use_after_sowing(self):
-        self.var.land_use_type[(self.var.crop_map >= 0) & (self.farmers.field_is_paddy_irrigated == True)] = 2
-        self.var.land_use_type[(self.var.crop_map >= 0) & (self.farmers.field_is_paddy_irrigated == False)] = 3
+        field_is_paddy_irrigated = self.farmers.by_field(self.farmers.is_paddy_irrigated, nofieldvalue=0)
+        self.var.land_use_type[(self.var.crop_map >= 0) & (field_is_paddy_irrigated == True)] = 2
+        self.var.land_use_type[(self.var.crop_map >= 0) & (field_is_paddy_irrigated == False)] = 3
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""

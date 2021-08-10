@@ -310,12 +310,11 @@ def maskfrompoint(mask2D, xleft, yup):
     return mapC
 
 
-def loadmap(name, lddflag=False, compress=True, local=False, cut=True):
+def loadmap(name, compress=True, local=False, cut=True):
     """
     load a static map either value or pc raster map or netcdf
 
     :param name: name of map
-    :param lddflag: if True the map is used as a ldd map
     :param compress: if True the return map will be compressed
     :param local: if True the map is local and will be not cut
     :param cut: if True the map will be not cut
@@ -324,7 +323,6 @@ def loadmap(name, lddflag=False, compress=True, local=False, cut=True):
 
     value = cbinding(name)
     filename = value
-    mapC = 0  # initializing to prevent warning in code inspection
 
     try:  # loading an integer or float but not a map
         mapC = float(value)
@@ -332,84 +330,78 @@ def loadmap(name, lddflag=False, compress=True, local=False, cut=True):
         load = True
         if Flags['check']:
             checkmap(name, filename, mapC, False, False, 0)
+        return mapC
     except ValueError:
         load = False
 
 
-    if not load:   # read a netcdf  (single one not a stack)
-        filename = os.path.splitext(value)[0] + '.nc'
+    if os.path.splitext(value)[1].startswith('.nc'):   # read a netcdf  (single one not a stack)
          # get mapextend of netcdf map and calculate the cutting
         #cut0, cut1, cut2, cut3 = mapattrNetCDF(filename)
 
-        try:
-            nf1 = Dataset(filename, 'r')
-            cut0, cut1, cut2, cut3 = mapattrNetCDF(filename, check = False)
+        filename, varname = value.split(':')
 
-            # load netcdf map but only the rectangle needed
-            #nf1 = Dataset(filename, 'r')
-            value = list(nf1.variables.items())[-1][0]  # get the last variable name
+        nf1 = Dataset(filename, 'r')
+        cut0, cut1, cut2, cut3 = mapattrNetCDF(filename, check = False)
 
-            if not timestepInit:
-                #with np.errstate(invalid='ignore'):
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    # in order to ignore some invalid value comments
-                    if cut:
-                        mapnp = nf1.variables[value][cut2:cut3, cut0:cut1].astype(np.float64)
-                    else:
-                        mapnp = nf1.variables[value][:]
-            else:
-                if 'time' in nf1.variables:
-                    timestepI = Calendar(timestepInit[0])
-                    if type(timestepI) is datetime.datetime:
-                        timestepI = date2num(timestepI,nf1.variables['time'].units)
-                    else: timestepI = int(timestepI) -1
+        # load netcdf map but only the rectangle needed
+        #nf1 = Dataset(filename, 'r')
 
-                    if not(timestepI in nf1.variables['time'][:]):
-                        msg = "time step " + str(int(timestepI)+1)+" not stored in "+ filename
-                        raise CWATMError(msg)
-                    itime = np.where(nf1.variables['time'][:] == timestepI)[0][0]
-                    if cut:
-                        mapnp = nf1.variables[value][itime,cut2:cut3, cut0:cut1]
-                    else:
-                        mapnp = nf1.variables[value][itime][:]
+        if not timestepInit:
+            #with np.errstate(invalid='ignore'):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # in order to ignore some invalid value comments
+                if cut:
+                    mapnp = nf1.variables[varname][cut2:cut3, cut0:cut1].astype(np.float64)
                 else:
-                    if cut:
-                        mapnp = nf1.variables[value][cut2:cut3, cut0:cut1]
-                    else:
-                        mapnp = nf1.variables[value][:]
-
-            nf1.close()
-
-        except:
-
-            filename = cbinding(name)
-            try:
-                nf2 = gdal.Open(filename, gdalconst.GA_ReadOnly)
-                band = nf2.GetRasterBand(1)
-                mapnp = band.ReadAsArray(0, 0, nf2.RasterXSize, nf2.RasterYSize).astype(np.float64)
-                # if local no cut
-                if not local:
-                    if cut:
-                        cut0, cut1, cut2, cut3 = mapattrTiff(nf2)
-                        mapnp = mapnp[cut2:cut3, cut0:cut1]
-            except:
-                raise CWATMFileError(filename, sname=name)
-
-        try:
-            if any(maskinfo) and compress: mapnp.mask = maskinfo['mask']
-        except:
-            ii=0
-
-
-        if compress:
-            mapC = compressArray(mapnp,name=filename)
-            if Flags['check']:
-                checkmap(name, filename, mapnp, True, True, mapC)
+                    mapnp = nf1.variables[varname][:]
         else:
-            mapC = mapnp
-            if Flags['check']:
-                checkmap(name, filename, mapnp, True, False, 0)
+            if 'time' in nf1.variables:
+                timestepI = Calendar(timestepInit[0])
+                if type(timestepI) is datetime.datetime:
+                    timestepI = date2num(timestepI,nf1.variables['time'].units)
+                else: timestepI = int(timestepI) -1
+
+                if not(timestepI in nf1.variables['time'][:]):
+                    msg = "time step " + str(int(timestepI)+1)+" not stored in "+ filename
+                    raise CWATMError(msg)
+                itime = np.where(nf1.variables['time'][:] == timestepI)[0][0]
+                if cut:
+                    mapnp = nf1.variables[varname][itime,cut2:cut3, cut0:cut1]
+                else:
+                    mapnp = nf1.variables[varname][itime][:]
+            else:
+                if cut:
+                    mapnp = nf1.variables[varname][cut2:cut3, cut0:cut1]
+                else:
+                    mapnp = nf1.variables[varname][:]
+
+        nf1.close()
+
+    else:
+
+        filename = cbinding(name)
+        try:
+            nf2 = gdal.Open(filename, gdalconst.GA_ReadOnly)
+            band = nf2.GetRasterBand(1)
+            mapnp = band.ReadAsArray(0, 0, nf2.RasterXSize, nf2.RasterYSize).astype(np.float64)
+            # if local no cut
+            if not local:
+                if cut:
+                    cut0, cut1, cut2, cut3 = mapattrTiff(nf2)
+                    mapnp = mapnp[cut2:cut3, cut0:cut1]
+        except:
+            raise CWATMFileError(filename, sname=name)
+
+    if compress:
+        mapC = compressArray(mapnp,name=filename)
+        if Flags['check']:
+            checkmap(name, filename, mapnp, True, True, mapC)
+    else:
+        mapC = mapnp
+        if Flags['check']:
+            checkmap(name, filename, mapnp, True, False, 0)
 
     if checkOption('reducePrecision'):
         mapC = reduce_precision(mapC)
@@ -625,7 +617,7 @@ def checkMeteo_Wordclim(meteodata, wordclimdata):
     """
 
     try:
-        nf1 = Dataset(meteodata, 'r')
+        nf1 = Dataset(meteodata.split(':')[0], 'r')
     except:
         msg = "Checking netcdf map \n"
         raise CWATMFileError(meteodata, msg)
@@ -648,7 +640,7 @@ def checkMeteo_Wordclim(meteodata, wordclimdata):
 
     # load Wordclima data
     try:
-        nf1 = Dataset(wordclimdata, 'r')
+        nf1 = Dataset(wordclimdata.split(':')[0], 'r')
     except:
         msg = "Checking netcdf map \n"
         raise CWATMFileError(wordclimdata, msg)
@@ -1003,7 +995,7 @@ def readmeteodata(name, date, value='None', addZeros = False, zeros = 0.0,mapssc
 
 
 
-def readnetcdf2(namebinding, date, useDaily='daily', value='None', addZeros = False,cut = True, zeros = 0.0,meteo = False, usefilename = False, compress = True):
+def readnetcdf2(namebinding, date, useDaily='daily', addZeros = False,cut = True, zeros = 0.0,meteo = False, usefilename = False, compress = True):
     """
     load stack of maps 1 at each timestamp in netcdf format
 
@@ -1028,17 +1020,15 @@ def readnetcdf2(namebinding, date, useDaily='daily', value='None', addZeros = Fa
         name = namebinding
     else:
         name = cbinding(namebinding)
-    filename =  os.path.normpath(name)
 
+    filename, value = name.split(':')
+    filename =  os.path.normpath(filename)
 
     try:
        nf1 = Dataset(filename, 'r')
     except:
         msg = "Netcdf map stacks: \n"
         raise CWATMFileError(filename,msg, sname = namebinding)
-
-    if value == "None":
-        value = list(nf1.variables.items())[-1][0]  # get the last variable name
 
     # date if used daily, monthly or yearly or day of year
     idx = None  # will produce an error and indicates something is wrong with date

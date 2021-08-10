@@ -137,7 +137,8 @@ class water_demand:
             land_owners = self.var.land_owners.get()
         else:
             land_owners = self.var.land_owners
-        self.farmers.set_fields(land_owners)
+        self.farmers.create_field_indices(land_owners)
+        self.farmers.fields = land_owners
 
         self.domestic = waterdemand_domestic(model)
         self.industry = waterdemand_industry(model)

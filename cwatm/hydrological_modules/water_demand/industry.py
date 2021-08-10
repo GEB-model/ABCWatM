@@ -16,7 +16,7 @@ except ModuleNotFoundError:
     pass
 import cftime
 from cwatm.management_modules.data_handling import returnBool, binding, cbinding, loadmap, readnetcdf2, divideValues, downscale_volume, checkOption
-from polygene.library.mapreader import NetCDFReader
+from hyve.library.mapIO import NetCDFReader
 
 class waterdemand_industry:
     """

@@ -9,7 +9,6 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
-import cupy as cp
 
 # ------------------------ all this area commands
 #              np.take(np.bincount(AreaID,weights=Values),AreaID)     #     areasum

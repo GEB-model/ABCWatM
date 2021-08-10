@@ -195,9 +195,8 @@ class ModFlowSimulation:
             raise ValueError(f'Platform {platform.system()} not recognized.')
 
         # modflow requires the real path (no symlinks etc.)
-        library_path = os.path.realpath(os.path.join(self.folder, libary_name))
+        library_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), libary_name))
         try:
-            print(library_path[:-11])
             self.mf6 = XmiWrapper(library_path)
         except Exception as e:
             print("Failed to load " + library_path)
