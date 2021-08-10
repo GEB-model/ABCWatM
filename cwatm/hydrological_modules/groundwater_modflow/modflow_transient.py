@@ -15,7 +15,7 @@ def is_float(s):
 
 class groundwater_modflow:
     def __init__(self, model):
-        self.var = model.var
+        self.var = model.data.var
         self.model = model
 
     def get_corrected_modflow_cell_area(self):
@@ -279,7 +279,7 @@ class groundwater_modflow:
         self.var.baseflow = groundwater_outflow_cwatm * self.var.channel_ratio
         
         # capriseindex is 1 where capilary rise occurs
-        self.model.subvar.capriseindex = self.model.to_subvar(data=self.var.compress(
+        self.model.data.subvar.capriseindex = self.model.data.to_subvar(data=self.var.compress(
             self.modflow2CWATM((groundwater_outflow > 0).astype(np.float32), correct_boundary=False)
         ), fn=None)
-        assert (self.model.subvar.capriseindex >= 0).all() and (self.model.subvar.capriseindex <= 1).all()
+        assert (self.model.data.subvar.capriseindex >= 0).all() and (self.model.data.subvar.capriseindex <= 1).all()

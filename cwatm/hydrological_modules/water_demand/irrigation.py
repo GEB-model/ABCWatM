@@ -61,7 +61,7 @@ class waterdemand_irrigation:
     """
 
     def __init__(self, model):
-        self.var = model.subvar
+        self.var = model.data.subvar
         self.model = model
 
     def initial(self):

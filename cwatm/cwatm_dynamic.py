@@ -69,7 +69,7 @@ class CWATModel_dyn(DynamicModel):
         self.readmeteo_module.dynamic()
         timemeasure("Read meteo") # 1. timing after read input maps
 
-        Tavg, ETRef, self.subvar.EWRef = self.evaporationPot_module.dynamic()
+        Tavg, ETRef, self.data.subvar.EWRef = self.evaporationPot_module.dynamic()
         timemeasure("ET pot") # 2. timing after read input maps
 
         #if Flags['check']: return  # if check than finish here

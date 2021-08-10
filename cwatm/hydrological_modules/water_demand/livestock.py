@@ -45,7 +45,7 @@ class waterdemand_livestock:
     **Functions**
     """
     def __init__(self, model):
-        self.var = model.subvar
+        self.var = model.data.subvar
         self.model = model
 
     def initial(self):
@@ -103,9 +103,9 @@ class waterdemand_livestock:
         livestock_water_demand = self.livestock_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         livestock_water_demand = downscale_volume(
             self.livestock_water_demand_ds.gt,
-            self.model.var.gt,
+            self.model.data.var.gt,
             livestock_water_demand,
-            self.model.var.mask,
+            self.model.data.var.mask,
             self.var.var_to_subvar_uncompressed,
             downscale_mask,
             self.var.land_use_ratios

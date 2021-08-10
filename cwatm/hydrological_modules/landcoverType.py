@@ -190,7 +190,7 @@ class landcoverType(object):
     """
 
     def __init__(self, model):
-        self.var = model.subvar
+        self.var = model.data.subvar
         self.model = model
         self.farmers = model.agents.farmers
         self.farmers.fields = self.var.land_owners
@@ -225,8 +225,8 @@ class landcoverType(object):
         soildepth_factor = loadmap('soildepth_factor')
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
-            rootFraction1[land_use_indices] = self.model.to_subvar(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
-            maxRootDepth[land_use_indices] = self.model.to_subvar(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
+            rootFraction1[land_use_indices] = self.model.data.to_subvar(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
+            maxRootDepth[land_use_indices] = self.model.data.to_subvar(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
 
         rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
         rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -271,21 +271,21 @@ class landcoverType(object):
             else:
                 pre = ""
             # ksat in cm/d-1 -> m/dm
-            self.var.KSat1[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat2[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat3[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
-            alpha1[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
-            alpha2[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
-            alpha3[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
-            self.var.lambda1[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
-            self.var.lambda2[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
-            self.var.lambda3[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
-            thetas1[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
-            thetas2[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
-            thetas3[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
-            thetar1[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
-            thetar2[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
-            thetar3[land_use_indices] = self.model.to_subvar(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
+            self.var.KSat1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
+            self.var.KSat2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
+            self.var.KSat3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
+            alpha1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
+            alpha2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
+            alpha3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
+            self.var.lambda1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
+            self.var.lambda2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
+            self.var.lambda3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
+            thetas1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
+            thetas2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
+            thetas3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
+            thetar1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
+            thetar2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
+            thetar3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
             
         self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -335,7 +335,7 @@ class landcoverType(object):
             self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
 
         # for paddy irrigation flooded paddy fields
-        self.var.topwater = self.model.to_subvar(data=self.var.load_initial("topwater", default= 0.), fn=None)
+        self.var.topwater = self.model.data.to_subvar(data=self.var.load_initial("topwater", default= 0.), fn=None)
         if isinstance(self.var.topwater, float):
             self.var.topwater = self.var.full_compressed(self.var.topwater, dtype=np.float32)
         self.var.adjRoot = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
@@ -352,7 +352,7 @@ class landcoverType(object):
         arnoBetaOro = (ElevationStD - 10.0) / (ElevationStD + 1500.0)
 
         # for CALIBRATION
-        arnoBetaOro = arnoBetaOro + self.model.to_subvar(data=loadmap('arnoBeta_add'), fn=None)  # checked
+        arnoBetaOro = arnoBetaOro + self.model.data.to_subvar(data=loadmap('arnoBeta_add'), fn=None)  # checked
         arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
 
         initial_humidy = 0.5
@@ -392,7 +392,7 @@ class landcoverType(object):
             else:
                 self.var.w3[land_use_indices] = w3
 
-            arnoBeta = self.model.to_subvar(data=loadmap(coverType + "_arnoBeta"), fn=None)
+            arnoBeta = self.model.data.to_subvar(data=loadmap(coverType + "_arnoBeta"), fn=None)
             if not isinstance(arnoBeta, float):
                 arnoBeta = arnoBeta[land_use_indices]
             self.var.arnoBeta[land_use_indices] = (arnoBetaOro + arnoBeta)[land_use_indices]  # checked
@@ -458,89 +458,89 @@ class landcoverType(object):
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
-        riverbedExchangeM3 = self.model.var.leakageriver_factor * self.var.cellArea * ((1 - self.var.capriseindex + 0.25) // 1)
+        riverbedExchangeM3 = self.model.data.var.leakageriver_factor * self.var.cellArea * ((1 - self.var.capriseindex + 0.25) // 1)
         riverbedExchangeM3[self.var.land_use_type != 5] = 0
-        riverbedExchangeM3 = self.model.to_var(subdata=riverbedExchangeM3, fn='sum')
+        riverbedExchangeM3 = self.model.data.to_var(subdata=riverbedExchangeM3, fn='sum')
         riverbedExchangeM3 = np.minimum(
             riverbedExchangeM3,
-            0.80 * self.model.var.channelStorageM3
+            0.80 * self.model.data.var.channelStorageM3
         )
         # if there is a lake in this cell, there is no leakage
-        riverbedExchangeM3[self.model.var.waterBodyID > 0] = 0
+        riverbedExchangeM3[self.model.data.var.waterBodyID > 0] = 0
 
         # adding leakage from river to the groundwater recharge
-        waterbed_recharge = self.model.var.M3toM(riverbedExchangeM3)
+        waterbed_recharge = self.model.data.var.M3toM(riverbedExchangeM3)
         
         # riverbed exchange means water is being removed from the river to recharge
-        self.model.var.riverbedExchangeM3 = riverbedExchangeM3  # to be used in routing_kinematic
+        self.model.data.var.riverbedExchangeM3 = riverbedExchangeM3  # to be used in routing_kinematic
 
         # first, lakes variable need to be extended to their area and not only to the discharge point
-        lakeIDbyID = np.unique(self.model.var.waterBodyID)
+        lakeIDbyID = np.unique(self.model.data.var.waterBodyID)
 
-        lakestor_id = np.copy(self.model.var.lakeStorage)
-        resstor_id = np.copy(self.model.var.resStorage)
+        lakestor_id = np.copy(self.model.data.var.lakeStorage)
+        resstor_id = np.copy(self.model.data.var.resStorage)
         for id in range(len(lakeIDbyID)):  # for each lake or reservoir
             if lakeIDbyID[id] != 0:
-                temp_map = np.where(self.model.var.waterBodyID == lakeIDbyID[id], np.where(self.model.var.lakeStorage > 0, 1, 0), 0)  # Looking for the discharge point of the lake
+                temp_map = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], np.where(self.model.data.var.lakeStorage > 0, 1, 0), 0)  # Looking for the discharge point of the lake
                 if np.sum(temp_map) == 0:  # try reservoir
-                    temp_map = np.where(self.model.var.waterBodyID == lakeIDbyID[id], np.where(self.model.var.resStorage > 0, 1, 0), 0)  # Looking for the discharge point of the reservoir
+                    temp_map = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], np.where(self.model.data.var.resStorage > 0, 1, 0), 0)  # Looking for the discharge point of the reservoir
                 discharge_point = np.nanargmax(temp_map)  # Index of the cell where the lake outlet is stored
-                if self.model.var.waterBodyTypTemp[discharge_point] != 0:
+                if self.model.data.var.waterBodyTypTemp[discharge_point] != 0:
 
-                    if self.model.var.waterBodyTypTemp[discharge_point] == 1:  # this is a lake
+                    if self.model.data.var.waterBodyTypTemp[discharge_point] == 1:  # this is a lake
                         # computing the lake area
-                        area_stor = np.sum(np.where(self.model.var.waterBodyID == lakeIDbyID[id], self.model.var.cellArea, 0))  # required to keep mass balance rigth
+                        area_stor = np.sum(np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], self.model.data.var.cellArea, 0))  # required to keep mass balance rigth
                         # computing the lake storage in meter and put this value in each cell including the lake
-                        lakestor_id = np.where(self.model.var.waterBodyID == lakeIDbyID[id],
-                                                self.model.var.lakeStorage[discharge_point] / area_stor, lakestor_id)  # in meter
+                        lakestor_id = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id],
+                                                self.model.data.var.lakeStorage[discharge_point] / area_stor, lakestor_id)  # in meter
 
                     else:  # this is a reservoir
                         # computing the reservoir area
-                        area_stor = np.sum(np.where(self.model.var.waterBodyID == lakeIDbyID[id], self.model.var.cellArea, 0))  # required to keep mass balance rigth
+                        area_stor = np.sum(np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], self.model.data.var.cellArea, 0))  # required to keep mass balance rigth
                         # computing the reservoir storage in meter and put this value in each cell including the reservoir
-                        resstor_id = np.where(self.model.var.waterBodyID == lakeIDbyID[id],
-                                                self.model.var.resStorage[discharge_point] / area_stor, resstor_id)  # in meter
+                        resstor_id = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id],
+                                                self.model.data.var.resStorage[discharge_point] / area_stor, resstor_id)  # in meter
 
         # Gathering lakes and reservoirs in the same array
-        lakeResStorage = np.where(self.model.var.waterBodyTypTemp == 0, 0., np.where(self.model.var.waterBodyTypTemp == 1,
+        lakeResStorage = np.where(self.model.data.var.waterBodyTypTemp == 0, 0., np.where(self.model.data.var.waterBodyTypTemp == 1,
                                                                                 lakestor_id, resstor_id))  # in meter
 
         minlake = np.maximum(0., 0.98 * lakeResStorage)  # reasonable but arbitrary limit
 
         # leakage depends on water bodies storage, water bodies fraction and modflow saturated area
-        lakebedExchangeM = self.model.var.leakagelake_factor * ((1 - self.var.capriseindex + 0.25) // 1)
+        lakebedExchangeM = self.model.data.var.leakagelake_factor * ((1 - self.var.capriseindex + 0.25) // 1)
         lakebedExchangeM[self.var.land_use_type != 5] = 0
-        lakebedExchangeM = self.model.to_var(subdata=lakebedExchangeM, fn='sum')
+        lakebedExchangeM = self.model.data.to_var(subdata=lakebedExchangeM, fn='sum')
         lakebedExchangeM = np.minimum(
             lakebedExchangeM,
             minlake
         )
 
         # Now, leakage is converted again from the lake/reservoir area to discharge point to be removed from the lake/reservoir store
-        self.model.var.lakebedExchangeM3 = np.zeros(self.model.var.compressed_size, dtype=np.float32)
+        self.model.data.var.lakebedExchangeM3 = np.zeros(self.model.data.var.compressed_size, dtype=np.float32)
         for id in range(len(lakeIDbyID)):  # for each lake or reservoir
             if lakeIDbyID[id] != 0:
-                temp_map = np.where(self.model.var.waterBodyID == lakeIDbyID[id], np.where(self.model.var.lakeStorage > 0, 1, 0), 0)  # Looking for the discharge point of the lake
+                temp_map = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], np.where(self.model.data.var.lakeStorage > 0, 1, 0), 0)  # Looking for the discharge point of the lake
                 if np.sum(temp_map) == 0:  # try reservoir
-                    temp_map = np.where(self.model.var.waterBodyID == lakeIDbyID[id], np.where(self.model.var.resStorage > 0, 1, 0), 0)  # Looking for the discharge point of the reservoir
+                    temp_map = np.where(self.model.data.var.waterBodyID == lakeIDbyID[id], np.where(self.model.data.var.resStorage > 0, 1, 0), 0)  # Looking for the discharge point of the reservoir
                 discharge_point = np.nanargmax(temp_map)  # Index of the cell where the lake outlet is stored
             # Converting the lake/reservoir leakage from meter to cubic meter and put this value in the cell corresponding to the outlet
-            self.model.var.lakebedExchangeM3[discharge_point] = np.sum(np.where(self.model.var.waterBodyID == lakeIDbyID[id],
-                                                                                                lakebedExchangeM * self.model.var.cellArea, 0))  # in m3
-        self.model.var.lakebedExchangeM = self.model.var.M3toM(self.model.var.lakebedExchangeM3)
+            self.model.data.var.lakebedExchangeM3[discharge_point] = np.sum(np.where(self.model.data.var.waterBodyID == lakeIDbyID[id],
+                                                                                                lakebedExchangeM * self.model.data.var.cellArea, 0))  # in m3
+        self.model.data.var.lakebedExchangeM = self.model.data.var.M3toM(self.model.data.var.lakebedExchangeM3)
 
         # compressed version for lakes and reservoirs
-        lakeExchangeM3 = np.compress(self.model.var.compress_LR, self.model.var.lakebedExchangeM) * self.model.var.MtoM3C
+        lakeExchangeM3 = np.compress(self.model.data.var.compress_LR, self.model.data.var.lakebedExchangeM) * self.model.data.var.MtoM3C
 
         # substract from both, because it is sorted by self.var.waterBodyTypCTemp
-        self.model.var.lakeStorageC = self.model.var.lakeStorageC - lakeExchangeM3
-        self.model.var.lakeVolumeM3C = self.model.var.lakeVolumeM3C - lakeExchangeM3
-        self.model.var.reservoirStorageM3C = self.model.var.reservoirStorageM3C - lakeExchangeM3
+        self.model.data.var.lakeStorageC = self.model.data.var.lakeStorageC - lakeExchangeM3
+        self.model.data.var.lakeVolumeM3C = self.model.data.var.lakeVolumeM3C - lakeExchangeM3
+        self.model.data.var.reservoirStorageM3C = self.model.data.var.reservoirStorageM3C - lakeExchangeM3
 
         # and from the combined one for waterbalance issues
-        self.model.var.lakeResStorageC = self.model.var.lakeResStorageC - lakeExchangeM3
-        self.model.var.lakeResStorage = self.model.var.full_compressed(0, dtype=np.float32)
-        np.put(self.model.var.lakeResStorage, self.model.var.decompress_LR, self.model.var.lakeResStorageC)
+        self.model.data.var.lakeResStorageC = self.model.data.var.lakeResStorageC - lakeExchangeM3
+        self.model.data.var.lakeResStorage = self.model.data.var.full_compressed(0, dtype=np.float32)
+        np.put(self.model.data.var.lakeResStorage, self.model.data.var.decompress_LR, self.model.data.var.lakeResStorageC)
 
         # adding leakage from lakes and reservoirs to the groundwater recharge
         waterbed_recharge += lakebedExchangeM
@@ -614,7 +614,7 @@ class landcoverType(object):
         if checkOption('useGPU'):
             self.var.cropKC = cp.array(self.var.cropKC)
 
-        cover_cropCoefficientNC = self.model.to_subvar(
+        cover_cropCoefficientNC = self.model.data.to_subvar(
             data=readnetcdf2('forest_cropCoefficientNC', globals.dateVar['10day'], "10day"),
             fn=None
         )
@@ -630,8 +630,8 @@ class landcoverType(object):
 
         openWaterEvap = self.var.full_compressed(0, dtype=np.float32)
         # Soil for forest, grassland, and irrigated land
-        capillar = self.model.to_subvar(data=self.model.var.capillar, fn=None)
-        del self.model.var.capillar
+        capillar = self.model.data.to_subvar(data=self.model.data.var.capillar, fn=None)
+        del self.model.data.var.capillar
 
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
@@ -683,12 +683,12 @@ class landcoverType(object):
                 tollerance=1e-6
             )
 
-        groundwater_recharge = self.model.to_var(subdata=groundwater_recharge, fn='mean')
+        groundwater_recharge = self.model.data.to_var(subdata=groundwater_recharge, fn='mean')
         self.water_body_exchange(groundwater_recharge)
 
         return (
-            self.model.to_var(subdata=interflow,fn='mean'),
-            self.model.to_var(subdata=directRunoff,fn='mean'),
+            self.model.data.to_var(subdata=interflow,fn='mean'),
+            self.model.data.to_var(subdata=directRunoff,fn='mean'),
             groundwater_recharge, 
             groundwater_abstaction, 
             channel_abstraction_m, 

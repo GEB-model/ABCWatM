@@ -43,7 +43,7 @@ class waterquality1(object):
     """
 
     def __init__(self, model):
-        self.var = model.var
+        self.var = model.data.var
         self.model = model
 
     def initial(self):

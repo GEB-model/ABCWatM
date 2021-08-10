@@ -46,8 +46,8 @@ class miscInitial(object):
     """
 
     def __init__(self, model):
-        self.var = model.var
-        self.subvar = model.subvar
+        self.var = model.data.var
+        self.subvar = model.data.subvar
         self.model = model
 
 
@@ -76,7 +76,7 @@ class miscInitial(object):
             # Area of pixel [m2]
             # self.var.cellArea = loadmap('CellArea')
             # self.var.cellArea_uncompressed = loadmap('CellArea', compress=False)
-            # self.model.to_subvar(varname="cellArea", fn='mean', delete=False)  # checked
+            # self.model.data.to_subvar(varname="cellArea", fn='mean', delete=False)  # checked
             pass
 
 

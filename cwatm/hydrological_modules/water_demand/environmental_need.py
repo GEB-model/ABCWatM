@@ -37,7 +37,7 @@ class waterdemand_environmental_need:
     """
 
     def __init__(self, model):
-        self.var = model.subvar
+        self.var = model.data.subvar
         self.model = model
 
     def initial(self):

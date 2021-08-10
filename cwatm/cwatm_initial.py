@@ -33,7 +33,6 @@ from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
 from cwatm.management_modules.data_handling import loadsetclone, metaNetCDF, readnetcdfInitial, checkOption, decompress, loadmap
 from cwatm.management_modules import globals
-from cwatm.management_modules.cells import Cells
 
 import os, glob
 import numpy as np
@@ -43,7 +42,7 @@ except ModuleNotFoundError:
     pass
 
 
-class CWATModel_ini(DynamicModel, Cells):
+class CWATModel_ini(DynamicModel):
 
     """
     CWATN initial part
@@ -64,8 +63,6 @@ class CWATModel_ini(DynamicModel, Cells):
         ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2
         # set the maskmap
         self.MaskMap = loadsetclone(self, 'MaskMap')
-
-        Cells.__init__(self)
 
         # ----------------------------------------
         # include output of tss and maps
@@ -105,7 +102,7 @@ class CWATModel_ini(DynamicModel, Cells):
 
         self.evaporationPot_module.initial()
 
-        ElevationStD = self.to_subvar(data=loadmap('ElevationStD'), fn=None)  # checked
+        ElevationStD = self.data.to_subvar(data=loadmap('ElevationStD'), fn=None)  # checked
 
         self.snowfrost_module.initial(ElevationStD)
         soildepth = self.soil_module.initial()

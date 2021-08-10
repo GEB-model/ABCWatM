@@ -46,7 +46,7 @@ class waterdemand_domestic:
 
 
     def __init__(self, model):
-        self.var = model.subvar
+        self.var = model.data.subvar
         self.model = model
 
     def initial(self):
@@ -108,9 +108,9 @@ class waterdemand_domestic:
         domestic_water_demand = self.domestic_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         domestic_water_demand = downscale_volume(
             self.domestic_water_demand_ds.gt,
-            self.model.var.gt,
+            self.model.data.var.gt,
             domestic_water_demand,
-            self.model.var.mask,
+            self.model.data.var.mask,
             self.var.var_to_subvar_uncompressed,
             downscale_mask,
             self.var.land_use_ratios
@@ -122,9 +122,9 @@ class waterdemand_domestic:
         domestic_water_consumption = self.domestic_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
         domestic_water_consumption = downscale_volume(
             self.domestic_water_consumption_ds.gt,
-            self.model.var.gt,
+            self.model.data.var.gt,
             domestic_water_consumption,
-            self.model.var.mask,
+            self.model.data.var.mask,
             self.var.var_to_subvar_uncompressed,
             downscale_mask,
             self.var.land_use_ratios
@@ -134,7 +134,7 @@ class waterdemand_domestic:
         domestic_water_consumption = self.var.M3toM(domestic_water_consumption)
 
         efficiency = divideValues(domestic_water_consumption, domestic_water_demand)
-        efficiency = self.model.to_var(subdata=efficiency, fn='max')
+        efficiency = self.model.data.to_var(subdata=efficiency, fn='max')
         
         assert (efficiency <= 1).all()
         assert (efficiency >= 0).all()

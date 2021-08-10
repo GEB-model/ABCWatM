@@ -167,7 +167,7 @@ class lakes_reservoirs(object):
     """
 
     def __init__(self, model):
-        self.var = model.var
+        self.var = model.data.var
         self.model = model
 
     def initWaterbodies(self):

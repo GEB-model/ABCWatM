@@ -53,8 +53,8 @@ class outputTssMap(object):
     """
 
     def __init__(self, model):
-        self.var = model.var
-        self.subvar = model.subvar
+        self.var = model.data.var
+        self.subvar = model.data.subvar
         self.model = model
 
     def initial(self):

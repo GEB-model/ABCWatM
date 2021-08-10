@@ -68,7 +68,7 @@ class readmeteo(object):
 
     def __init__(self, model):
         self.model = model
-        self.var = model.var
+        self.var = model.data.var
 
     def initial(self):
         """
@@ -171,7 +171,7 @@ class readmeteo(object):
         self.var.demAnomaly = compressArray(demAnomaly[cutmapVfine[2]:cutmapVfine[3], cutmapVfine[0]:cutmapVfine[1]],pcr = False)
         """
 
-        self.model.subvar.Precipitation = self.model.subvar.full_compressed(0, dtype=np.float32)
+        self.model.data.subvar.Precipitation = self.model.data.subvar.full_compressed(0, dtype=np.float32)
 
 # --------------------------------------------------------------------------
 # --------------------------------------------------------------------------
@@ -330,4 +330,4 @@ class readmeteo(object):
         #--------------------------------------------------------
         # conversions
 
-        self.model.to_subvar(varname="Precipitation", fn=None)  # checked
+        self.model.data.to_subvar(varname="Precipitation", fn=None)  # checked
