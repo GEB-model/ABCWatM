@@ -41,7 +41,6 @@ setup(
             'scipy',
             'netCDF4',
             'gdal',
-            'cupy-cuda102',
             'pyflow',
             'pandas',
             'xlrd',
