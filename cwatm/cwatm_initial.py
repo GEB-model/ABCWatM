@@ -31,16 +31,7 @@ from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
 from cwatm.hydrological_modules.waterquality1 import waterquality1
 from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
-from cwatm.management_modules.data_handling import loadsetclone, metaNetCDF, readnetcdfInitial, checkOption, decompress, loadmap
-from cwatm.management_modules import globals
-
-import os, glob
-import numpy as np
-try:
-    import cupy as cp
-except ModuleNotFoundError:
-    pass
-
+from cwatm.management_modules.data_handling import loadsetclone, metaNetCDF, checkOption, loadmap
 
 class CWATModel_ini(DynamicModel):
 

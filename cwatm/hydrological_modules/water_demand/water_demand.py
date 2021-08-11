@@ -2,26 +2,20 @@
 # Name:        Waterdemand module
 # Purpose:
 #
-# Author:      PB
+# Author:      PB, JB
 #
 # Created:     15/07/2016
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
 import numpy as np
-from numba import njit
 try:
     import cupy as cp
-    import cupyx
 except ModuleNotFoundError:
     pass
-import pandas as pd
 import rasterio
-
-
 from cwatm.management_modules import globals
-from cwatm.management_modules.replace_pcr import npareatotal, npareamaximum
-from cwatm.management_modules.data_handling import returnBool, binding, option, cbinding, loadmap, divideValues, checkOption, npareaaverage, readnetcdf2
+from cwatm.management_modules.data_handling import option, cbinding, loadmap, checkOption
 from cwatm.hydrological_modules.water_demand.domestic import waterdemand_domestic
 from cwatm.hydrological_modules.water_demand.industry import waterdemand_industry
 from cwatm.hydrological_modules.water_demand.livestock import waterdemand_livestock
