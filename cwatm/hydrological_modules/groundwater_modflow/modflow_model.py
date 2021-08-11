@@ -7,7 +7,7 @@ import flopy
 import json
 import hashlib
 import platform
-
+from cwatm.management_modules.globals import outDir
 
 @contextmanager
 def cd(newdir):
@@ -50,7 +50,7 @@ class ModFlowSimulation:
         self.colsize = colsize
         self.basin = basin
         self.n_active_cells = self.basin.sum()
-        self.working_directory = os.path.join(folder, 'wd', model.args.scenario)
+        self.working_directory = os.path.join(outDir['OUTPUT'], 'modflow_model')
         if not os.path.exists(self.working_directory):
             os.makedirs(self.working_directory)
         self.verbose = verbose
