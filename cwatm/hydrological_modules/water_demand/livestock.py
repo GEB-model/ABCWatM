@@ -96,7 +96,7 @@ class waterdemand_livestock:
         
         # grassland/non-irrigated land that is not owned by a crop farmer
         downscale_mask = ((self.var.land_use_type != 1) | (self.var.land_owners != -1))
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             downscale_mask = downscale_mask.get()
 
         # transform from mio m3 per year (or month) to m/day
@@ -110,7 +110,7 @@ class waterdemand_livestock:
             downscale_mask,
             self.var.land_use_ratios
         )
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             livestock_water_demand = cp.array(livestock_water_demand)
         livestock_water_demand = self.var.M3toM(livestock_water_demand)
 

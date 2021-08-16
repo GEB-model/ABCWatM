@@ -127,12 +127,6 @@ class water_demand:
         self.model = model
         self.var = model.data.subvar
         self.farmers = model.agents.farmers
-        if checkOption('useGPU'):
-            land_owners = self.var.land_owners.get()
-        else:
-            land_owners = self.var.land_owners
-        self.farmers.create_field_indices(land_owners)
-        self.farmers.fields = land_owners
 
         self.domestic = waterdemand_domestic(model)
         self.industry = waterdemand_industry(model)
@@ -271,15 +265,14 @@ class water_demand:
                 return_flow_irrigation_m,
                 addtoevapotrans_m,
             ) = self.farmers.abstract_water(
-                cell_area = self.var.cellArea.get() if checkOption('useGPU') else self.var.cellArea,
+                cell_area = self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
                 subvar_to_var=self.var.subvar_to_var,
-                crop_map=self.var.crop_map.get() if checkOption('useGPU') else self.var.crop_map,
-                totalPotIrrConsumption=pot_irrConsumption.get() if checkOption('useGPU') else pot_irrConsumption,
+                totalPotIrrConsumption=pot_irrConsumption.get() if self.model.args.use_gpu else pot_irrConsumption,
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,
                 groundwater_head=groundwater_head,
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
-                command_areas=self.var.reservoir_command_areas.get() if checkOption('useGPU') else self.var.reservoir_command_areas,
+                command_areas=self.var.reservoir_command_areas.get() if self.model.args.use_gpu else self.var.reservoir_command_areas,
             )
 
 
@@ -291,7 +284,7 @@ class water_demand:
                     tollerance=1e-7
                 )
             
-            if checkOption('useGPU'):
+            if self.model.args.use_gpu:
                 # reservoir_abstraction = cp.asarray(reservoir_abstraction_m)
                 ## Water application
                 self.var.actual_irrigation_consumption = cp.asarray(irrigation_water_consumption_m)
@@ -325,7 +318,7 @@ class water_demand:
                         domestic_withdrawal_m3,
                         industry_withdrawal_m3,
                         livestock_withdrawal_m3,
-                        irrigation_water_withdrawal_m * self.var.cellArea.get() if checkOption('useGPU') else self.var.cellArea,
+                        irrigation_water_withdrawal_m * self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
 
                     ],
                     prestorages=[available_channel_storage_m3_pre, available_reservoir_storage_m3_pre, available_groundwater_m3_pre],

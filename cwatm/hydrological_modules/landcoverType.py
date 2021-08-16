@@ -27,19 +27,19 @@ def interpolate_kc(stage_start, stage_end, crop_progress, stage_start_kc, stage_
     return (stage_end_kc - stage_start_kc) * stage_progress + stage_start_kc
 
 @njit
-def get_crop_kc(crop_map, crop_age_days, crop_harvest_age_days, crop_stage_data, kc_crop_stage):
+def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days_map, crop_stage_data, kc_crop_stage):
     shape = crop_map.shape
     crop_map = crop_map.ravel()
-    crop_age_days = crop_age_days.ravel()
-    crop_harvest_age_days = crop_harvest_age_days.ravel()
+    crop_age_days_map = crop_age_days_map.ravel()
+    crop_harvest_age_days_map = crop_harvest_age_days_map.ravel()
     
     kc = np.full(crop_map.size, np.nan, dtype=np.float32)
 
     for i in range(crop_map.size):
         crop = crop_map[i]
         if crop != -1:
-            age_days = crop_age_days[i]
-            harvest_day = crop_harvest_age_days[i]
+            age_days = crop_age_days_map[i]
+            harvest_day = crop_harvest_age_days_map[i]
             crop_progress = age_days / harvest_day
             stage = np.searchsorted(crop_stage_data[crop], crop_progress, side='left')
             if stage == 0:
@@ -193,7 +193,6 @@ class landcoverType(object):
         self.var = model.data.subvar
         self.model = model
         self.farmers = model.agents.farmers
-        self.farmers.fields = self.var.land_owners
 
     def set_root_depth(self):
         pass
@@ -445,16 +444,6 @@ class landcoverType(object):
         self.kc_crop_stage[:, 0] = crop_data['kc_ini']
         self.kc_crop_stage[:, 1] = crop_data['kc_mid']
         self.kc_crop_stage[:, 2] = crop_data['kc_end']
-        
-        self.var.crop_map, self.var.crop_age_days, self.var.crop_harvest_age_days = self.farmers.sow_initial()
-        self.var.actual_transpiration_crop = self.var.full_compressed(0, dtype=np.float32)
-        self.var.potential_transpiration_crop = self.var.full_compressed(0, dtype=np.float32)
-        self.set_land_use_after_sowing()
-
-    def set_land_use_after_sowing(self):
-        field_is_paddy_irrigated = self.farmers.by_field(self.farmers.is_paddy_irrigated, nofieldvalue=0)
-        self.var.land_use_type[(self.var.crop_map >= 0) & (field_is_paddy_irrigated == True)] = 2
-        self.var.land_use_type[(self.var.crop_map >= 0) & (field_is_paddy_irrigated == False)] = 3
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -568,50 +557,15 @@ class landcoverType(object):
             w3_pre = self.var.w3.copy()
             topwater_pre = self.var.topwater.copy()
 
-        # potentially harvest crops, if not harvested crops age by a day
-        harvest_map = self.farmers.harvest(
-            self.var.actual_transpiration_crop.get() if checkOption('useGPU') else self.var.actual_transpiration_crop,
-            self.var.potential_transpiration_crop.get() if checkOption('useGPU') else self.var.potential_transpiration_crop,
-            self.var.crop_map.get() if checkOption('useGPU') else self.var.crop_map,
-            self.var.crop_age_days.get() if checkOption('useGPU') else self.var.crop_age_days,
-            self.var.crop_harvest_age_days.get() if checkOption('useGPU') else self.var.crop_harvest_age_days,
-        )
-
-        self.var.actual_transpiration_crop[harvest_map] = 0
-        self.var.potential_transpiration_crop[harvest_map] = 0
-
-        # remove crops from crop_map where they are harvested
-        self.var.crop_map[harvest_map] = -1
-        self.var.crop_age_days[harvest_map] = -1
-        self.var.crop_harvest_age_days[harvest_map] = -1
-
-        # when a crop is harvested set to non irrigated land
-        self.var.land_use_type[harvest_map] = 1
-
-        # increase crop age by 1 where crops are not harvested and growing
-        self.var.crop_age_days[(harvest_map == False) & (self.var.crop_map >= 0)] += 1
-
-        # sow where farmers decide to do so. Set crop age to 0
-        sow_map, harvest_day = self.farmers.sow()
-
-        self.var.crop_map = np.where(sow_map >= 0, sow_map, self.var.crop_map)
-        self.var.crop_age_days[sow_map >= 0] = 0
-        self.var.crop_harvest_age_days[sow_map >= 0] = harvest_day[sow_map >= 0]
-
-        assert (self.var.crop_harvest_age_days[self.var.crop_map > 0] > 0).all()
-        assert (self.var.crop_age_days[self.var.crop_map > 0] >= 0).all()
-
-        # set irrigated crops as irrigated land
-        self.set_land_use_after_sowing()
 
         self.var.cropKC = get_crop_kc(
-            self.var.crop_map.get() if checkOption('useGPU') else self.var.crop_map,
-            self.var.crop_age_days.get() if checkOption('useGPU') else self.var.crop_age_days,
-            self.var.crop_harvest_age_days.get() if checkOption('useGPU') else self.var.crop_harvest_age_days,
+            self.farmers.crop_map.get() if self.model.args.use_gpu else self.farmers.crop_map,
+            self.farmers.crop_age_days_map.get() if self.model.args.use_gpu else self.farmers.crop_age_days_map,
+            self.farmers.crop_harvest_age_days_map.get() if self.model.args.use_gpu else self.farmers.crop_harvest_age_days_map,
             self.crop_stage_data,
             self.kc_crop_stage
         )
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
         cover_cropCoefficientNC = self.model.data.to_subvar(
@@ -636,8 +590,8 @@ class landcoverType(object):
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
 
-        self.var.actual_transpiration_crop += self.var.actTransTotal
-        self.var.potential_transpiration_crop += potTranspiration
+        self.farmers.actual_transpiration_crop += self.var.actTransTotal
+        self.farmers.potential_transpiration_crop += potTranspiration
 
         assert not np.isnan(interflow).any()
         assert not np.isnan(groundwater_recharge).any()
@@ -684,7 +638,10 @@ class landcoverType(object):
             )
 
         groundwater_recharge = self.model.data.to_var(subdata=groundwater_recharge, fn='mean')
-        self.water_body_exchange(groundwater_recharge)
+        if checkOption('usewaterbodyexchange'):
+            self.water_body_exchange(groundwater_recharge)
+        else:
+            self.model.data.var.riverbedExchangeM3 = 0
 
         return (
             self.model.data.to_var(subdata=interflow,fn='mean'),

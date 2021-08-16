@@ -100,7 +100,7 @@ class waterdemand_domestic:
                 1
             )
         downscale_mask = (self.var.land_use_type != 4)
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             downscale_mask = downscale_mask.get()
         
 
@@ -115,7 +115,7 @@ class waterdemand_domestic:
             downscale_mask,
             self.var.land_use_ratios
         )
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             domestic_water_demand = cp.array(domestic_water_demand)
         domestic_water_demand = self.var.M3toM(domestic_water_demand)
 
@@ -129,7 +129,7 @@ class waterdemand_domestic:
             downscale_mask,
             self.var.land_use_ratios
         )
-        if checkOption('useGPU'):
+        if self.model.args.use_gpu:
             domestic_water_consumption = cp.array(domestic_water_consumption)
         domestic_water_consumption = self.var.M3toM(domestic_water_consumption)
 

@@ -134,7 +134,7 @@ class interception(object):
                 tollerance=1e-7
             )
 
-        # if checkOption('useGPU'):
+        # if self.model.args.use_gpu:
             # self.var.interceptEvap = self.var.interceptEvap.get()
 
         return potTranspiration

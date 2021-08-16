@@ -359,7 +359,7 @@ class routing_kinematic(object):
             self.var.evapWaterBodyC = self.var.lakeEvaFactorC  * np.compress(self.var.compress_LR, eWaterBody)
             # exclude evaporation where lakes are, because they are filled in again with evapWaterBodyC
 
-            if checkOption('useGPU'):
+            if self.model.args.use_gpu:
                 fraction_water = cp.array(self.model.data.subvar.land_use_ratios)
             else:
                 fraction_water = np.array(self.model.data.subvar.land_use_ratios)

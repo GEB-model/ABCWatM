@@ -141,7 +141,7 @@ class groundwater_modflow:
         self.modflow_cell_area = np.bincount(self.indices['ModFlow_index'], weights=self.indices['area'], minlength=self.domain['nrow'] * self.domain['ncol']).reshape(self.domain['nrow'], self.domain['ncol'])
         
         indices_cell_area = np.bincount(self.indices['CWatM_index'], weights=self.indices['area'], minlength=self.var.mask.size)
-        self.indices['modflow_area'] = self.indices['area'] * (self.var.decompress(self.var.cellArea, nanvalue=0).ravel() / indices_cell_area)[self.indices['CWatM_index']]
+        self.indices['modflow_area'] = self.indices['area'] * (self.var.decompress(self.var.cellArea, fillvalue=0).ravel() / indices_cell_area)[self.indices['CWatM_index']]
         self.modflow_cell_area_corrected = np.bincount(self.indices['ModFlow_index'], weights=self.indices['modflow_area'], minlength=self.domain['nrow'] * self.domain['ncol']).reshape(self.domain['nrow'], self.domain['ncol'])
 
         indices_cell_area = np.bincount(self.indices['ModFlow_index'], weights=self.indices['modflow_area'], minlength=self.domain['nrow'] * self.domain['ncol'])
@@ -243,11 +243,11 @@ class groundwater_modflow:
 
         groundwater_storage_pre = np.nansum(self.total_groundwater_m_modflow * self.modflow_cell_area)
 
-        groundwater_recharge_modflow = self.CWATM2modflow(self.var.decompress(groundwater_recharge, nanvalue=0))
+        groundwater_recharge_modflow = self.CWATM2modflow(self.var.decompress(groundwater_recharge, fillvalue=0))
         assert isclose((groundwater_recharge * self.var.cellArea).sum(), np.nansum(groundwater_recharge_modflow * self.modflow_cell_area), rel_tol=1e-6)
         self.modflow.set_recharge(groundwater_recharge_modflow)
         
-        groundwater_abstraction_modflow = self.CWATM2modflow(self.var.decompress(groundwater_abstraction, nanvalue=0))
+        groundwater_abstraction_modflow = self.CWATM2modflow(self.var.decompress(groundwater_abstraction, fillvalue=0))
         assert isclose((groundwater_abstraction * self.var.cellArea).sum(), np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area), rel_tol=1e-6)
         self.modflow.set_groundwater_abstraction(groundwater_abstraction_modflow)
 
