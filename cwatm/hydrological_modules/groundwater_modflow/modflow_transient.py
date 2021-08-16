@@ -26,7 +26,7 @@ class groundwater_modflow:
         ).reshape(self.modflow.basin.shape)
 
     def get_corrected_cwatm_cell_area(self):
-        return (self.var.cellArea_uncompressed.ravel() - np.bincount(
+        return (self.var.cell_area_uncompressed.ravel() - np.bincount(
             self.indices['CWatM_index'],
             weights=np.invert(self.modflow.basin).ravel()[self.indices['ModFlow_index']] * self.indices['area'],
             minlength=self.var.mask.size
@@ -54,7 +54,7 @@ class groundwater_modflow:
         assert not (np.isnan(variable).any())
         if correct_boundary:
             variable = variable / (self.modflow_cell_area_corrected / self.modflow_cell_area)
-        cwatm_cell_area = self.var.cellArea_uncompressed.ravel()
+        cwatm_cell_area = self.var.cell_area_uncompressed.ravel()
         area = self.indices['area']
         array = (np.bincount(
             self.indices['CWatM_index'],
@@ -151,7 +151,7 @@ class groundwater_modflow:
         self.cwatm_cell_area_corrected = np.bincount(self.indices['CWatM_index'], weights=self.indices['cwatm_area'], minlength=self.var.mask.size).reshape(self.var.mask.shape)
         
         indices_cell_area = np.bincount(self.indices['CWatM_index'], weights=self.indices['area'], minlength=self.var.mask.size)
-        self.indices['area'] = self.indices['area'] * (self.var.cellArea_uncompressed.ravel() / indices_cell_area)[self.indices['CWatM_index']]
+        self.indices['area'] = self.indices['area'] * (self.var.cell_area_uncompressed.ravel() / indices_cell_area)[self.indices['CWatM_index']]
 
         soildepth_as_GWtop = returnBool('use_soildepth_as_GWtop')
         correct_depth_underlakes = returnBool('correct_soildepth_underlakes')

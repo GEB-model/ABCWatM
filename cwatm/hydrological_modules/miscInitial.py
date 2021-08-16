@@ -75,7 +75,7 @@ class miscInitial(object):
 
             # Area of pixel [m2]
             # self.var.cellArea = loadmap('CellArea')
-            # self.var.cellArea_uncompressed = loadmap('CellArea', compress=False)
+            # self.var.cell_area_uncompressed = loadmap('CellArea', compress=False)
             # self.model.data.to_subvar(varname="cellArea", fn='mean', delete=False)  # checked
             pass
 
