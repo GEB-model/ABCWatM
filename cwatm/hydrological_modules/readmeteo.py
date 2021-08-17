@@ -68,7 +68,7 @@ class readmeteo(object):
 
     def __init__(self, model):
         self.model = model
-        self.var = model.data.var
+        self.var = model.data.grid
 
     def initial(self):
         """

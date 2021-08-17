@@ -89,16 +89,16 @@ class evaporationPot(object):
             # TODO in initial there could be a check if temperature > 200 -> automatic change to Kelvin
             ZeroKelvin = 273.15
 
-        TMin = readmeteodata('TminMaps',dateVar['currDate'], addZeros=True, zeros=ZeroKelvin, mapsscale = self.model.data.var.meteomapsscale)
-        if self.model.data.var.meteodown:
+        TMin = readmeteodata('TminMaps',dateVar['currDate'], addZeros=True, zeros=ZeroKelvin, mapsscale = self.model.data.grid.meteomapsscale)
+        if self.model.data.grid.meteodown:
             TMin, wc2_tmin, wc4_tmin = self.model.readmeteo_module.downscaling2(TMin, "downscale_wordclim_tmin", wc2_tmin, wc4_tmin, downscale=1)
         else:
             TMin = self.model.readmeteo_module.downscaling2(TMin, "downscale_wordclim_tmin", wc2_tmin, wc4_tmin, downscale=0)
 
         if Flags['check']: checkmap('TminMaps', "", self.var.Tmin, True, True, self.var.Tmin)
 
-        TMax = readmeteodata('TmaxMaps', dateVar['currDate'], addZeros=True, zeros=ZeroKelvin, mapsscale = self.model.data.var.meteomapsscale)
-        if self.model.data.var.meteodown:
+        TMax = readmeteodata('TmaxMaps', dateVar['currDate'], addZeros=True, zeros=ZeroKelvin, mapsscale = self.model.data.grid.meteomapsscale)
+        if self.model.data.grid.meteodown:
             TMax, wc2_tmax, wc4_tmax = self.model.readmeteo_module.downscaling2(TMax, "downscale_wordclim_tmin", wc2_tmax, wc4_tmax, downscale=1)
         else:
             TMax = self.model.readmeteo_module.downscaling2(TMax, "downscale_wordclim_tmin", wc2_tmax, wc4_tmax, downscale=0)
@@ -111,9 +111,9 @@ class evaporationPot(object):
 
         # average DAILY temperature (even if you are running the model
         # on say an hourly time step) [degrees C]
-        Tavg = readmeteodata('TavgMaps',dateVar['currDate'], addZeros=True, zeros = tzero, mapsscale = self.model.data.var.meteomapsscale)
+        Tavg = readmeteodata('TavgMaps',dateVar['currDate'], addZeros=True, zeros = tzero, mapsscale = self.model.data.grid.meteomapsscale)
 
-        if self.model.data.var.meteodown:
+        if self.model.data.grid.meteodown:
             Tavg, wc2_tavg, wc4_tavg  = self.model.readmeteo_module.downscaling2(Tavg, "downscale_wordclim_tavg", wc2_tavg, wc4_tavg, downscale=1)
         else:
             Tavg  = self.model.readmeteo_module.downscaling2(Tavg, "downscale_wordclim_tavg", wc2_tavg, wc4_tavg, downscale=0)
@@ -135,7 +135,7 @@ class evaporationPot(object):
         ESat = (ESatmin + ESatmax) / 2.0   # [KPa]
         # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
 
-        Psurf = readmeteodata('PSurfMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.var.meteomapsscale)
+        Psurf = readmeteodata('PSurfMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.grid.meteomapsscale)
         Psurf = self.model.readmeteo_module.downscaling2(Psurf)
         # [Pa] to [KPa]
         Psurf = Psurf * 0.001
@@ -143,11 +143,11 @@ class evaporationPot(object):
 
         if returnBool('useHuss'):
             #self.var.Qair = readnetcdf2('QAirMaps', dateVar['currDate'], addZeros = True, meteo = True)
-            Qair = readmeteodata('QAirMaps', dateVar['currDate'], addZeros=True, mapsscale =self.model.data.var.meteomapsscale)
+            Qair = readmeteodata('QAirMaps', dateVar['currDate'], addZeros=True, mapsscale =self.model.data.grid.meteomapsscale)
             # 2 m istantaneous specific humidity[kg / kg]
         else:
             #self.var.Qair = readnetcdf2('RhsMaps', dateVar['currDate'], addZeros = True, meteo = True)
-            Qair = readmeteodata('RhsMaps', dateVar['currDate'], addZeros=True, mapsscale =self.model.data.var.meteomapsscale)
+            Qair = readmeteodata('RhsMaps', dateVar['currDate'], addZeros=True, mapsscale =self.model.data.grid.meteomapsscale)
         Qair = self.model.readmeteo_module.downscaling2(Qair)
         Qair = self.model.data.to_landunit(data=Qair, fn=None)  # checked
 
@@ -179,11 +179,11 @@ class evaporationPot(object):
         del TMin
 
         #Rsds = readnetcdf2('RSDSMaps', dateVar['currDate'], addZeros = True, meteo = True)
-        Rsds = readmeteodata('RSDSMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.var.meteomapsscale)
+        Rsds = readmeteodata('RSDSMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.grid.meteomapsscale)
         Rsds = self.model.readmeteo_module.downscaling2(Rsds)
             # radiation surface downwelling shortwave maps [W/m2]
         #Rsdl = readnetcdf2('RSDLMaps', dateVar['currDate'], addZeros = True, meteo = True)
-        Rsdl = readmeteodata('RSDLMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.var.meteomapsscale)
+        Rsdl = readmeteodata('RSDLMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.grid.meteomapsscale)
         Rsdl = self.model.readmeteo_module.downscaling2(Rsdl)
         # Conversion factor from [W] to [MJ]
         WtoMJ = 86400 * 1E-6
@@ -217,7 +217,7 @@ class evaporationPot(object):
         # see http://www.fao.org/docrep/X0490E/x0490e08.htm#penman%20monteith%20equation
 
         # wind speed maps at 10m [m/s]
-        Wind = readmeteodata('WindMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.var.meteomapsscale)
+        Wind = readmeteodata('WindMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.grid.meteomapsscale)
         Wind = self.model.readmeteo_module.downscaling2(Wind)
         Wind = self.model.data.to_landunit(data=Wind, fn=None)  # checked
 

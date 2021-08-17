@@ -15,7 +15,7 @@ def is_float(s):
 
 class groundwater_modflow:
     def __init__(self, model):
-        self.var = model.data.var
+        self.var = model.data.grid
         self.model = model
 
     def get_corrected_modflow_cell_area(self):

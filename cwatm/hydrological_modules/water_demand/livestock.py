@@ -103,9 +103,9 @@ class waterdemand_livestock:
         livestock_water_demand = self.livestock_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         livestock_water_demand = downscale_volume(
             self.livestock_water_demand_ds.gt,
-            self.model.data.var.gt,
+            self.model.data.grid.gt,
             livestock_water_demand,
-            self.model.data.var.mask,
+            self.model.data.grid.mask,
             self.var.var_to_landunit_uncompressed,
             downscale_mask,
             self.var.land_use_ratio

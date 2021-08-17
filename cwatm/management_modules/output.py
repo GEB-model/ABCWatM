@@ -53,7 +53,7 @@ class outputTssMap(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.var
+        self.var = model.data.grid
         self.landunit = model.data.landunit
         self.model = model
 

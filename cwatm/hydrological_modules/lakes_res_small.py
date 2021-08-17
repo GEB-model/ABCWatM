@@ -65,7 +65,7 @@ class lakes_res_small(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.var
+        self.var = model.data.grid
         self.model = model
 
     def initial(self):
