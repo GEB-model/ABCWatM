@@ -1719,9 +1719,9 @@ def downscale_volume(
     model_gt: Tuple[float, float, float, float, float, float],
     data: np.ndarray,
     mask: np.ndarray,
-    var_to_subvar_uncompressed: np.ndarray,
+    var_to_landunit_uncompressed: np.ndarray,
     downscale_mask: np.ndarray,
-    subvar_land_size: np.ndarray
+    landunit_land_size: np.ndarray
 ) -> np.ndarray:
 
     xoffset = (model_gt[0] - data_gt[0]) / model_gt[1]
@@ -1751,7 +1751,7 @@ def downscale_volume(
     assert yoffset > 0
     ysize, xsize = data.shape
     yvarsize, xvarsize = mask.shape
-    downscaled_array = np.zeros(subvar_land_size.size, dtype=np.float32)
+    downscaled_array = np.zeros(landunit_land_size.size, dtype=np.float32)
     i = 0
     for y in range(ysize):
         y_left = y * yratio - yoffset
@@ -1767,12 +1767,12 @@ def downscale_volume(
                 for xvar in range(x_left, x_right):
                     if mask[yvar, xvar] == False:
                         k = yvar * xvarsize + xvar
-                        subvar_right = var_to_subvar_uncompressed[k]
+                        landunit_right = var_to_landunit_uncompressed[k]
                         if k > 0:
-                            subvar_left = var_to_subvar_uncompressed[k-1]
+                            landunit_left = var_to_landunit_uncompressed[k-1]
                         else:
-                            subvar_left = 0
-                        land_area_cell += (downscale_invmask[subvar_left: subvar_right] * subvar_land_size[subvar_left: subvar_right]).sum()
+                            landunit_left = 0
+                        land_area_cell += (downscale_invmask[landunit_left: landunit_right] * landunit_land_size[landunit_left: landunit_right]).sum()
                         i += 1
             
             if land_area_cell:
@@ -1780,12 +1780,12 @@ def downscale_volume(
                     for xvar in range(x_left, x_right):
                         if mask[yvar, xvar] == False:
                             k = yvar * xvarsize + xvar
-                            subvar_right = var_to_subvar_uncompressed[k]
+                            landunit_right = var_to_landunit_uncompressed[k]
                             if k > 0:
-                                subvar_left = var_to_subvar_uncompressed[k-1]
+                                landunit_left = var_to_landunit_uncompressed[k-1]
                             else:
-                                subvar_left = 0
-                            downscaled_array[subvar_left: subvar_right] = downscale_invmask[subvar_left: subvar_right] * subvar_land_size[subvar_left: subvar_right] / land_area_cell * data[y, x]
+                                landunit_left = 0
+                            downscaled_array[landunit_left: landunit_right] = downscale_invmask[landunit_left: landunit_right] * landunit_land_size[landunit_left: landunit_right] / land_area_cell * data[y, x]
     
     assert i == mask.size - mask.sum()
     return downscaled_array

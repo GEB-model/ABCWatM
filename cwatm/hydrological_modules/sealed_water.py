@@ -39,7 +39,7 @@ class sealed_water(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.model = model
 
     def dynamic(self, capillar, openWaterEvap, directRunoff):

@@ -125,7 +125,7 @@ class water_demand:
 
     def __init__(self, model):
         self.model = model
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.farmers = model.agents.farmers
 
         self.domestic = waterdemand_domestic(model)
@@ -158,14 +158,14 @@ class water_demand:
                             reservoir_command_areas = self.model.data.var.compress(src.read(1))
                             reservoir_command_areas_mapped = self.model.data.var.water_body_mapping[reservoir_command_areas]
                             reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
-                            self.var.reservoir_command_areas = self.model.data.to_subvar(data=reservoir_command_areas_mapped)
+                            self.var.reservoir_command_areas = self.model.data.to_landunit(data=reservoir_command_areas_mapped)
 
                 self.var.using_lift_command_areas = False
                 if 'using_lift_command_areas' in option:
                     if checkOption('using_lift_command_areas'):
                         self.var.using_lift_command_areas = True 
                         lift_command_areas = loadmap('lift_command_areas').astype(np.int)
-                        self.var.lift_command_areas = self.model.data.to_subvar(data=lift_command_areas, fn=None)
+                        self.var.lift_command_areas = self.model.data.to_landunit(data=lift_command_areas, fn=None)
             else:
                 self.var.reservoir_command_areas = self.var.full_compressed(-1, dtype=np.int32)
 
@@ -266,7 +266,7 @@ class water_demand:
                 addtoevapotrans_m,
             ) = self.farmers.abstract_water(
                 cell_area = self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
-                subvar_to_var=self.var.subvar_to_var,
+                landunit_to_var=self.var.landunit_to_var,
                 totalPotIrrConsumption=pot_irrConsumption.get() if self.model.args.use_gpu else pot_irrConsumption,
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,

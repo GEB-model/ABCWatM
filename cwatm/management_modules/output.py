@@ -54,7 +54,7 @@ class outputTssMap(object):
 
     def __init__(self, model):
         self.var = model.data.var
-        self.subvar = model.data.subvar
+        self.landunit = model.data.landunit
         self.model = model
 
     def initial(self):
@@ -409,11 +409,11 @@ class outputTssMap(object):
                         if varname.startswith('var.'):
                             var = self.var
                             varname = varname[4:]
-                        elif varname.startswith('subvar.'):
-                            var = self.subvar
+                        elif varname.startswith('landunit.'):
+                            var = self.landunit
                             varname = varname[7:]
                         else:
-                            raise ValueError('Varname for output must start with var. or subvar.')
+                            raise ValueError('Varname for output must start with var. or landunit.')
 
                         # to use also variables with index from soil e.g. actualET[2]
                         if '[' in varname:
@@ -546,11 +546,11 @@ class outputTssMap(object):
                         if varname.startswith('var.'):
                             var = self.var
                             varname = varname[4:]
-                        elif varname.startswith('subvar.'):
-                            var = self.subvar
+                        elif varname.startswith('landunit.'):
+                            var = self.landunit
                             varname = varname[7:]
                         else:
-                            raise ValueError('Varname for output must start with var. or subvar.')
+                            raise ValueError('Varname for output must start with var. or landunit.')
 
                         # to use also variables with index from soil e.g. actualET[2]
                         if '[' in varname:

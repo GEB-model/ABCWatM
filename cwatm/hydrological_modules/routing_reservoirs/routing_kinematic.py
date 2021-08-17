@@ -312,7 +312,7 @@ class routing_kinematic(object):
         # put all the water area in which is not reflected in the lakes ,res
         #channelFraction = np.maximum(self.var.fracVegCover[5], channelFraction)
 
-        EWRefact = self.var.lakeEvaFactor * self.model.data.to_var(subdata=self.model.data.subvar.EWRef, fn='mean') - self.model.data.to_var(subdata=openWaterEvap, fn='mean')  # checked
+        EWRefact = self.var.lakeEvaFactor * self.model.data.to_var(subdata=self.model.data.landunit.EWRef, fn='mean') - self.model.data.to_var(subdata=openWaterEvap, fn='mean')  # checked
         # evaporation from channel minus the calculated evaporation from rainfall
         EvapoChannel = EWRefact * channelFraction * self.var.cellArea
         #EvapoChannel = self.var.EWRef * channelFraction * self.var.cellArea
@@ -360,10 +360,10 @@ class routing_kinematic(object):
             # exclude evaporation where lakes are, because they are filled in again with evapWaterBodyC
 
             if self.model.args.use_gpu:
-                fraction_water = cp.array(self.model.data.subvar.land_use_ratios)
+                fraction_water = cp.array(self.model.data.landunit.land_use_ratios)
             else:
-                fraction_water = np.array(self.model.data.subvar.land_use_ratios)
-            fraction_water[self.model.data.subvar.land_use_type != 5] = 0
+                fraction_water = np.array(self.model.data.landunit.land_use_ratios)
+            fraction_water[self.model.data.landunit.land_use_type != 5] = 0
             fraction_water = self.model.data.to_var(subdata=fraction_water, fn='sum')
 
             EvapoChannel = np.where(self.var.waterBodyID > 0, (1 - fraction_water) * EvapoChannel, EvapoChannel)
@@ -551,7 +551,7 @@ class routing_kinematic(object):
         #         [self.var.channelStorageM3/self.var.cellArea],
         #         "rout5", False)
 
-        # self.var.wb_routingKinematic = (self.var.runoff + self.var.returnFlow)-(self.var.sumsideflow / self.var.cellArea + EvapoChannel / self.var.cellArea + self.model.data.to_var(subdata=self.model.data.subvar.act_channelAbstract, fn='mean')) - (self.var.channelStorageM3/self.var.cellArea - self.var.prechannelStorageM3/self.var.cellArea)
+        # self.var.wb_routingKinematic = (self.var.runoff + self.var.returnFlow)-(self.var.sumsideflow / self.var.cellArea + EvapoChannel / self.var.cellArea + self.model.data.to_var(subdata=self.model.data.landunit.act_channelAbstract, fn='mean')) - (self.var.channelStorageM3/self.var.cellArea - self.var.prechannelStorageM3/self.var.cellArea)
 
 
 

@@ -47,7 +47,7 @@ class miscInitial(object):
 
     def __init__(self, model):
         self.var = model.data.var
-        self.subvar = model.data.subvar
+        self.landunit = model.data.landunit
         self.model = model
 
 
@@ -76,7 +76,7 @@ class miscInitial(object):
             # Area of pixel [m2]
             # self.var.cellArea = loadmap('CellArea')
             # self.var.cell_area_uncompressed = loadmap('CellArea', compress=False)
-            # self.model.data.to_subvar(varname="cellArea", fn='mean', delete=False)  # checked
+            # self.model.data.to_landunit(varname="cellArea", fn='mean', delete=False)  # checked
             pass
 
 
@@ -100,7 +100,7 @@ class miscInitial(object):
 
         # self.var.InvCellLength = 1.0 / self.var.cellLength
         # self.var.InvCellArea = 1.0 / self.var.cellArea
-        # self.subvar.InvCellArea = 1.0 / self.subvar.cellArea  # checked
+        # self.landunit.InvCellArea = 1.0 / self.landunit.cellArea  # checked
         # Inverse of pixel size [1/m]
         self.model.DtSec = 86400.0
         self.model.DtDay = self.model.DtSec / 86400

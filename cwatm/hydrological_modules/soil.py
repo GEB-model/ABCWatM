@@ -108,7 +108,7 @@ class soil(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.model = model
 
     def initial(self):
@@ -126,17 +126,17 @@ class soil(object):
         # --- Topography -----------------------------------------------------
 
         # Fraction of area where percolation to groundwater is impeded [dimensionless]
-        self.var.percolationImp = self.model.data.to_subvar(data=np.maximum(0,np.minimum(1,loadmap('percolationImp') * loadmap('factor_interflow'))), fn=None)  # checked
+        self.var.percolationImp = self.model.data.to_landunit(data=np.maximum(0,np.minimum(1,loadmap('percolationImp') * loadmap('factor_interflow'))), fn=None)  # checked
 
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cropGroupNumber = loadmap('cropgroupnumber')
-        self.var.cropGroupNumber = self.model.data.to_subvar(data=self.var.cropGroupNumber, fn=None)  # checked
+        self.var.cropGroupNumber = self.model.data.to_landunit(data=self.var.cropGroupNumber, fn=None)  # checked
         print('What are crop group numbers - make them dynamic?')
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
 
         # ------------ Preferential Flow constant ------------------------------------------
-        self.var.cPrefFlow = self.model.data.to_subvar(data=loadmap('preferentialFlowConstant'), fn=None)
+        self.var.cPrefFlow = self.model.data.to_landunit(data=loadmap('preferentialFlowConstant'), fn=None)
 
         # ------------ SOIL DEPTH ----------------------------------------------------------
         # soil thickness and storage
@@ -146,10 +146,10 @@ class soil(object):
         # first soil layer = 5 cm
         soildepth[0] = self.var.full_compressed(0.05, dtype=np.float32)
         # second soil layer minimum 5cm
-        stordepth1 = self.model.data.to_subvar(data=loadmap('StorDepth1'), fn=None)
+        stordepth1 = self.model.data.to_landunit(data=loadmap('StorDepth1'), fn=None)
         soildepth[1] = np.maximum(0.05, stordepth1 - soildepth[0])
 
-        stordepth2 = self.model.data.to_subvar(data=loadmap('StorDepth2'), fn=None)
+        stordepth2 = self.model.data.to_landunit(data=loadmap('StorDepth2'), fn=None)
         soildepth[2] = np.maximum(0.05, stordepth2)
 
         # Calibration

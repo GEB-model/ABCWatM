@@ -190,7 +190,7 @@ class landcoverType(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.model = model
         self.farmers = model.agents.farmers
 
@@ -224,8 +224,8 @@ class landcoverType(object):
         soildepth_factor = loadmap('soildepth_factor')
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
-            rootFraction1[land_use_indices] = self.model.data.to_subvar(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
-            maxRootDepth[land_use_indices] = self.model.data.to_subvar(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
+            rootFraction1[land_use_indices] = self.model.data.to_landunit(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
+            maxRootDepth[land_use_indices] = self.model.data.to_landunit(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
 
         rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
         rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -270,21 +270,21 @@ class landcoverType(object):
             else:
                 pre = ""
             # ksat in cm/d-1 -> m/dm
-            self.var.KSat1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
-            alpha1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
-            alpha2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
-            alpha3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
-            self.var.lambda1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
-            self.var.lambda2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
-            self.var.lambda3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
-            thetas1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
-            thetas2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
-            thetas3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
-            thetar1[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
-            thetar2[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
-            thetar3[land_use_indices] = self.model.data.to_subvar(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
+            self.var.KSat1[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
+            self.var.KSat2[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
+            self.var.KSat3[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
+            alpha1[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
+            alpha2[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
+            alpha3[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
+            self.var.lambda1[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
+            self.var.lambda2[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
+            self.var.lambda3[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
+            thetas1[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
+            thetas2[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
+            thetas3[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
+            thetar1[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
+            thetar2[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
+            thetar3[land_use_indices] = self.model.data.to_landunit(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
             
         self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -334,7 +334,7 @@ class landcoverType(object):
             self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
 
         # for paddy irrigation flooded paddy fields
-        self.var.topwater = self.model.data.to_subvar(data=self.var.load_initial("topwater", default= 0.), fn=None)
+        self.var.topwater = self.model.data.to_landunit(data=self.var.load_initial("topwater", default= 0.), fn=None)
         if isinstance(self.var.topwater, float):
             self.var.topwater = self.var.full_compressed(self.var.topwater, dtype=np.float32)
         self.var.adjRoot = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
@@ -351,7 +351,7 @@ class landcoverType(object):
         arnoBetaOro = (ElevationStD - 10.0) / (ElevationStD + 1500.0)
 
         # for CALIBRATION
-        arnoBetaOro = arnoBetaOro + self.model.data.to_subvar(data=loadmap('arnoBeta_add'), fn=None)  # checked
+        arnoBetaOro = arnoBetaOro + self.model.data.to_landunit(data=loadmap('arnoBeta_add'), fn=None)  # checked
         arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
 
         initial_humidy = 0.5
@@ -391,7 +391,7 @@ class landcoverType(object):
             else:
                 self.var.w3[land_use_indices] = w3
 
-            arnoBeta = self.model.data.to_subvar(data=loadmap(coverType + "_arnoBeta"), fn=None)
+            arnoBeta = self.model.data.to_landunit(data=loadmap(coverType + "_arnoBeta"), fn=None)
             if not isinstance(arnoBeta, float):
                 arnoBeta = arnoBeta[land_use_indices]
             self.var.arnoBeta[land_use_indices] = (arnoBetaOro + arnoBeta)[land_use_indices]  # checked
@@ -559,16 +559,16 @@ class landcoverType(object):
 
 
         self.var.cropKC = get_crop_kc(
-            self.farmers.crop_map.get() if self.model.args.use_gpu else self.farmers.crop_map,
-            self.farmers.crop_age_days_map.get() if self.model.args.use_gpu else self.farmers.crop_age_days_map,
-            self.farmers.crop_harvest_age_days_map.get() if self.model.args.use_gpu else self.farmers.crop_harvest_age_days_map,
+            self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
+            self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
+            self.var.crop_harvest_age_days_map.get() if self.model.args.use_gpu else self.var.crop_harvest_age_days_map,
             self.crop_stage_data,
             self.kc_crop_stage
         )
         if self.model.args.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
-        cover_cropCoefficientNC = self.model.data.to_subvar(
+        cover_cropCoefficientNC = self.model.data.to_landunit(
             data=readnetcdf2('forest_cropCoefficientNC', globals.dateVar['10day'], "10day"),
             fn=None
         )
@@ -584,7 +584,7 @@ class landcoverType(object):
 
         openWaterEvap = self.var.full_compressed(0, dtype=np.float32)
         # Soil for forest, grassland, and irrigated land
-        capillar = self.model.data.to_subvar(data=self.model.data.var.capillar, fn=None)
+        capillar = self.model.data.to_landunit(data=self.model.data.var.capillar, fn=None)
         del self.model.data.var.capillar
 
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)

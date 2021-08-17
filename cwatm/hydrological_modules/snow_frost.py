@@ -76,7 +76,7 @@ class snow_frost(object):
 
 
     def __init__(self, model):
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.model = model
 
 
@@ -116,7 +116,7 @@ class snow_frost(object):
 
         #self.var.DeltaTSnow =  uNorm[self.var.numberSnowLayers] * ElevationStD * loadmap('TemperatureLapseRate')
         #self.var.DeltaTSnow = 0.9674 * ElevationStD * loadmap('TemperatureLapseRate')
-        self.var.DeltaTSnow = ElevationStD * self.model.data.to_subvar(data=loadmap('TemperatureLapseRate'), fn=None)  # checked
+        self.var.DeltaTSnow = ElevationStD * self.model.data.to_landunit(data=loadmap('TemperatureLapseRate'), fn=None)  # checked
 
 
         self.var.SnowDayDegrees = 0.9856
@@ -139,7 +139,7 @@ class snow_frost(object):
         # SnowCover1 is the highest zone
         self.var.SnowCoverS = np.tile(self.var.full_compressed(0, dtype=np.float32), (self.var.numberSnowLayers, 1))
         for i in range(self.var.numberSnowLayers):
-            self.var.SnowCoverS[i] = self.model.data.to_subvar(data=self.var.load_initial("SnowCover", number=i+1, default=self.model.data.var.full_compressed(0, dtype=np.float32)), fn=None)
+            self.var.SnowCoverS[i] = self.model.data.to_landunit(data=self.var.load_initial("SnowCover", number=i+1, default=self.model.data.var.full_compressed(0, dtype=np.float32)), fn=None)
 
         # Pixel-average initial snow cover: average of values in 3 elevation
         # zones
@@ -152,7 +152,7 @@ class snow_frost(object):
         self.var.FrostIndexThreshold = loadmap('FrostIndexThreshold')
         self.var.SnowWaterEquivalent = loadmap('SnowWaterEquivalent')
 
-        self.var.FrostIndex = self.model.data.to_subvar(data=self.var.load_initial('FrostIndex'), fn=None)
+        self.var.FrostIndex = self.model.data.to_landunit(data=self.var.load_initial('FrostIndex'), fn=None)
 
         self.var.extfrostindex = False
         if "morefrost" in binding:

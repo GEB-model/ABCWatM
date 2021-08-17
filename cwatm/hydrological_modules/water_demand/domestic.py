@@ -46,7 +46,7 @@ class waterdemand_domestic:
 
 
     def __init__(self, model):
-        self.var = model.data.subvar
+        self.var = model.data.landunit
         self.model = model
 
     def initial(self):
@@ -111,7 +111,7 @@ class waterdemand_domestic:
             self.model.data.var.gt,
             domestic_water_demand,
             self.model.data.var.mask,
-            self.var.var_to_subvar_uncompressed,
+            self.var.var_to_landunit_uncompressed,
             downscale_mask,
             self.var.land_use_ratios
         )
@@ -125,7 +125,7 @@ class waterdemand_domestic:
             self.model.data.var.gt,
             domestic_water_consumption,
             self.model.data.var.mask,
-            self.var.var_to_subvar_uncompressed,
+            self.var.var_to_landunit_uncompressed,
             downscale_mask,
             self.var.land_use_ratios
         )

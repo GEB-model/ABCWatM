@@ -93,7 +93,7 @@ class CWATModel_ini(DynamicModel):
 
         self.evaporationPot_module.initial()
 
-        ElevationStD = self.data.to_subvar(data=loadmap('ElevationStD'), fn=None)  # checked
+        ElevationStD = self.data.to_landunit(data=loadmap('ElevationStD'), fn=None)  # checked
 
         self.snowfrost_module.initial(ElevationStD)
         soildepth = self.soil_module.initial()
@@ -121,9 +121,9 @@ class CWATModel_ini(DynamicModel):
         self.environflow_module.initial()
         self.waterquality1.initial()
 
-        # vars = [a for a in dir(self.subvar) if not a.startswith('__')]
+        # vars = [a for a in dir(self.landunit) if not a.startswith('__')]
         # for varname in vars:
-        #     var = getattr(self.subvar, varname)
+        #     var = getattr(self.landunit, varname)
         #     if isinstance(var, (cp.ndarray)):
         #         print(var.shape, varname)
         # for var in self.var:
