@@ -432,18 +432,18 @@ class landcoverType(object):
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
 
-        crop_data = self.farmers.get_crop_factors()
+        crop_factors = self.farmers.get_crop_factors()
         
         self.crop_stage_data = np.zeros((26, 4), dtype=np.float32)
-        self.crop_stage_data[:, 0] = crop_data['L_ini']
-        self.crop_stage_data[:, 1] = crop_data['L_dev']
-        self.crop_stage_data[:, 2] = crop_data['L_mid']
-        self.crop_stage_data[:, 3] = crop_data['L_late']
+        self.crop_stage_data[:, 0] = crop_factors['L_ini']
+        self.crop_stage_data[:, 1] = crop_factors['L_dev']
+        self.crop_stage_data[:, 2] = crop_factors['L_mid']
+        self.crop_stage_data[:, 3] = crop_factors['L_late']
 
         self.kc_crop_stage = np.zeros((26, 3), dtype=np.float32)
-        self.kc_crop_stage[:, 0] = crop_data['kc_ini']
-        self.kc_crop_stage[:, 1] = crop_data['kc_mid']
-        self.kc_crop_stage[:, 2] = crop_data['kc_end']
+        self.kc_crop_stage[:, 0] = crop_factors['kc_ini']
+        self.kc_crop_stage[:, 1] = crop_factors['kc_mid']
+        self.kc_crop_stage[:, 2] = crop_factors['kc_end']
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
