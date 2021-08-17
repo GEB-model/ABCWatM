@@ -108,7 +108,7 @@ class waterdemand_livestock:
             self.model.data.var.mask,
             self.var.var_to_landunit_uncompressed,
             downscale_mask,
-            self.var.land_use_ratios
+            self.var.land_use_ratio
         )
         if self.model.args.use_gpu:
             livestock_water_demand = cp.array(livestock_water_demand)

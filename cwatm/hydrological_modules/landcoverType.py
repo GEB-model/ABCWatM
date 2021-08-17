@@ -334,7 +334,7 @@ class landcoverType(object):
             self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
 
         # for paddy irrigation flooded paddy fields
-        self.var.topwater = self.model.data.to_landunit(data=self.var.load_initial("topwater", default= 0.), fn=None)
+        self.var.topwater = self.model.data.to_landunit(data=self.model.data.var.load_initial("topwater", default= 0.), fn=None)
         if isinstance(self.var.topwater, float):
             self.var.topwater = self.var.full_compressed(self.var.topwater, dtype=np.float32)
         self.var.adjRoot = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
@@ -369,21 +369,21 @@ class landcoverType(object):
             #     continue
 
             # init values
-            w1 = self.var.load_initial(coverType + "_w1", default=-1)
+            w1 = self.model.data.var.load_initial(coverType + "_w1", default=-1)
             if w1 == -1:
                 self.var.w1[land_use_indices] = self.var.wwp1[land_use_indices] + initial_humidy * (self.var.wfc1[land_use_indices]-self.var.wwp1[land_use_indices])
                 # self.var.w1[land_use_indices] = self.var.ws1[land_use_indices]
                 # self.var.w1[land_use_indices] = self.var.wres1[land_use_indices]
             else:
                 self.var.w1[land_use_indices] = w1
-            w2 = self.var.load_initial(coverType + "_w2", default=-1)
+            w2 = self.model.data.var.load_initial(coverType + "_w2", default=-1)
             if w2 == -1:
                 self.var.w2[land_use_indices] = self.var.wwp2[land_use_indices] + initial_humidy * (self.var.wfc2[land_use_indices]-self.var.wwp2[land_use_indices])
                 # self.var.w2[land_use_indices] = self.var.ws2[land_use_indices]
                 # self.var.w2[land_use_indices] = self.var.wres2[land_use_indices]
             else:
                 self.var.w2[land_use_indices] = w2
-            w3 = self.var.load_initial(coverType + "_w3", default=-1)
+            w3 = self.model.data.var.load_initial(coverType + "_w3", default=-1)
             if w3 == -1:
                 self.var.w3[land_use_indices] = self.var.wwp3[land_use_indices] + initial_humidy * (self.var.wfc3[land_use_indices]-self.var.wwp3[land_use_indices])
                 # self.var.w3[land_use_indices] = self.var.ws3[land_use_indices]
@@ -449,7 +449,7 @@ class landcoverType(object):
         """computing leakage from rivers"""
         riverbedExchangeM3 = self.model.data.var.leakageriver_factor * self.var.cellArea * ((1 - self.var.capriseindex + 0.25) // 1)
         riverbedExchangeM3[self.var.land_use_type != 5] = 0
-        riverbedExchangeM3 = self.model.data.to_var(subdata=riverbedExchangeM3, fn='sum')
+        riverbedExchangeM3 = self.model.data.to_var(landunit_data=riverbedExchangeM3, fn='sum')
         riverbedExchangeM3 = np.minimum(
             riverbedExchangeM3,
             0.80 * self.model.data.var.channelStorageM3
@@ -499,7 +499,7 @@ class landcoverType(object):
         # leakage depends on water bodies storage, water bodies fraction and modflow saturated area
         lakebedExchangeM = self.model.data.var.leakagelake_factor * ((1 - self.var.capriseindex + 0.25) // 1)
         lakebedExchangeM[self.var.land_use_type != 5] = 0
-        lakebedExchangeM = self.model.data.to_var(subdata=lakebedExchangeM, fn='sum')
+        lakebedExchangeM = self.model.data.to_var(landunit_data=lakebedExchangeM, fn='sum')
         lakebedExchangeM = np.minimum(
             lakebedExchangeM,
             minlake
@@ -637,15 +637,15 @@ class landcoverType(object):
                 tollerance=1e-6
             )
 
-        groundwater_recharge = self.model.data.to_var(subdata=groundwater_recharge, fn='mean')
+        groundwater_recharge = self.model.data.to_var(landunit_data=groundwater_recharge, fn='mean')
         if checkOption('usewaterbodyexchange'):
             self.water_body_exchange(groundwater_recharge)
         else:
             self.model.data.var.riverbedExchangeM3 = 0
 
         return (
-            self.model.data.to_var(subdata=interflow,fn='mean'),
-            self.model.data.to_var(subdata=directRunoff,fn='mean'),
+            self.model.data.to_var(landunit_data=interflow,fn='mean'),
+            self.model.data.to_var(landunit_data=directRunoff,fn='mean'),
             groundwater_recharge, 
             groundwater_abstaction, 
             channel_abstraction_m, 

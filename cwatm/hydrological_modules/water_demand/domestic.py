@@ -113,7 +113,7 @@ class waterdemand_domestic:
             self.model.data.var.mask,
             self.var.var_to_landunit_uncompressed,
             downscale_mask,
-            self.var.land_use_ratios
+            self.var.land_use_ratio
         )
         if self.model.args.use_gpu:
             domestic_water_demand = cp.array(domestic_water_demand)
@@ -127,14 +127,14 @@ class waterdemand_domestic:
             self.model.data.var.mask,
             self.var.var_to_landunit_uncompressed,
             downscale_mask,
-            self.var.land_use_ratios
+            self.var.land_use_ratio
         )
         if self.model.args.use_gpu:
             domestic_water_consumption = cp.array(domestic_water_consumption)
         domestic_water_consumption = self.var.M3toM(domestic_water_consumption)
 
         efficiency = divideValues(domestic_water_consumption, domestic_water_demand)
-        efficiency = self.model.data.to_var(subdata=efficiency, fn='max')
+        efficiency = self.model.data.to_var(landunit_data=efficiency, fn='max')
         
         assert (efficiency <= 1).all()
         assert (efficiency >= 0).all()

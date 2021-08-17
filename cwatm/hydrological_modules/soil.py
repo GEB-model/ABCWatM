@@ -157,7 +157,7 @@ class soil(object):
         soildepth[1] = soildepth[1] * soildepth_factor
         soildepth[2] = soildepth[2] * soildepth_factor
 
-        self.model.data.var.soildepth_12 = self.model.data.to_var(subdata=soildepth[1] + soildepth[2], fn='mean')
+        self.model.data.var.soildepth_12 = self.model.data.to_var(landunit_data=soildepth[1] + soildepth[2], fn='mean')
         return soildepth
 
     def dynamic(self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET):

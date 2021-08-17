@@ -51,7 +51,7 @@ class interception(object):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
             self.var.minInterceptCap[coverType_indices] = self.model.data.to_landunit(data=loadmap(coverType + "_minInterceptCap"), fn=None)
             if coverType in ('forest', 'grassland', 'irrPaddy', 'irrNonPaddy', 'sealed'):
-                initial = self.model.data.to_landunit(data=self.var.load_initial(coverType + "_interceptStor"), fn=None)
+                initial = self.model.data.to_landunit(data=self.model.data.var.load_initial(coverType + "_interceptStor"), fn=None)
                 if not isinstance(initial, float):
                     initial = initial[coverType_indices]
                 self.var.interceptStor[coverType_indices] = initial

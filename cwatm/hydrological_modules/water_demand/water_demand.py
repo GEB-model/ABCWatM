@@ -233,7 +233,7 @@ class water_demand:
              
             # water withdrawal
             # 1. domestic (surface + ground)
-            domestic_water_demand = self.model.data.to_var(subdata=domestic_water_demand, fn='mean')
+            domestic_water_demand = self.model.data.to_var(landunit_data=domestic_water_demand, fn='mean')
             domestic_water_demand_m3 = self.model.data.var.MtoM3(domestic_water_demand)
             del domestic_water_demand
             
@@ -242,7 +242,7 @@ class water_demand:
             domestic_return_flow_m = self.model.data.var.M3toM(domestic_withdrawal_m3 * (1 - domestic_water_efficiency))
 
             # 2. industry (surface + ground)
-            industry_water_demand = self.model.data.to_var(subdata=industry_water_demand, fn='mean')
+            industry_water_demand = self.model.data.to_var(landunit_data=industry_water_demand, fn='mean')
             industry_water_demand_m3 = self.model.data.var.MtoM3(industry_water_demand)
             del industry_water_demand
             
@@ -251,7 +251,7 @@ class water_demand:
             industry_return_flow_m = self.model.data.var.M3toM(industry_withdrawal_m3 * (1 - industry_water_efficiency))
 
             # 3. livestock (surface)
-            livestock_water_demand = self.model.data.to_var(subdata=livestock_water_demand, fn='mean')
+            livestock_water_demand = self.model.data.to_var(landunit_data=livestock_water_demand, fn='mean')
             livestock_water_demand_m3 = self.model.data.var.MtoM3(livestock_water_demand)
             del livestock_water_demand
             
@@ -308,7 +308,7 @@ class water_demand:
                 self.model.data.var.lakeResStorageC -= reservoir_abstraction_m3
                 self.model.data.var.reservoirStorageM3C -= reservoir_abstraction_m3
 
-            returnFlow = self.model.data.to_var(subdata=return_flow_irrigation_m, fn='mean') + domestic_return_flow_m + industry_return_flow_m + livestock_return_flow_m
+            returnFlow = self.model.data.to_var(landunit_data=return_flow_irrigation_m, fn='mean') + domestic_return_flow_m + industry_return_flow_m + livestock_return_flow_m
                 
             if checkOption('calcWaterBalance'):
                 self.model.waterbalance_module.waterBalanceCheck(
