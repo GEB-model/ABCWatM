@@ -42,7 +42,7 @@ import sys
 import time
 import datetime
 
-from cwatm.management_modules.configuration import globalFlags, settingsfile, versioning, platform1, parse_configuration, read_metanetcdf, dateVar, CWATMRunInfo, outputDir, timeMesSum, timeMesString, globalclear
+from cwatm.management_modules.configuration import globalFlags, settingsfile, versioning, platform1, parse_configuration, read_metanetcdf, dateVar, CWATMRunInfo, timeMesSum, timeMesString, globalclear
 from cwatm.management_modules.data_handling import Flags, cbinding
 from cwatm.management_modules.timestep import checkifDate
 from cwatm.management_modules.dynamicModel import ModelFrame
@@ -121,7 +121,7 @@ def CWATMexe(settings):
     Deterministic run
     ----------------------------------------------
     """
-    print(CWATMRunInfo([outputDir[0], settingsfile[0]]))
+    print(CWATMRunInfo([settingsfile[0]]))
     start_time = datetime.datetime.now().time()
     if Flags['loud']:
         print("%-6s %10s %11s\n" % ("Step", "Date", "Discharge"), end=' ')

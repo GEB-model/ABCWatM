@@ -61,7 +61,6 @@ def globalclear():
     FilterSteps.clear()
     EnsMembers.clear()
     nrCores.clear()
-    outputDir.clear()
 
     maskmapAttr.clear()
     bigmapAttr.clear()
@@ -78,7 +77,7 @@ modelSteps = []
 xmlstring = []
 geotrans = []
 
-global binding, option, FlagName, Flags, ReportSteps, FilterSteps, EnsMembers, outputDir
+global binding, option, FlagName, Flags, ReportSteps, FilterSteps, EnsMembers
 global MMaskMap, maskmapAttr, bigmapAttr, cutmap, cutmapGlobal, cutmapFine, cutmapVfine, metadataNCDF
 global timestepInit
 global metaNetcdfVar
@@ -130,7 +129,6 @@ ReportSteps = {}
 FilterSteps = []
 EnsMembers = []
 nrCores = []
-outputDir = []
 
 maskmapAttr = {}
 bigmapAttr = {}

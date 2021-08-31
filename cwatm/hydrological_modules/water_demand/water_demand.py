@@ -294,8 +294,8 @@ class water_demand:
                 self.var.actual_irrigation_consumption = irrigation_water_consumption_m
                 addtoevapotrans = addtoevapotrans_m
 
-            assert (pot_irrConsumption + 1e-7 >= self.var.actual_irrigation_consumption).all()
-            assert (self.var.actual_irrigation_consumption + 1e-7 >= 0).all()
+            assert (pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption).all()
+            assert (self.var.actual_irrigation_consumption + 1e-6 >= 0).all()
 
             groundwater_abstraction_m3 = available_groundwater_m3_pre - available_groundwater_m3
             channel_abstraction_m3 = available_channel_storage_m3_pre - available_channel_storage_m3

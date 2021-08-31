@@ -248,6 +248,8 @@ class lakes_reservoirs(object):
             # change ldd: put pits in where lakes are:
             self.var.ldd_LR = np.where( self.var.waterBodyID > 0, 5, self.var.lddCompress)
 
+            import matplotlib.pyplot as plt
+            
             # create new ldd without lakes reservoirs
             self.var.lddCompress_LR, dirshort_LR, self.var.dirUp_LR, self.var.dirupLen_LR, self.var.dirupID_LR, \
                 self.var.downstruct_LR, self.var.catchment_LR, self.var.dirDown_LR, self.var.lendirDown_LR = defLdd2(self.var.ldd_LR)
@@ -534,7 +536,7 @@ class lakes_reservoirs(object):
             # self.var.QLakeOutM3Dt = globals.inZero.copy()
             # np.put(self.var.QLakeOutM3Dt,self.var.LakeIndex,QLakeOutM3DtC)
             #if  (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
-            if self.var.saveInit and (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
+            if self.model.save_initial and (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
                 np.put(self.var.lakeVolume, self.var.decompress_LR, self.var.lakeVolumeM3C)
                 np.put(self.var.lakeInflow, self.var.decompress_LR, self.var.lakeInflowOldC)
                 np.put(self.var.lakeOutflow, self.var.decompress_LR, self.var.lakeOutflowC)

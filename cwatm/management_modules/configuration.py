@@ -148,14 +148,11 @@ def parse_configuration(settingsFileName):
                 if opt.lower()[0:4] == "out_":
                     index = sec.lower()+"_"+opt.lower()
 
-                    if opt.lower()[-4:] =="_dir":
-                        outDir[sec] = config.get(sec, opt)
+                    # split into timeseries and maps
+                    if opt.lower()[4:8] == "tss_":
+                        outTss[index],check_section = splitout(config.get(sec, opt),check_section)
                     else:
-                        # split into timeseries and maps
-                        if opt.lower()[4:8] == "tss_":
-                            outTss[index],check_section = splitout(config.get(sec, opt),check_section)
-                        else:
-                            outMap[index],check_section = splitout(config.get(sec, opt),check_section)
+                        outMap[index],check_section = splitout(config.get(sec, opt),check_section)
 
                 else:
                     # binding: all the parameters which are not output or option are collected
@@ -163,9 +160,6 @@ def parse_configuration(settingsFileName):
 
         if check_section:
             outsection.append(sec)
-
-    outputDir.append(binding["PathOut"])
-     # Output directory is stored in a separat global array
 
 
 def read_metanetcdf(metaxml, name):

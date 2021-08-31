@@ -47,17 +47,11 @@ class interception(object):
         self.var.minInterceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.interceptStor = self.var.full_compressed(np.nan, dtype=np.float32)
 
+        self.var.interceptStor = self.model.data.landunit.load_initial("interceptStor", default=self.model.data.landunit.full_compressed(0, dtype=np.float32))
+
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
             self.var.minInterceptCap[coverType_indices] = self.model.data.to_landunit(data=loadmap(coverType + "_minInterceptCap"), fn=None)
-            if coverType in ('forest', 'grassland', 'irrPaddy', 'irrNonPaddy', 'sealed'):
-                initial = self.model.data.to_landunit(data=self.model.data.grid.load_initial(coverType + "_interceptStor"), fn=None)
-                if not isinstance(initial, float):
-                    initial = initial[coverType_indices]
-                self.var.interceptStor[coverType_indices] = initial
-            else:
-                self.var.interceptStor[coverType_indices] = 0  # 0 for water
-        
         
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()

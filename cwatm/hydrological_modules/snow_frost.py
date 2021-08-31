@@ -137,9 +137,8 @@ class snow_frost(object):
 
         # initialize snowcovers as many as snow layers -> read them as SnowCover1 , SnowCover2 ...
         # SnowCover1 is the highest zone
-        self.var.SnowCoverS = np.tile(self.var.full_compressed(0, dtype=np.float32), (self.var.numberSnowLayers, 1))
-        for i in range(self.var.numberSnowLayers):
-            self.var.SnowCoverS[i] = self.model.data.to_landunit(data=self.model.data.grid.load_initial("SnowCover", number=i+1, default=self.model.data.grid.full_compressed(0, dtype=np.float32)), fn=None)
+        SnowCoverS = np.tile(self.model.data.to_landunit(data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None), (self.var.numberSnowLayers, 1))
+        self.var.SnowCoverS = self.model.data.landunit.load_initial("SnowCoverS", default=SnowCoverS)
 
         # Pixel-average initial snow cover: average of values in 3 elevation
         # zones
@@ -152,7 +151,7 @@ class snow_frost(object):
         self.var.FrostIndexThreshold = loadmap('FrostIndexThreshold')
         self.var.SnowWaterEquivalent = loadmap('SnowWaterEquivalent')
 
-        self.var.FrostIndex = self.model.data.to_landunit(data=self.model.data.grid.load_initial('FrostIndex'), fn=None)
+        self.var.FrostIndex = self.model.data.landunit.load_initial('FrostIndex', default=self.model.data.landunit.full_compressed(0, dtype=np.float32))
 
         self.var.extfrostindex = False
         if "morefrost" in binding:

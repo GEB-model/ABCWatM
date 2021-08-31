@@ -334,14 +334,9 @@ class landcoverType(object):
             self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
 
         # for paddy irrigation flooded paddy fields
-        self.var.topwater = self.model.data.to_landunit(data=self.model.data.grid.load_initial("topwater", default= 0.), fn=None)
-        if isinstance(self.var.topwater, float):
-            self.var.topwater = self.var.full_compressed(self.var.topwater, dtype=np.float32)
+        self.var.topwater = self.model.data.landunit.load_initial("topwater", default=self.var.full_compressed(0, dtype=np.float32))
         self.var.adjRoot = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
 
-        self.var.w1 = self.var.full_compressed(0, dtype=np.float32)
-        self.var.w2 = self.var.full_compressed(0, dtype=np.float32)
-        self.var.w3 = self.var.full_compressed(0, dtype=np.float32)
         self.var.arnoBeta = self.var.full_compressed(np.nan, dtype=np.float32)
 
         # Improved Arno's scheme parameters: Hageman and Gates 2003
@@ -355,6 +350,10 @@ class landcoverType(object):
         arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
 
         initial_humidy = 0.5
+        self.var.w1 = self.model.data.landunit.load_initial('w1', default=np.nan_to_num(self.var.wwp1 + initial_humidy * (self.var.wfc1-self.var.wwp1)))
+        self.var.w2 = self.model.data.landunit.load_initial('w2', default=np.nan_to_num(self.var.wwp2 + initial_humidy * (self.var.wfc2-self.var.wwp2)))
+        self.var.w3 = self.model.data.landunit.load_initial('w3', default=np.nan_to_num(self.var.wwp3 + initial_humidy * (self.var.wfc3-self.var.wwp3)))
+
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             # other paramater values
             # b coefficient of soil water storage capacity distribution
@@ -365,31 +364,6 @@ class landcoverType(object):
             # parameter values
 
             land_use_indices = np.where(self.var.land_use_type == coverNum)[0]
-            # if land_use_indices.size == 0:
-            #     continue
-
-            # init values
-            w1 = self.model.data.grid.load_initial(coverType + "_w1", default=-1)
-            if w1 == -1:
-                self.var.w1[land_use_indices] = self.var.wwp1[land_use_indices] + initial_humidy * (self.var.wfc1[land_use_indices]-self.var.wwp1[land_use_indices])
-                # self.var.w1[land_use_indices] = self.var.ws1[land_use_indices]
-                # self.var.w1[land_use_indices] = self.var.wres1[land_use_indices]
-            else:
-                self.var.w1[land_use_indices] = w1
-            w2 = self.model.data.grid.load_initial(coverType + "_w2", default=-1)
-            if w2 == -1:
-                self.var.w2[land_use_indices] = self.var.wwp2[land_use_indices] + initial_humidy * (self.var.wfc2[land_use_indices]-self.var.wwp2[land_use_indices])
-                # self.var.w2[land_use_indices] = self.var.ws2[land_use_indices]
-                # self.var.w2[land_use_indices] = self.var.wres2[land_use_indices]
-            else:
-                self.var.w2[land_use_indices] = w2
-            w3 = self.model.data.grid.load_initial(coverType + "_w3", default=-1)
-            if w3 == -1:
-                self.var.w3[land_use_indices] = self.var.wwp3[land_use_indices] + initial_humidy * (self.var.wfc3[land_use_indices]-self.var.wwp3[land_use_indices])
-                # self.var.w3[land_use_indices] = self.var.ws3[land_use_indices]
-                # self.var.w3[land_use_indices] = self.var.wres3[land_use_indices]
-            else:
-                self.var.w3[land_use_indices] = w3
 
             arnoBeta = self.model.data.to_landunit(data=loadmap(coverType + "_arnoBeta"), fn=None)
             if not isinstance(arnoBeta, float):
