@@ -189,17 +189,9 @@ class groundwater_modflow:
         self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
         self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
 
-        # defining the initial water table map (it can be a hydraulic head map previously simulated)
-        self.var.load_init_water_table = returnBool('load_init_water_table')
-        if self.var.load_init_water_table:
-            print('=> Initial water table depth is uploaded from ', cbinding('init_water_table'))
-            head = np.load(cbinding('init_water_table'))
-        else:
-            start_watertabledepth = loadmap('initial_water_table_depth')
-            print('=> Water table depth is - ', start_watertabledepth, ' m at the begining')
-            head = self.layer_boundaries[0] - start_watertabledepth  # initiate head 2 m below the top of the aquifer layer
+        self.model.data.modflow.head = self.model.data.modflow.load_initial('head', default=self.layer_boundaries[0] - loadmap('initial_water_table_depth'))
 
-        self.max_groundwater_abstraction_depth = cbinding('max_groundwater_abstraction_depth')
+        self.max_groundwater_abstraction_depth = int(cbinding('max_groundwater_abstraction_depth'))
 
         self.modflow = ModFlowSimulation(
             self.model,
@@ -216,7 +208,7 @@ class groundwater_modflow:
             top=self.layer_boundaries[0],
             bottom=self.layer_boundaries[1],
             basin=modflow_basin,
-            head=head,
+            head=self.model.data.modflow.head,
             drainage_elevation=self.layer_boundaries[0],
             permeability=self.permeability,
             complexity='SIMPLE',
@@ -228,7 +220,7 @@ class groundwater_modflow:
 
         self.var.capillar = self.var.full_compressed(0, dtype=np.float32)
 
-        self.var.head = self.var.compress(self.modflow2CWATM(head))
+        self.var.head = self.var.compress(self.modflow2CWATM(self.model.data.modflow.head))
 
         self.modflow_test = os.path.join(self.modflow.working_directory, 'modflow_test.csv')
         with open(self.modflow_test, 'w') as f:
@@ -253,13 +245,13 @@ class groundwater_modflow:
 
         self.modflow.step()
 
-        head = self.modflow.decompress(self.modflow.head.astype(np.float32))
-        self.var.head = self.var.compress(self.modflow2CWATM(head, correct_boundary=False))
+        self.model.data.modflow.head = self.modflow.decompress(self.modflow.head.astype(np.float32))
+        self.var.head = self.var.compress(self.modflow2CWATM(self.model.data.modflow.head, correct_boundary=False))
 
         assert self.permeability.ndim == 3
         groundwater_outflow = np.where(
-            head - self.layer_boundaries[0] >= 0,
-            (head - self.layer_boundaries[0]) * self.coefficient * self.permeability[0],
+            self.model.data.modflow.head  - self.layer_boundaries[0] >= 0,
+            (self.model.data.modflow.head  - self.layer_boundaries[0]) * self.coefficient * self.permeability[0],
         0)
         assert (groundwater_outflow >= 0).all()
         
@@ -268,7 +260,7 @@ class groundwater_modflow:
         outflow = np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area) + (groundwater_outflow * self.modflow_cell_area).sum()
         inflow = np.nansum(groundwater_recharge_modflow * self.modflow_cell_area)
         with open(self.modflow_test, 'a') as f:
-            f.write(f'{np.nanmean(head)},{storage_change},{np.nansum(groundwater_recharge_modflow * self.modflow_resolution ** 2)},{np.nansum(groundwater_abstraction_modflow * self.modflow_resolution ** 2)},{(groundwater_outflow * self.modflow_resolution ** 2).sum()}\n')
+            f.write(f'{np.nanmean(self.model.data.modflow.head )},{storage_change},{np.nansum(groundwater_recharge_modflow * self.modflow_resolution ** 2)},{np.nansum(groundwater_abstraction_modflow * self.modflow_resolution ** 2)},{(groundwater_outflow * self.modflow_resolution ** 2).sum()}\n')
         if not isclose(storage_change, inflow - outflow, rel_tol=0.02) and not isclose(storage_change, inflow - outflow, abs_tol=10_000_000):
             print('modflow discrepancy', storage_change, inflow - outflow)
 

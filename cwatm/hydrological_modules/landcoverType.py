@@ -194,9 +194,6 @@ class landcoverType(object):
         self.model = model
         self.farmers = model.agents.farmers
 
-    def set_root_depth(self):
-        pass
-
     def initial(self, ElevationStD, soildepth):
         """
         Initial part of the land cover type module
@@ -211,6 +208,8 @@ class landcoverType(object):
 
         And initialize the soil variables
         """
+
+        self.model.coverTypes = ["forest", "grassland", "irrPaddy", "irrNonPaddy", "sealed", "water"]
 
         self.var.capriseindex = self.var.full_compressed(0, dtype=np.float32)
 

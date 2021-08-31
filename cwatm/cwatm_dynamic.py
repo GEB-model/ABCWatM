@@ -119,8 +119,6 @@ class CWATModel_dyn(DynamicModel):
         self.output_module.dynamic()
         timemeasure("Output")  # 12. timing
 
-        self.init_module.dynamic()
-
         for i in range(len(timeMes)):
             #if self.currentTimeStep() == self.firstTimeStep():
             if self.currentStep == self.firstStep:
