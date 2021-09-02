@@ -23,6 +23,7 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
 from cwatm.management_modules.checks import *
 from cwatm.management_modules.replace_pcr import *
 from cwatm.management_modules.data_handling import *
+from cwatm.management_modules.data_handling import valuecell
 from .messages import *
 from netCDF4 import Dataset,num2date,date2num,date2index
 
@@ -137,6 +138,7 @@ class outputTssMap(object):
             self.var.sampleAdresses = {}
             for i in range(len(col)):
                 self.var.sampleAdresses[i+1] = arange[row[i],col[i]]
+                assert self.var.sampleAdresses[i+1] >= 0
 
         else:
             if os.path.exists(outpoints):
@@ -161,9 +163,8 @@ class outputTssMap(object):
         for s in filter(lambda x: "areasum" in x, outTss.keys()): calcCatch = True
 
         if calcCatch:
-           self.var.evalCatch ={}
+           self.var.evalCatch = {}
            self.var.catcharea = {}
-
 
            for key in sorted(self.var.sampleAdresses):
               outp  = globals.inZero.copy()

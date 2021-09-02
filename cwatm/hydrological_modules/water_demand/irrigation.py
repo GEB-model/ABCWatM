@@ -8,7 +8,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.data_handling import binding, loadmap
 import numpy as np
 try:
     import cupy as cp
@@ -153,5 +152,4 @@ class waterdemand_irrigation:
         # should not be bigger than infiltration capacity
         pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity)
         
-        assert (pot_irrConsumption >= 0).all()
         return pot_irrConsumption
