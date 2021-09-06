@@ -178,9 +178,8 @@ class soil(object):
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
         paddy_irrigated_land = np.where(self.var.land_use_type == 2)
         irrigated_land = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
-        # self.var.actual_irrigation_consumption.fill(0)
         availWaterInfiltration = self.var.natural_available_water_infiltration + self.var.actual_irrigation_consumption
-        assert (availWaterInfiltration + 1e-7 >= 0).all()
+        assert (availWaterInfiltration + 1e-6 >= 0).all()
         availWaterInfiltration[availWaterInfiltration < 0] = 0
 
         # depending on the crop calender -> here if cropKC > 0.75 paddies are flooded to 50mm (as set in settings file)
