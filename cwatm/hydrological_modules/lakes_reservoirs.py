@@ -8,6 +8,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
+import rasterio
 from cwatm.management_modules.data_handling import *
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
 
@@ -394,8 +395,13 @@ class lakes_reservoirs(object):
         """
         #  Conservative, normal and flood storage limit (fraction of total storage, [-])
         self.var.conLimitC = np.compress(self.var.compress_LR, loadmap('conservativeStorageLimit') + globals.inZero)
-        self.var.normLimitC = np.compress(self.var.compress_LR, loadmap('normalStorageLimit') + globals.inZero)
-        self.var.floodLimitC = np.compress(self.var.compress_LR, loadmap('floodStorageLimit') + globals.inZero)
+        # self.var.normLimitC = np.compress(self.var.compress_LR, loadmap('normalStorageLimit') + globals.inZero)
+        with rasterio.open(cbinding('waterBodyVolRes'), 'r') as src:
+            volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
+        with rasterio.open(cbinding('waterBodyVolResFLR'), 'r') as src:
+            flood_volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
+        self.var.normLimitC = flood_volume / volume
+        self.var.floodLimitC = np.ones_like(volume)
         self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + globals.inZero)
         self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
 
