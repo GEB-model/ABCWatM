@@ -402,8 +402,8 @@ class lakes_reservoirs(object):
             flood_volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
         self.var.normLimitC = flood_volume / volume
         self.var.floodLimitC = np.ones_like(volume)
-        self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + globals.inZero)
-        self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
+        # self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + globals.inZero)
+        # self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
 
         # Minimum, Normal and Non-damaging reservoir outflow  (fraction of average discharge, [-])
         # multiplied with the given discharge at the outlet from Hydrolakes database
@@ -413,9 +413,9 @@ class lakes_reservoirs(object):
 
         # Repeatedly used expressions in reservoirs routine
         self.var.deltaO = self.var.normQC - self.var.minQC
-        self.var.deltaLN = self.var.normLimitC - 2 * self.var.conLimitC
+        self.var.deltaLN = self.var.normLimitC - self.var.conLimitC
         self.var.deltaLF = self.var.floodLimitC - self.var.normLimitC
-        self.var.deltaNFL = self.var.floodLimitC - self.var.norm_floodLimitC
+        # self.var.deltaNFL = self.var.floodLimitC - self.var.norm_floodLimitC
 
         reservoirStorageIni = self.var.load_initial("reservoirStorage")
         if not (isinstance(reservoirStorageIni, np.ndarray)):
@@ -618,11 +618,11 @@ class lakes_reservoirs(object):
             reservoirOutflow1 = np.minimum(self.var.minQC, self.var.reservoirStorageM3C * self.model.InvDtSec)
             # Reservoir outflow [m3/s] if ReservoirFill is nearing absolute minimum. 
 
-            reservoirOutflow2 = self.var.minQC + self.var.deltaO * (self.var.reservoirFillC - 2 * self.var.conLimitC) / self.var.deltaLN
+            reservoirOutflow2 = self.var.minQC + self.var.deltaO * (self.var.reservoirFillC - self.var.conLimitC) / self.var.deltaLN
             # 2*ConservativeStorageLimit
             # Reservoir outflow [m3/s] if NormalStorageLimit <= ReservoirFill > 2*ConservativeStorageLimit
 
-            reservoirOutflow3 = self.var.normQC + ((self.var.reservoirFillC - self.var.norm_floodLimitC) / self.var.deltaNFL) * (self.var.nondmgQC - self.var.normQC)
+            # reservoirOutflow3 = self.var.normQC + ((self.var.reservoirFillC - self.var.norm_floodLimitC) / self.var.deltaNFL) * (self.var.nondmgQC - self.var.normQC)
             # Reservoir outflow [m3/s] if FloodStorageLimit le ReservoirFill gt NormalStorageLimit
 
             temp = np.minimum(self.var.nondmgQC, np.maximum(inflowC * 1.2, self.var.normQC))
@@ -634,9 +634,9 @@ class lakes_reservoirs(object):
 
             reservoirOutflow = reservoirOutflow1.copy()
 
-            reservoirOutflow = np.where(self.var.reservoirFillC > 2 * self.var.conLimitC, reservoirOutflow2, reservoirOutflow)
+            # reservoirOutflow = np.where(self.var.reservoirFillC > self.var.conLimitC, reservoirOutflow2, reservoirOutflow)
             reservoirOutflow = np.where(self.var.reservoirFillC > self.var.normLimitC, self.var.normQC, reservoirOutflow)
-            reservoirOutflow = np.where(self.var.reservoirFillC > self.var.norm_floodLimitC, reservoirOutflow3, reservoirOutflow)
+            # reservoirOutflow = np.where(self.var.reservoirFillC > self.var.norm_floodLimitC, reservoirOutflow3, reservoirOutflow)
             reservoirOutflow = np.where(self.var.reservoirFillC > self.var.floodLimitC, reservoirOutflow4, reservoirOutflow)
 
             temp = np.minimum(reservoirOutflow, np.maximum(inflowC, self.var.normQC))
@@ -644,6 +644,8 @@ class lakes_reservoirs(object):
             reservoirOutflow = np.where((reservoirOutflow > 1.2 * inflowC) &
                                         (reservoirOutflow > self.var.normQC) &
                                         (self.var.reservoirFillC < self.var.floodLimitC), temp, reservoirOutflow)
+
+            # reservoirOutflow = np.where(self.var.reservoirFillC < self.var.floodLimitC, 0, inflowC.copy())
 
             qResOutM3DtC = reservoirOutflow * self.var.dtRouting
 
