@@ -214,20 +214,12 @@ class lakes_reservoirs(object):
         if checkOption('includeWaterBodies'):
 
             # load lakes/reservoirs map with a single ID for each lake/reservoir
-            waterBodyID = loadmap('waterBodyID').astype(np.int64)
-            assert (waterBodyID >= 0).all()
-
-            self.var.water_body_mapping = np.full(waterBodyID.max() + 1, 0, dtype=np.int32)
-            water_body_ids = np.unique(waterBodyID)
-            assert water_body_ids[0] == 0  # check if value is no lake
-            water_body_ids = water_body_ids[1:]
-
-            self.var.water_body_mapping[water_body_ids] = np.arange(1, water_body_ids.size + 1, dtype=np.int32)
-            self.var.waterBodyID = self.var.water_body_mapping[waterBodyID]
+            self.var.waterBodyID = loadmap('waterBodyID').astype(np.int64)
+            assert (self.var.waterBodyID >= 0).all()
 
             # calculate biggest outlet = biggest accumulation of ldd network
             lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
-            self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax,self.var.waterBodyID, 0)
+            self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax, self.var.waterBodyID, 0)
 
             # dismiss water bodies that are not a subcatchment of an outlet
             sub = subcatchment1(self.var.dirUp, self.var.waterBodyOut,self.var.UpArea1)
@@ -242,15 +234,13 @@ class lakes_reservoirs(object):
 
              #and again calculate outlets, because ID might have changed due to the operation before
             lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
-            self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax,self.var.waterBodyID, 0)
+            self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax, self.var.waterBodyID, 0)
 
             #report(self.var.waterBodyBuffer, "C:\work\output3/bg3.tif")
 
             # change ldd: put pits in where lakes are:
-            self.var.ldd_LR = np.where( self.var.waterBodyID > 0, 5, self.var.lddCompress)
+            self.var.ldd_LR = np.where(self.var.waterBodyID >= 0, 5, self.var.lddCompress)
 
-            import matplotlib.pyplot as plt
-            
             # create new ldd without lakes reservoirs
             self.var.lddCompress_LR, dirshort_LR, self.var.dirUp_LR, self.var.dirupLen_LR, self.var.dirupID_LR, \
                 self.var.downstruct_LR, self.var.catchment_LR, self.var.dirDown_LR, self.var.lendirDown_LR = defLdd2(self.var.ldd_LR)
@@ -261,6 +251,12 @@ class lakes_reservoirs(object):
             self.var.compress_LR = self.var.waterBodyOut > 0
             self.var.decompress_LR = np.nonzero(self.var.waterBodyOut)[0]
             self.var.waterBodyOutC = np.compress(self.var.compress_LR, self.var.waterBodyOut)
+
+            self.var.water_body_mapping = np.full(self.var.waterBodyID.max() + 1, 0, dtype=np.int32)
+            water_body_ids = np.compress(self.var.compress_LR, self.var.waterBodyID)
+
+            self.var.water_body_mapping[water_body_ids] = np.arange(0, water_body_ids.size, dtype=np.int32)
+            self.var.waterBodyID = self.var.water_body_mapping[self.var.waterBodyID]
 
             # year when the reservoirs is operating
             self.var.resYear = loadmap('waterBodyYear')
@@ -276,6 +272,9 @@ class lakes_reservoirs(object):
             #waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
             self.var.waterBodyTypC = np.compress(self.var.compress_LR, self.var.waterBodyTyp)
             self.var.waterBodyTypC = np.where(self.var.waterBodyOutC > 0, self.var.waterBodyTypC.astype(np.int64), 0)
+
+            area_command_area_in_study_area = loadmap('area_command_area_in_study_area')
+            self.var.area_command_area_in_study_area = np.compress(self.var.compress_LR, area_command_area_in_study_area)
 
             # ================================
             # Lakes

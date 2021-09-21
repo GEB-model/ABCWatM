@@ -190,9 +190,7 @@ class water_demand:
 
     def get_available_water(self):
         def get_available_water_reservoir_command_areas():
-            # day_of_year = globals.dateVar['currDate'].timetuple().tm_yday  # Jan 1 is 1
-            return self.model.data.grid.reservoirStorageM3C * float(cbinding('max_reseroir_release_factor'))
-            # return reservoir_storage_per_command_area * self.max_reservoir_releases[day_of_year - 1]  # remove 1 because Jan 1 is 1
+            return self.model.data.grid.reservoirStorageM3C * float(cbinding('max_reservoir_release_factor'))
 
         available_reservoir_storage_m3 = get_available_water_reservoir_command_areas()
         return self.model.data.grid.channelStorageM3.copy(), available_reservoir_storage_m3, self.model.groundwater_modflow_module.available_groundwater_m, self.model.data.grid.head
@@ -275,7 +273,6 @@ class water_demand:
                 command_areas=self.var.reservoir_command_areas.get() if self.model.args.use_gpu else self.var.reservoir_command_areas,
             )
 
-
             if checkOption('calcWaterBalance'):
                 self.model.waterbalance_module.waterBalanceCheck(
                     how='cellwise',
@@ -302,6 +299,9 @@ class water_demand:
             
             if checkOption('includeWaterBodies'): 
                 reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
+                assert (self.model.data.grid.waterBodyTypC[np.where(reservoir_abstraction_m3 > 0)] == 2).all()
+                print('reservoir_abs_ratio', round(reservoir_abstraction_m3[self.model.data.grid.waterBodyTypC == 2].sum() / self.model.data.grid.reservoirStorageM3C[self.model.data.grid.waterBodyTypC == 2].sum(), 3))
+                
                 # Abstract water from reservoir
                 self.model.data.grid.lakeStorageC -= reservoir_abstraction_m3
                 self.model.data.grid.lakeVolumeM3C -= reservoir_abstraction_m3
