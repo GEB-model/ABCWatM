@@ -13,7 +13,7 @@ import numpy as np
 import math
 try:
     import cupy as cp
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 
 

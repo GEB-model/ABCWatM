@@ -12,7 +12,7 @@ from cwatm.management_modules import globals
 import numpy as np
 try:
     import cupy as cp
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 import cftime
 from cwatm.management_modules.data_handling import returnBool, binding, cbinding, loadmap, readnetcdf2, divideValues, downscale_volume, checkOption

@@ -14,8 +14,8 @@ import numpy as np
 from numba import njit
 try:
     import cupy as cp
-except ModuleNotFoundError:
-    pass
+except (ModuleNotFoundError, ImportError):
+    cp = np
 from typing import Tuple
 
 

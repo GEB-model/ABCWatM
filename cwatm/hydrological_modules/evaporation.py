@@ -12,7 +12,7 @@ from cwatm.management_modules.data_handling import cbinding, checkOption
 import numpy as np
 try:
     import cupy as cp
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 
 

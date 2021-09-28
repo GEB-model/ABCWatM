@@ -11,7 +11,7 @@
 import numpy as np
 try:
     import cupy as cp
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 import rasterio
 from cwatm.management_modules import globals
@@ -156,7 +156,10 @@ class water_demand:
                         self.var.using_reservoir_command_areas = True
                         with rasterio.open(cbinding('reservoir_command_areas'), 'r') as src:
                             reservoir_command_areas = self.model.data.grid.compress(src.read(1))
-                            reservoir_command_areas_mapped = self.model.data.grid.water_body_mapping[reservoir_command_areas]
+                            water_body_mapping = np.full(self.model.data.grid.waterBodyID.max() + 1, 0, dtype=np.int32)
+                            water_body_ids = np.compress(self.model.data.grid.compress_LR, self.model.data.grid.waterBodyID)
+                            water_body_mapping[water_body_ids] = np.arange(0, water_body_ids.size, dtype=np.int32)
+                            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
                             reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
                             self.var.reservoir_command_areas = self.model.data.to_landunit(data=reservoir_command_areas_mapped)
 
@@ -271,6 +274,7 @@ class water_demand:
                 groundwater_head=groundwater_head,
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
                 command_areas=self.var.reservoir_command_areas.get() if self.model.args.use_gpu else self.var.reservoir_command_areas,
+                return_fraction=float(cbinding('return_fraction'))
             )
 
             if checkOption('calcWaterBalance'):
@@ -301,6 +305,8 @@ class water_demand:
                 reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
                 assert (self.model.data.grid.waterBodyTypC[np.where(reservoir_abstraction_m3 > 0)] == 2).all()
                 print('reservoir_abs_ratio', round(reservoir_abstraction_m3[self.model.data.grid.waterBodyTypC == 2].sum() / self.model.data.grid.reservoirStorageM3C[self.model.data.grid.waterBodyTypC == 2].sum(), 3))
+                reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] = reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] / self.model.data.grid.area_command_area_in_study_area[reservoir_abstraction_m3 > 0]
+                reservoir_abstraction_m3 = np.minimum(available_reservoir_storage_m3_pre, reservoir_abstraction_m3)
                 
                 # Abstract water from reservoir
                 self.model.data.grid.lakeStorageC -= reservoir_abstraction_m3

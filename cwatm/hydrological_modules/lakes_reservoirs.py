@@ -8,6 +8,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
+from numpy import dtype
 import rasterio
 from cwatm.management_modules.data_handling import *
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
@@ -239,7 +240,7 @@ class lakes_reservoirs(object):
             #report(self.var.waterBodyBuffer, "C:\work\output3/bg3.tif")
 
             # change ldd: put pits in where lakes are:
-            self.var.ldd_LR = np.where(self.var.waterBodyID >= 0, 5, self.var.lddCompress)
+            self.var.ldd_LR = np.where(self.var.waterBodyID > 0, 5, self.var.lddCompress)
 
             # create new ldd without lakes reservoirs
             self.var.lddCompress_LR, dirshort_LR, self.var.dirUp_LR, self.var.dirupLen_LR, self.var.dirupID_LR, \
@@ -251,12 +252,6 @@ class lakes_reservoirs(object):
             self.var.compress_LR = self.var.waterBodyOut > 0
             self.var.decompress_LR = np.nonzero(self.var.waterBodyOut)[0]
             self.var.waterBodyOutC = np.compress(self.var.compress_LR, self.var.waterBodyOut)
-
-            self.var.water_body_mapping = np.full(self.var.waterBodyID.max() + 1, 0, dtype=np.int32)
-            water_body_ids = np.compress(self.var.compress_LR, self.var.waterBodyID)
-
-            self.var.water_body_mapping[water_body_ids] = np.arange(0, water_body_ids.size, dtype=np.int32)
-            self.var.waterBodyID = self.var.water_body_mapping[self.var.waterBodyID]
 
             # year when the reservoirs is operating
             self.var.resYear = loadmap('waterBodyYear')
@@ -401,8 +396,8 @@ class lakes_reservoirs(object):
             flood_volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
         self.var.normLimitC = flood_volume / volume
         self.var.floodLimitC = np.ones_like(volume)
-        # self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + globals.inZero)
-        # self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
+        self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + self.var.full_compressed(0, dtype=np.float32))
+        self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
 
         # Minimum, Normal and Non-damaging reservoir outflow  (fraction of average discharge, [-])
         # multiplied with the given discharge at the outlet from Hydrolakes database
@@ -414,7 +409,7 @@ class lakes_reservoirs(object):
         self.var.deltaO = self.var.normQC - self.var.minQC
         self.var.deltaLN = self.var.normLimitC - self.var.conLimitC
         self.var.deltaLF = self.var.floodLimitC - self.var.normLimitC
-        # self.var.deltaNFL = self.var.floodLimitC - self.var.norm_floodLimitC
+        self.var.deltaNFL = self.var.floodLimitC - self.var.norm_floodLimitC
 
         reservoirStorageIni = self.var.load_initial("reservoirStorage")
         if not (isinstance(reservoirStorageIni, np.ndarray)):
@@ -424,7 +419,6 @@ class lakes_reservoirs(object):
         else:
             self.var.reservoirStorageM3C = np.compress(self.var.compress_LR, reservoirStorageIni)
             self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC
-
 
         # water balance
         self.var.lakeResStorageC = np.where(self.var.waterBodyTypC == 0, 0., np.where(self.var.waterBodyTypC == 1,self.var.lakeStorageC,self.var.reservoirStorageM3C ))
@@ -436,10 +430,6 @@ class lakes_reservoirs(object):
         np.put(self.var.lakeResStorage, self.var.decompress_LR, self.var.lakeResStorageC)
         np.put(self.var.lakeStorage, self.var.decompress_LR, lakeStorageC)
         np.put(self.var.resStorage, self.var.decompress_LR, resStorageC)
-
-   # ------------------ End init ------------------------------------------------------------------------------------
-   # ----------------------------------------------------------------------------------------------------------------
-
 
     def dynamic(self):
         """
@@ -622,6 +612,7 @@ class lakes_reservoirs(object):
             # Reservoir outflow [m3/s] if NormalStorageLimit <= ReservoirFill > 2*ConservativeStorageLimit
 
             # reservoirOutflow3 = self.var.normQC + ((self.var.reservoirFillC - self.var.norm_floodLimitC) / self.var.deltaNFL) * (self.var.nondmgQC - self.var.normQC)
+            reservoirOutflow3 = self.var.normQC
             # Reservoir outflow [m3/s] if FloodStorageLimit le ReservoirFill gt NormalStorageLimit
 
             temp = np.minimum(self.var.nondmgQC, np.maximum(inflowC * 1.2, self.var.normQC))
@@ -633,9 +624,9 @@ class lakes_reservoirs(object):
 
             reservoirOutflow = reservoirOutflow1.copy()
 
-            # reservoirOutflow = np.where(self.var.reservoirFillC > self.var.conLimitC, reservoirOutflow2, reservoirOutflow)
+            reservoirOutflow = np.where(self.var.reservoirFillC > self.var.conLimitC, reservoirOutflow2, reservoirOutflow)
             reservoirOutflow = np.where(self.var.reservoirFillC > self.var.normLimitC, self.var.normQC, reservoirOutflow)
-            # reservoirOutflow = np.where(self.var.reservoirFillC > self.var.norm_floodLimitC, reservoirOutflow3, reservoirOutflow)
+            reservoirOutflow = np.where(self.var.reservoirFillC > self.var.norm_floodLimitC, reservoirOutflow3, reservoirOutflow)
             reservoirOutflow = np.where(self.var.reservoirFillC > self.var.floodLimitC, reservoirOutflow4, reservoirOutflow)
 
             temp = np.minimum(reservoirOutflow, np.maximum(inflowC, self.var.normQC))

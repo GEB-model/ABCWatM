@@ -11,7 +11,7 @@ from osgeo import gdal
 import numpy as np
 try:
     import cupy as cp
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     pass
 import pandas as pd
 from numba import njit
