@@ -290,7 +290,6 @@ class water_demand:
                 ## Water application
                 self.var.actual_irrigation_consumption = cp.asarray(irrigation_water_consumption_m)
                 addtoevapotrans = cp.asarray(addtoevapotrans_m)
-                # TODO: Add other return flows
             else:
                 self.var.actual_irrigation_consumption = irrigation_water_consumption_m
                 addtoevapotrans = addtoevapotrans_m
