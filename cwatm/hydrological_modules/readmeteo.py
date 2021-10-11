@@ -304,9 +304,6 @@ class readmeteo(object):
         else:
             self.var.Precipitation = self.downscaling2(self.var.Precipitation, "downscale_wordclim_prec", self.var.wc2_prec, self.var.wc4_prec, downscale=0)
 
-        #self.var.Precipitation = self.var.Precipitation * 1000
-
-        self.var.prec = self.var.Precipitation / self.var.con_precipitation
         # precipitation (conversion to [m] per time step)  `
         if Flags['check']:
             checkmap('PrecipitationMaps', "", self.var.Precipitation, True, True, self.var.Precipitation)

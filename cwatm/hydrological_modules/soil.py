@@ -131,7 +131,6 @@ class soil(object):
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cropGroupNumber = loadmap('cropgroupnumber')
         self.var.cropGroupNumber = self.model.data.to_landunit(data=self.var.cropGroupNumber, fn=None)  # checked
-        print('What are crop group numbers - make them dynamic?')
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
 
