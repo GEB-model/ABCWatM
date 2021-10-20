@@ -264,7 +264,6 @@ class water_demand:
                 groundwater_head=groundwater_head,
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
                 command_areas=self.var.reservoir_command_areas.get() if self.model.args.use_gpu else self.var.reservoir_command_areas,
-                return_fraction=float(cbinding('return_fraction'))
             )
 
             if checkOption('calcWaterBalance'):
