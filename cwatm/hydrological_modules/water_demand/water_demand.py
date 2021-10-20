@@ -127,6 +127,7 @@ class water_demand:
         self.model = model
         self.var = model.data.landunit
         self.farmers = model.agents.farmers
+        self.reservoir_operators = model.agents.reservoir_operators
 
         self.domestic = waterdemand_domestic(model)
         self.industry = waterdemand_industry(model)
@@ -172,30 +173,19 @@ class water_demand:
             else:
                 self.var.reservoir_command_areas = self.var.full_compressed(-1, dtype=np.int32)
 
-            # self.var.crops = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.head2 = 0
-            # self.var.demand_Segment = self.var.full_compressed(0, dtype=np.float32)
-            # self.model.data.grid.lakeResStorage_ratio_CA = self.model.data.grid.full_compressed(0, dtype=np.float32)
-            # self.model.data.grid.lakeResStorage_ratio = self.model.data.grid.full_compressed(0, dtype=np.float32)
-            # self.model.data.grid.act_bigLakeResAbst_alloc = self.model.data.grid.full_compressed(0, dtype=np.float32)
-            # self.var.act_channelAbstract = self.var.full_compressed(0, dtype=np.float32)
-            # self.model.data.grid.act_LocalLakeAbstract = self.model.data.grid.full_compressed(0, dtype=np.float32)
             if checkOption('canal_leakage'):
                 self.model.data.grid.leakageC = np.compress(self.model.data.grid.compress_LR, self.model.data.grid.full_compressed(0, dtype=np.float32))
-            # self.var.delivered_water = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.act_irrWithdrawalSW = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.act_irrWithdrawalGW = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.act_nonIrrWithdrawalSW = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.act_nonIrrWithdrawalGW = self.var.full_compressed(0, dtype=np.float32)
-            # self.var.availableGWStorageFraction = self.var.full_compressed(0, dtype=np.float32)
 
             self.model.data.grid.gwstorage_full = float(cbinding('poro'))* float(cbinding('thickness'))+globals.inZero
 
     def get_available_water(self):
-        def get_available_water_reservoir_command_areas():
-            return self.model.data.grid.reservoirStorageM3C * float(cbinding('max_reservoir_release_factor'))
+        assert self.model.data.grid.waterBodyIDC.size == self.model.data.grid.reservoirStorageM3C.size
+        assert self.model.data.grid.waterBodyIDC.size == self.model.data.grid.waterBodyTypC.size
+        available_reservoir_storage_m3 = np.zeros_like(self.model.data.grid.reservoirStorageM3C)
+        for i, (reservoir_ID, reservoir_storage_m3, waterbody_typ) in enumerate(zip(self.model.data.grid.waterBodyIDC, self.model.data.grid.reservoirStorageM3C, self.model.data.grid.waterBodyTypC)):
+            if waterbody_typ == 2:
+                available_reservoir_storage_m3[i] = self.reservoir_operators.get_available_water_reservoir_command_areas(reservoir_ID, reservoir_storage_m3)
 
-        available_reservoir_storage_m3 = get_available_water_reservoir_command_areas()
         return self.model.data.grid.channelStorageM3.copy(), available_reservoir_storage_m3, self.model.groundwater_modflow_module.available_groundwater_m, self.model.data.grid.head
 
     def withdraw(self, source, demand):
@@ -303,7 +293,9 @@ class water_demand:
             if checkOption('includeWaterBodies'): 
                 reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
                 assert (self.model.data.grid.waterBodyTypC[np.where(reservoir_abstraction_m3 > 0)] == 2).all()
-                print('reservoir_abs_ratio', round(reservoir_abstraction_m3[self.model.data.grid.waterBodyTypC == 2].sum() / self.model.data.grid.reservoirStorageM3C[self.model.data.grid.waterBodyTypC == 2].sum(), 3))
+                reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
+                print('reservoir_abs_ratio', (reservoir_abstraction_m3 / self.model.data.grid.reservoirStorageM3C)[self.model.data.grid.waterBodyTypC == 2])
+                print('reservoir_abs_ratio_sum', round(reservoir_abstraction_m3.sum() / self.model.data.grid.reservoirStorageM3C.sum(), 3))
                 reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] = reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] / self.model.data.grid.area_command_area_in_study_area[reservoir_abstraction_m3 > 0]
                 reservoir_abstraction_m3 = np.minimum(available_reservoir_storage_m3_pre, reservoir_abstraction_m3)
                 

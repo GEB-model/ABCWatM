@@ -120,7 +120,7 @@ class soil(object):
 
         """
         
-        self.var.permeability = float(cbinding('permeability'))
+        # self.var.permeability = float(cbinding('permeability'))
 
         self.var.soilLayers = 3
         # --- Topography -----------------------------------------------------

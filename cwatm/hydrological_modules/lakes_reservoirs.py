@@ -250,6 +250,7 @@ class lakes_reservoirs(object):
 
             # boolean map as mask map for compressing and decompressing
             self.var.compress_LR = self.var.waterBodyOut > 0
+            self.var.waterBodyIDC = np.compress(self.var.compress_LR, self.var.waterBodyOut)
             self.var.decompress_LR = np.nonzero(self.var.waterBodyOut)[0]
             self.var.waterBodyOutC = np.compress(self.var.compress_LR, self.var.waterBodyOut)
 
