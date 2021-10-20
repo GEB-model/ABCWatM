@@ -292,17 +292,18 @@ class water_demand:
             if checkOption('includeWaterBodies'): 
                 reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
                 assert (self.model.data.grid.waterBodyTypC[np.where(reservoir_abstraction_m3 > 0)] == 2).all()
-                reservoir_abstraction_m3 = available_reservoir_storage_m3_pre - available_reservoir_storage_m3
-                print('reservoir_abs_ratio', (reservoir_abstraction_m3 / self.model.data.grid.reservoirStorageM3C)[self.model.data.grid.waterBodyTypC == 2])
-                print('reservoir_abs_ratio_sum', round(reservoir_abstraction_m3.sum() / self.model.data.grid.reservoirStorageM3C.sum(), 3))
+                print('reservoir_abs_ratio_sum', round(reservoir_abstraction_m3[[self.model.data.grid.waterBodyTypC == 2]].sum() / self.model.data.grid.reservoirStorageM3C[[self.model.data.grid.waterBodyTypC == 2]].sum(), 3))
                 reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] = reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] / self.model.data.grid.area_command_area_in_study_area[reservoir_abstraction_m3 > 0]
                 reservoir_abstraction_m3 = np.minimum(available_reservoir_storage_m3_pre, reservoir_abstraction_m3)
                 
                 # Abstract water from reservoir
-                self.model.data.grid.lakeStorageC -= reservoir_abstraction_m3
-                self.model.data.grid.lakeVolumeM3C -= reservoir_abstraction_m3
                 self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3
+                assert (self.model.data.grid.lakeResStorageC >= 0).all()
                 self.model.data.grid.reservoirStorageM3C -= reservoir_abstraction_m3
+                assert (self.model.data.grid.lakeResStorageC >= 0).all()
+
+                self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
+                np.put(self.model.data.grid.lakeResStorage, self.model.data.grid.decompress_LR, self.model.data.grid.lakeResStorageC)
 
             returnFlow = self.model.data.to_grid(landunit_data=return_flow_irrigation_m, fn='mean') + domestic_return_flow_m + industry_return_flow_m + livestock_return_flow_m
                 

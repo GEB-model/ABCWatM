@@ -423,14 +423,14 @@ class lakes_reservoirs(object):
 
         # water balance
         self.var.lakeResStorageC = np.where(self.var.waterBodyTypC == 0, 0., np.where(self.var.waterBodyTypC == 1,self.var.lakeStorageC,self.var.reservoirStorageM3C ))
-        lakeStorageC = np.where(self.var.waterBodyTypC == 1, self.var.lakeStorageC,0.)
-        resStorageC =  np.where(self.var.waterBodyTypC > 1, self.var.reservoirStorageM3C,0.)
+        self.var.lakeStorageC = np.where(self.var.waterBodyTypC == 1, self.var.lakeStorageC,0.)
+        self.var.resStorageC =  np.where(self.var.waterBodyTypC > 1, self.var.reservoirStorageM3C,0.)
         self.var.lakeResStorage = globals.inZero.copy()
         self.var.lakeStorage = globals.inZero.copy()
         self.var.resStorage = globals.inZero.copy()
         np.put(self.var.lakeResStorage, self.var.decompress_LR, self.var.lakeResStorageC)
-        np.put(self.var.lakeStorage, self.var.decompress_LR, lakeStorageC)
-        np.put(self.var.resStorage, self.var.decompress_LR, resStorageC)
+        np.put(self.var.lakeStorage, self.var.decompress_LR, self.var.lakeStorageC)
+        np.put(self.var.resStorage, self.var.decompress_LR, self.var.resStorageC)
 
     def dynamic(self):
         """
@@ -726,8 +726,8 @@ class lakes_reservoirs(object):
         EvapWaterBodyC = np.where(self.var.waterBodyTypCTemp == 0, 0., np.where(self.var.waterBodyTypCTemp == 1, self.var.lakeEvapWaterBodyC, self.var.resEvapWaterBodyC))
 
         self.var.lakeResStorageC = np.where(self.var.waterBodyTypCTemp == 0, 0., np.where(self.var.waterBodyTypCTemp == 1,self.var.lakeStorageC,self.var.reservoirStorageM3C))
-        lakeStorageC = np.where(self.var.waterBodyTypCTemp == 1, self.var.lakeStorageC, 0.)
-        resStorageC = np.where(self.var.waterBodyTypCTemp > 1, self.var.reservoirStorageM3C, 0.)
+        self.var.lakeStorageC = np.where(self.var.waterBodyTypCTemp == 1, self.var.lakeStorageC, 0.)
+        self.var.resStorageC = np.where(self.var.waterBodyTypCTemp > 1, self.var.reservoirStorageM3C, 0.)
 
         self.var.sumEvapWaterBodyC += EvapWaterBodyC # in [m3]
         self.var.sumlakeResInflow += inflowCorrC
@@ -744,8 +744,8 @@ class lakes_reservoirs(object):
             self.var.lakeResOutflowM = self.var.lakeResOutflowM  / self.var.cellArea
 
             np.put(self.var.lakeResStorage, self.var.decompress_LR, self.var.lakeResStorageC)
-            np.put(self.var.lakeStorage, self.var.decompress_LR, lakeStorageC)
-            np.put(self.var.resStorage, self.var.decompress_LR, resStorageC)
+            np.put(self.var.lakeStorage, self.var.decompress_LR, self.var.lakeStorageC)
+            np.put(self.var.resStorage, self.var.decompress_LR, self.var.resStorageC)
 
         # ------------------------------------------------------------
 
