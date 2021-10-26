@@ -496,11 +496,13 @@ class landcoverType(object):
 
         # substract from both, because it is sorted by self.var.waterBodyTypCTemp
         self.model.data.grid.lakeStorageC = self.model.data.grid.lakeStorageC - lakeExchangeM3
+        # assert (self.model.data.grid.lakeStorageC >= 0).all()
         self.model.data.grid.lakeVolumeM3C = self.model.data.grid.lakeVolumeM3C - lakeExchangeM3
         self.model.data.grid.reservoirStorageM3C = self.model.data.grid.reservoirStorageM3C - lakeExchangeM3
 
         # and from the combined one for waterbalance issues
         self.model.data.grid.lakeResStorageC = self.model.data.grid.lakeResStorageC - lakeExchangeM3
+        # assert (self.model.data.grid.lakeResStorageC >= 0).all()
         self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
         np.put(self.model.data.grid.lakeResStorage, self.model.data.grid.decompress_LR, self.model.data.grid.lakeResStorageC)
 
