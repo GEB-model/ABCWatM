@@ -298,9 +298,9 @@ class water_demand:
                 
                 # Abstract water from reservoir
                 self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3
-                assert (self.model.data.grid.lakeResStorageC >= 0).all()
+                # assert (self.model.data.grid.lakeResStorageC >= 0).all()
                 self.model.data.grid.reservoirStorageM3C -= reservoir_abstraction_m3
-                assert (self.model.data.grid.lakeResStorageC >= 0).all()
+                # assert (self.model.data.grid.lakeResStorageC >= 0).all()
 
                 self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
                 np.put(self.model.data.grid.lakeResStorage, self.model.data.grid.decompress_LR, self.model.data.grid.lakeResStorageC)
