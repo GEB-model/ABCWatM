@@ -393,29 +393,6 @@ class lakes_reservoirs(object):
         See Also:
             LISFLOOD manual Annex 1: (Burek et al. 2013)
         """
-        #  Conservative, normal and flood storage limit (fraction of total storage, [-])
-        self.var.conLimitC = np.compress(self.var.compress_LR, loadmap('conservativeStorageLimit') + globals.inZero)
-        # self.var.normLimitC = np.compress(self.var.compress_LR, loadmap('normalStorageLimit') + globals.inZero)
-        with rasterio.open(cbinding('waterBodyVolRes'), 'r') as src:
-            volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
-        with rasterio.open(cbinding('waterBodyVolResFLR'), 'r') as src:
-            flood_volume = np.compress(self.var.compress_LR, self.var.compress(src.read(1)))
-        self.var.normLimitC = flood_volume / volume
-        self.var.floodLimitC = np.ones_like(volume)
-        self.var.adjust_Normal_FloodC = np.compress(self.var.compress_LR, loadmap('adjust_Normal_Flood') + self.var.full_compressed(0, dtype=np.float32))
-        self.var.norm_floodLimitC = self.var.normLimitC + self.var.adjust_Normal_FloodC * (self.var.floodLimitC - self.var.normLimitC)
-
-        # Minimum, Normal and Non-damaging reservoir outflow  (fraction of average discharge, [-])
-        # multiplied with the given discharge at the outlet from Hydrolakes database
-        self.var.minQC = np.compress(self.var.compress_LR, loadmap('MinOutflowQ') * self.var.lakeDis0)
-        self.var.normQC = np.compress(self.var.compress_LR, loadmap('NormalOutflowQ') * self.var.lakeDis0)
-        self.var.nondmgQC = np.compress(self.var.compress_LR, loadmap('NonDamagingOutflowQ') * self.var.lakeDis0)
-
-        # Repeatedly used expressions in reservoirs routine
-        self.var.deltaO = self.var.normQC - self.var.minQC
-        self.var.deltaLN = self.var.normLimitC - self.var.conLimitC
-        self.var.deltaLF = self.var.floodLimitC - self.var.normLimitC
-        self.var.deltaNFL = self.var.floodLimitC - self.var.norm_floodLimitC
         
         self.var.resVolumeC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
         self.var.resVolumeC[self.var.waterBodyTypC == 2] = self.reservoir_operators.reservoir_volume
