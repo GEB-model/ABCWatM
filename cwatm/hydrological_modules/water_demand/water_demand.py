@@ -182,10 +182,7 @@ class water_demand:
         assert self.model.data.grid.waterBodyIDC.size == self.model.data.grid.reservoirStorageM3C.size
         assert self.model.data.grid.waterBodyIDC.size == self.model.data.grid.waterBodyTypC.size
         available_reservoir_storage_m3 = np.zeros_like(self.model.data.grid.reservoirStorageM3C)
-        for i, (reservoir_ID, reservoir_storage_m3, waterbody_typ) in enumerate(zip(self.model.data.grid.waterBodyIDC, self.model.data.grid.reservoirStorageM3C, self.model.data.grid.waterBodyTypC)):
-            if waterbody_typ == 2:
-                available_reservoir_storage_m3[i] = self.reservoir_operators.get_available_water_reservoir_command_areas(reservoir_ID, reservoir_storage_m3)
-
+        available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = self.reservoir_operators.get_available_water_reservoir_command_areas(self.model.data.grid.reservoirStorageM3C[self.model.data.grid.waterBodyTypC == 2])
         return self.model.data.grid.channelStorageM3.copy(), available_reservoir_storage_m3, self.model.groundwater_modflow_module.available_groundwater_m, self.model.data.grid.head
 
     def withdraw(self, source, demand):
