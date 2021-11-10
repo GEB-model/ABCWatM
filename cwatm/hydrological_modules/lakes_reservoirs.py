@@ -170,7 +170,6 @@ class lakes_reservoirs(object):
 
     def __init__(self, model):
         self.var = model.data.grid
-        self.reservoir_operators = model.agents.reservoir_operators
         self.model = model
 
     def initWaterbodies(self):
@@ -217,7 +216,7 @@ class lakes_reservoirs(object):
 
             # load lakes/reservoirs map with a single ID for each lake/reservoir
             self.var.waterBodyID = loadmap('waterBodyID').astype(np.int64)
-            # assert (self.var.waterBodyID >= 0).all()
+            assert (self.var.waterBodyID >= 0).all()
 
             # calculate biggest outlet = biggest accumulation of ldd network
             lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
@@ -269,6 +268,8 @@ class lakes_reservoirs(object):
             #waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
             self.var.waterBodyTypC = np.compress(self.var.compress_LR, self.var.waterBodyTyp)
             self.var.waterBodyTypC = np.where(self.var.waterBodyOutC > 0, self.var.waterBodyTypC.astype(np.int64), 0)
+            
+            self.reservoir_operators = self.model.agents.reservoir_operators.initiate_agents(self.var.waterBodyIDC[self.var.waterBodyTypC == 2])
 
             area_command_area_in_study_area = loadmap('area_command_area_in_study_area')
             self.var.area_command_area_in_study_area = np.compress(self.var.compress_LR, area_command_area_in_study_area)
@@ -299,6 +300,18 @@ class lakes_reservoirs(object):
 
             # ================================
             # Reservoirs
+            # REM: self.var.resVolumeC = np.compress(self.var.compress_LR, loadmap('waterBodyVolRes'))
+            # if vol = 0 volu = 10 * area just to mimic all lakes are reservoirs
+            # in [Million m3] -> converted to mio m3
+
+
+            # correcting water body types if the volume is 0:
+            # correcting reservoir volume for lakes, just to run them all as reservoirs
+            # REM: self.var.resVolumeC = np.where(self.var.resVolumeC > 0, self.var.resVolumeC, self.var.lakeAreaC * 10)
+
+            self.var.resVolumeC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
+            self.var.resVolumeC[self.var.waterBodyTypC == 2] = self.reservoir_operators.reservoir_volume
+            self.var.waterBodyTypC = np.where(self.var.resVolumeC > 0., self.var.waterBodyTypC, np.where(self.var.waterBodyTypC == 2, 1, self.var.waterBodyTypC))
 
             # a factor which increases evaporation from lake because of wind
             self.var.lakeEvaFactor =  globals.inZero + loadmap('lakeEvaFactor')
@@ -355,7 +368,6 @@ class lakes_reservoirs(object):
         else:
             self.var.lakeVolumeM3C = np.compress(self.var.compress_LR, lakeVolumeIni)
         self.var.lakeStorageC = self.var.lakeVolumeM3C.copy()
-        # assert (self.var.lakeStorageC >= 0).all()
 
         lakeOutflowIni = self.var.load_initial("lakeOutflow")
         if not (isinstance(lakeOutflowIni, np.ndarray)):
@@ -381,30 +393,26 @@ class lakes_reservoirs(object):
         See Also:
             LISFLOOD manual Annex 1: (Burek et al. 2013)
         """
-        #  Conservative, normal and flood storage limit (fraction of total storage, [-])
-
-
-        # Minimum, Normal and Non-damaging reservoir outflow  (fraction of average discharge, [-])
-        # multiplied with the given discharge at the outlet from Hydrolakes database
+        
         self.var.resVolumeC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
-        self.var.resVolumeC[self.var.waterBodyTypC == 2] = self.reservoir_operators.get_reservoir_data('reservoir_volume', self.var.waterBodyIDC[self.var.waterBodyTypC == 2])
+        self.var.resVolumeC[self.var.waterBodyTypC == 2] = self.reservoir_operators.reservoir_volume
+
+
 
         reservoirStorageIni = self.var.load_initial("reservoirStorage")
         if not (isinstance(reservoirStorageIni, np.ndarray)):
             self.var.reservoirFillC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
-            self.var.reservoirFillC[self.var.waterBodyTypC == 2] = self.reservoir_operators.get_reservoir_data('norm_limit_ratio', self.var.waterBodyIDC[self.var.waterBodyTypC == 2])
+            self.var.reservoirFillC[self.var.waterBodyTypC == 2] = self.reservoir_operators.norm_limit_ratio
             # Initial reservoir fill (fraction of total storage, [-])
             self.var.reservoirStorageM3C = self.var.reservoirFillC * self.var.resVolumeC
         else:
             self.var.reservoirStorageM3C = np.compress(self.var.compress_LR, reservoirStorageIni)
             self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC
 
+
         # water balance
         self.var.lakeResStorageC = np.where(self.var.waterBodyTypC == 0, 0., np.where(self.var.waterBodyTypC == 1,self.var.lakeStorageC,self.var.reservoirStorageM3C ))
-        # assert (self.var.lakeResStorageC >= 0).all()
-        # assert (self.var.lakeStorageC >= 0).all()
         self.var.lakeStorageC = np.where(self.var.waterBodyTypC == 1, self.var.lakeStorageC,0.)
-        # assert (self.var.lakeStorageC >= 0).all()
         self.var.resStorageC =  np.where(self.var.waterBodyTypC > 1, self.var.reservoirStorageM3C,0.)
         self.var.lakeResStorage = globals.inZero.copy()
         self.var.lakeStorage = globals.inZero.copy()
@@ -504,9 +512,7 @@ class lakes_reservoirs(object):
             self.var.lakeVolumeM3C = (lakeStorageIndicator - self.var.lakeOutflowC * 0.5) * self.var.dtRouting
             # Lake storage
 
-            # assert (self.var.lakeStorageC >= 0).all()
             self.var.lakeStorageC += self.var.lakeIn * self.var.dtRouting - QLakeOutM3DtC - self.var.lakeEvapWaterBodyC
-            # assert (self.var.lakeStorageC[self.var.waterBodyTypC == 1] >= 0).all()
 
             if self.var.noRoutingSteps == (NoRoutingExecuted + 1):
                 self.var.lakeLevelC = self.var.lakeVolumeM3C / self.var.lakeAreaC
@@ -585,13 +591,13 @@ class lakes_reservoirs(object):
             self.var.sumResEvapWaterBodyC += self.var.resEvapWaterBodyC
             self.var.reservoirStorageM3C = self.var.reservoirStorageM3C - self.var.resEvapWaterBodyC
 
-            reservoirOutflow = np.zeros(self.var.waterBodyIDC.size, dtype=np.float32)
+            reservoirOutflow = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
             reservoirOutflow[[self.var.waterBodyTypC == 2]] = self.model.agents.reservoir_operators.regulate_reservoir_outflow(
                 self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
                 inflowC[self.var.waterBodyTypC == 2],
                 self.var.waterBodyIDC[self.var.waterBodyTypC == 2]
             )
-                     
+
             qResOutM3DtC = reservoirOutflow * self.var.dtRouting
 
             # Reservoir outflow in [m3] per sub step
@@ -680,9 +686,7 @@ class lakes_reservoirs(object):
         EvapWaterBodyC = np.where(self.var.waterBodyTypCTemp == 0, 0., np.where(self.var.waterBodyTypCTemp == 1, self.var.lakeEvapWaterBodyC, self.var.resEvapWaterBodyC))
 
         self.var.lakeResStorageC = np.where(self.var.waterBodyTypCTemp == 0, 0., np.where(self.var.waterBodyTypCTemp == 1,self.var.lakeStorageC,self.var.reservoirStorageM3C))
-        # assert (self.var.lakeResStorageC >= 0).all()
         self.var.lakeStorageC = np.where(self.var.waterBodyTypCTemp == 1, self.var.lakeStorageC, 0.)
-        # assert (self.var.lakeStorageC >= 0).all()
         self.var.resStorageC = np.where(self.var.waterBodyTypCTemp > 1, self.var.reservoirStorageM3C, 0.)
 
         self.var.sumEvapWaterBodyC += EvapWaterBodyC # in [m3]
