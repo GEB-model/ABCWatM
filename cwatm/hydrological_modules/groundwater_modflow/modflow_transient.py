@@ -271,7 +271,7 @@ class groundwater_modflow:
         self.var.baseflow = groundwater_outflow_cwatm * self.var.channel_ratio
         
         # capriseindex is 1 where capilary rise occurs
-        self.model.data.landunit.capriseindex = self.model.data.to_landunit(data=self.var.compress(
+        self.model.data.HRU.capriseindex = self.model.data.to_HRU(data=self.var.compress(
             self.modflow2CWATM((groundwater_outflow > 0).astype(np.float32), correct_boundary=False)
         ), fn=None)
-        assert (self.model.data.landunit.capriseindex >= 0).all() and (self.model.data.landunit.capriseindex <= 1).all()
+        assert (self.model.data.HRU.capriseindex >= 0).all() and (self.model.data.HRU.capriseindex <= 1).all()

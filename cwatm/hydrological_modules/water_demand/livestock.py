@@ -45,7 +45,7 @@ class waterdemand_livestock:
     **Functions**
     """
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
     def initial(self):
@@ -108,7 +108,7 @@ class waterdemand_livestock:
             self.model.data.grid.gt,
             livestock_water_demand,
             self.model.data.grid.mask,
-            self.var.var_to_landunit_uncompressed,
+            self.var.var_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )

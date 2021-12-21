@@ -98,7 +98,7 @@ class groundwater(object):
 
         # WATER DEMAND
         # update storGoundwater after self.var.nonFossilGroundwaterAbs
-        self.var.storGroundwater = np.maximum(0., self.var.storGroundwater - self.model.data.to_grid(landunit_data=self.model.data.landunit.nonFossilGroundwaterAbs, fn='mean'))
+        self.var.storGroundwater = np.maximum(0., self.var.storGroundwater - self.model.data.to_grid(HRU_data=self.model.data.HRU.nonFossilGroundwaterAbs, fn='mean'))
         # PS: We assume only local groundwater abstraction can happen (only to satisfy water demand within a cell).
         # unmetDemand (m), satisfied by fossil gwAbstractions (and/or desalinization or other sources)
         # (equal to zero if limitAbstraction = True)

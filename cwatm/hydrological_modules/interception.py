@@ -40,18 +40,18 @@ class interception(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
     def initial(self):
         self.var.minInterceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.interceptStor = self.var.full_compressed(np.nan, dtype=np.float32)
 
-        self.var.interceptStor = self.model.data.landunit.load_initial("interceptStor", default=self.model.data.landunit.full_compressed(0, dtype=np.float32))
+        self.var.interceptStor = self.model.data.HRU.load_initial("interceptStor", default=self.model.data.HRU.full_compressed(0, dtype=np.float32))
 
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
-            self.var.minInterceptCap[coverType_indices] = self.model.data.to_landunit(data=loadmap(coverType + "_minInterceptCap"), fn=None)
+            self.var.minInterceptCap[coverType_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_minInterceptCap"), fn=None)
         
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()
@@ -75,7 +75,7 @@ class interception(object):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
             if coverType in ('forest', 'grassland'):
                 covertype_interceptCapNC = readnetcdf2(coverType + '_interceptCapNC', globals.dateVar['10day'], "10day")
-                covertype_interceptCapNC = self.model.data.to_landunit(data=covertype_interceptCapNC, fn=None)  # checked
+                covertype_interceptCapNC = self.model.data.to_HRU(data=covertype_interceptCapNC, fn=None)  # checked
                 interceptCap[coverType_indices] = covertype_interceptCapNC[coverType_indices]
             else:
                 interceptCap[coverType_indices] = self.var.minInterceptCap[coverType_indices]

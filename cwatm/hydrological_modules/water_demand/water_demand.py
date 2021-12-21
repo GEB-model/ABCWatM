@@ -125,7 +125,7 @@ class water_demand:
 
     def __init__(self, model):
         self.model = model
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.farmers = model.agents.farmers
         self.reservoir_operators = model.agents.reservoir_operators
 
@@ -162,14 +162,14 @@ class water_demand:
                             water_body_mapping[water_body_ids] = np.arange(0, water_body_ids.size, dtype=np.int32)
                             reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
                             reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
-                            self.var.reservoir_command_areas = self.model.data.to_landunit(data=reservoir_command_areas_mapped)
+                            self.var.reservoir_command_areas = self.model.data.to_HRU(data=reservoir_command_areas_mapped)
 
                 self.var.using_lift_command_areas = False
                 if 'using_lift_command_areas' in option:
                     if checkOption('using_lift_command_areas'):
                         self.var.using_lift_command_areas = True 
                         lift_command_areas = loadmap('lift_command_areas').astype(np.int)
-                        self.var.lift_command_areas = self.model.data.to_landunit(data=lift_command_areas, fn=None)
+                        self.var.lift_command_areas = self.model.data.to_HRU(data=lift_command_areas, fn=None)
             else:
                 self.var.reservoir_command_areas = self.var.full_compressed(-1, dtype=np.int32)
 
@@ -221,7 +221,7 @@ class water_demand:
              
             # water withdrawal
             # 1. domestic (surface + ground)
-            domestic_water_demand = self.model.data.to_grid(landunit_data=domestic_water_demand, fn='mean')
+            domestic_water_demand = self.model.data.to_grid(HRU_data=domestic_water_demand, fn='mean')
             domestic_water_demand_m3 = self.model.data.grid.MtoM3(domestic_water_demand)
             del domestic_water_demand
             
@@ -230,7 +230,7 @@ class water_demand:
             domestic_return_flow_m = self.model.data.grid.M3toM(domestic_withdrawal_m3 * (1 - domestic_water_efficiency))
 
             # 2. industry (surface + ground)
-            industry_water_demand = self.model.data.to_grid(landunit_data=industry_water_demand, fn='mean')
+            industry_water_demand = self.model.data.to_grid(HRU_data=industry_water_demand, fn='mean')
             industry_water_demand_m3 = self.model.data.grid.MtoM3(industry_water_demand)
             del industry_water_demand
             
@@ -239,7 +239,7 @@ class water_demand:
             industry_return_flow_m = self.model.data.grid.M3toM(industry_withdrawal_m3 * (1 - industry_water_efficiency))
 
             # 3. livestock (surface)
-            livestock_water_demand = self.model.data.to_grid(landunit_data=livestock_water_demand, fn='mean')
+            livestock_water_demand = self.model.data.to_grid(HRU_data=livestock_water_demand, fn='mean')
             livestock_water_demand_m3 = self.model.data.grid.MtoM3(livestock_water_demand)
             del livestock_water_demand
             
@@ -254,7 +254,7 @@ class water_demand:
                 addtoevapotrans_m,
             ) = self.farmers.abstract_water(
                 cell_area = self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
-                landunit_to_grid=self.var.landunit_to_grid,
+                HRU_to_grid=self.var.HRU_to_grid,
                 totalPotIrrConsumption=pot_irrConsumption.get() if self.model.args.use_gpu else pot_irrConsumption,
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,
@@ -302,7 +302,7 @@ class water_demand:
                 self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
                 np.put(self.model.data.grid.lakeResStorage, self.model.data.grid.decompress_LR, self.model.data.grid.lakeResStorageC)
 
-            returnFlow = self.model.data.to_grid(landunit_data=return_flow_irrigation_m, fn='mean') + domestic_return_flow_m + industry_return_flow_m + livestock_return_flow_m
+            returnFlow = self.model.data.to_grid(HRU_data=return_flow_irrigation_m, fn='mean') + domestic_return_flow_m + industry_return_flow_m + livestock_return_flow_m
                 
             if checkOption('calcWaterBalance'):
                 self.model.waterbalance_module.waterBalanceCheck(

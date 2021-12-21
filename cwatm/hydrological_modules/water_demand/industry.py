@@ -44,7 +44,7 @@ class waterdemand_industry:
     **Functions**
     """
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
     def initial(self):
@@ -103,7 +103,7 @@ class waterdemand_industry:
             self.model.data.grid.gt,
             industry_water_demand,
             self.model.data.grid.mask,
-            self.var.var_to_landunit_uncompressed,
+            self.var.var_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
@@ -117,7 +117,7 @@ class waterdemand_industry:
             self.model.data.grid.gt,
             industry_water_consumption,
             self.model.data.grid.mask,
-            self.var.var_to_landunit_uncompressed,
+            self.var.var_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
@@ -126,7 +126,7 @@ class waterdemand_industry:
         industry_water_consumption = self.var.M3toM(industry_water_consumption)
 
         efficiency = divideValues(industry_water_consumption, industry_water_demand)
-        efficiency = self.model.data.to_grid(landunit_data=efficiency, fn='max')
+        efficiency = self.model.data.to_grid(HRU_data=efficiency, fn='max')
         
         assert (efficiency <= 1).all()
         assert (efficiency >= 0).all()

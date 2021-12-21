@@ -35,7 +35,7 @@ class evaporation(object):
 
     def __init__(self, model):
         """The constructor evaporation"""
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
         
     def dynamic(self, ETRef):

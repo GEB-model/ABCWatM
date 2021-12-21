@@ -46,7 +46,7 @@ class waterdemand_domestic:
 
 
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
     def initial(self):
@@ -111,7 +111,7 @@ class waterdemand_domestic:
             self.model.data.grid.gt,
             domestic_water_demand,
             self.model.data.grid.mask,
-            self.var.var_to_landunit_uncompressed,
+            self.var.var_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
@@ -125,7 +125,7 @@ class waterdemand_domestic:
             self.model.data.grid.gt,
             domestic_water_consumption,
             self.model.data.grid.mask,
-            self.var.var_to_landunit_uncompressed,
+            self.var.var_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
@@ -134,7 +134,7 @@ class waterdemand_domestic:
         domestic_water_consumption = self.var.M3toM(domestic_water_consumption)
 
         efficiency = divideValues(domestic_water_consumption, domestic_water_demand)
-        efficiency = self.model.data.to_grid(landunit_data=efficiency, fn='max')
+        efficiency = self.model.data.to_grid(HRU_data=efficiency, fn='max')
         
         assert (efficiency <= 1).all()
         assert (efficiency >= 0).all()

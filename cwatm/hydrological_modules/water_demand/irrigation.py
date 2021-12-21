@@ -60,7 +60,7 @@ class waterdemand_irrigation:
     """
 
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
     def initial(self):

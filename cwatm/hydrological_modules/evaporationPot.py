@@ -54,7 +54,7 @@ class evaporationPot(object):
         """
         The constructor evaporationPot
         """
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
         
     def initial(self):
@@ -68,7 +68,7 @@ class evaporationPot(object):
 
         #self.var.sumETRef = globals.inZero.copy()
         self.var.cropCorrect = loadmap('crop_correct')
-        self.var.cropCorrect = self.model.data.to_landunit(data=self.var.cropCorrect, fn=None)
+        self.var.cropCorrect = self.model.data.to_HRU(data=self.var.cropCorrect, fn=None)
 
     def dynamic(self):
         """
@@ -121,9 +121,9 @@ class evaporationPot(object):
         if Flags['check']:
             checkmap('TavgMaps', "", Tavg, True, True, Tavg)
 
-        TMax = self.model.data.to_landunit(data=TMax, fn=None)  # checked
-        TMin = self.model.data.to_landunit(data=TMin, fn=None)  # checked
-        Tavg = self.model.data.to_landunit(data=Tavg, fn=None)  # checked
+        TMax = self.model.data.to_HRU(data=TMax, fn=None)  # checked
+        TMin = self.model.data.to_HRU(data=TMin, fn=None)  # checked
+        Tavg = self.model.data.to_HRU(data=Tavg, fn=None)  # checked
 
         if checkOption('TemperatureInKelvin'):
             TMin -= ZeroKelvin
@@ -139,7 +139,7 @@ class evaporationPot(object):
         Psurf = self.model.readmeteo_module.downscaling2(Psurf)
         # [Pa] to [KPa]
         Psurf = Psurf * 0.001
-        Psurf = self.model.data.to_landunit(data=Psurf, fn=None)  # checked
+        Psurf = self.model.data.to_HRU(data=Psurf, fn=None)  # checked
 
         if returnBool('useHuss'):
             #self.var.Qair = readnetcdf2('QAirMaps', dateVar['currDate'], addZeros = True, meteo = True)
@@ -149,7 +149,7 @@ class evaporationPot(object):
             #self.var.Qair = readnetcdf2('RhsMaps', dateVar['currDate'], addZeros = True, meteo = True)
             Qair = readmeteodata('RhsMaps', dateVar['currDate'], addZeros=True, mapsscale =self.model.data.grid.meteomapsscale)
         Qair = self.model.readmeteo_module.downscaling2(Qair)
-        Qair = self.model.data.to_landunit(data=Qair, fn=None)  # checked
+        Qair = self.model.data.to_HRU(data=Qair, fn=None)  # checked
 
         # Fao 56 Page 36
         # calculate actual vapour pressure
@@ -192,8 +192,8 @@ class evaporationPot(object):
         Rsds = Rsds * WtoMJ
         Rsdl = Rsdl * WtoMJ
 
-        Rsdl = self.model.data.to_landunit(data=Rsdl, fn=None)  # checked
-        Rsds = self.model.data.to_landunit(data=Rsds, fn=None)  # checked
+        Rsdl = self.model.data.to_HRU(data=Rsdl, fn=None)  # checked
+        Rsds = self.model.data.to_HRU(data=Rsds, fn=None)  # checked
 
         # Up longwave radiation [MJ/m2/day]
         RLN = RNUp - Rsdl
@@ -201,9 +201,9 @@ class evaporationPot(object):
 
         # TODO: Make albedo dynamic based on land type
         albedoLand = readnetcdf2('albedoLand', dateVar['currDate'], useDaily='month')
-        albedoLand = self.model.data.to_landunit(data=albedoLand, fn=None)  # checked
+        albedoLand = self.model.data.to_HRU(data=albedoLand, fn=None)  # checked
         albedoOpenWater = readnetcdf2('albedoWater', dateVar['currDate'], useDaily='month')
-        albedoOpenWater = self.model.data.to_landunit(data=albedoOpenWater, fn=None)  # checked
+        albedoOpenWater = self.model.data.to_HRU(data=albedoOpenWater, fn=None)  # checked
         RNA = np.maximum(((1 - albedoLand) * Rsds - RLN) / LatHeatVap, 0.0)
         RNAWater = np.maximum(((1 - albedoOpenWater) * Rsds - RLN) / LatHeatVap, 0.0)
 
@@ -219,7 +219,7 @@ class evaporationPot(object):
         # wind speed maps at 10m [m/s]
         Wind = readmeteodata('WindMaps', dateVar['currDate'], addZeros=True, mapsscale = self.model.data.grid.meteomapsscale)
         Wind = self.model.readmeteo_module.downscaling2(Wind)
-        Wind = self.model.data.to_landunit(data=Wind, fn=None)  # checked
+        Wind = self.model.data.to_HRU(data=Wind, fn=None)  # checked
 
         # Adjust wind speed for measurement height: wind speed measured at
         # 10 m, but needed at 2 m height

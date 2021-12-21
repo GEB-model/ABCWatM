@@ -171,7 +171,7 @@ class readmeteo(object):
         self.var.demAnomaly = compressArray(demAnomaly[cutmapVfine[2]:cutmapVfine[3], cutmapVfine[0]:cutmapVfine[1]],pcr = False)
         """
 
-        self.model.data.landunit.Precipitation = self.model.data.landunit.full_compressed(0, dtype=np.float32)
+        self.model.data.HRU.Precipitation = self.model.data.HRU.full_compressed(0, dtype=np.float32)
 
 # --------------------------------------------------------------------------
 # --------------------------------------------------------------------------
@@ -327,4 +327,4 @@ class readmeteo(object):
         #--------------------------------------------------------
         # conversions
 
-        self.model.data.to_landunit(varname="Precipitation", fn=None)  # checked
+        self.model.data.to_HRU(varname="Precipitation", fn=None)  # checked

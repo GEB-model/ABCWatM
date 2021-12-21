@@ -76,7 +76,7 @@ class snow_frost(object):
 
 
     def __init__(self, model):
-        self.var = model.data.landunit
+        self.var = model.data.HRU
         self.model = model
 
 
@@ -116,7 +116,7 @@ class snow_frost(object):
 
         #self.var.DeltaTSnow =  uNorm[self.var.numberSnowLayers] * ElevationStD * loadmap('TemperatureLapseRate')
         #self.var.DeltaTSnow = 0.9674 * ElevationStD * loadmap('TemperatureLapseRate')
-        self.var.DeltaTSnow = ElevationStD * self.model.data.to_landunit(data=loadmap('TemperatureLapseRate'), fn=None)  # checked
+        self.var.DeltaTSnow = ElevationStD * self.model.data.to_HRU(data=loadmap('TemperatureLapseRate'), fn=None)  # checked
 
 
         self.var.SnowDayDegrees = 0.9856
@@ -137,8 +137,8 @@ class snow_frost(object):
 
         # initialize snowcovers as many as snow layers -> read them as SnowCover1 , SnowCover2 ...
         # SnowCover1 is the highest zone
-        SnowCoverS = np.tile(self.model.data.to_landunit(data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None), (self.var.numberSnowLayers, 1))
-        self.var.SnowCoverS = self.model.data.landunit.load_initial("SnowCoverS", default=SnowCoverS)
+        SnowCoverS = np.tile(self.model.data.to_HRU(data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None), (self.var.numberSnowLayers, 1))
+        self.var.SnowCoverS = self.model.data.HRU.load_initial("SnowCoverS", default=SnowCoverS)
 
         # Pixel-average initial snow cover: average of values in 3 elevation
         # zones
@@ -151,7 +151,7 @@ class snow_frost(object):
         self.var.FrostIndexThreshold = loadmap('FrostIndexThreshold')
         self.var.SnowWaterEquivalent = loadmap('SnowWaterEquivalent')
 
-        self.var.FrostIndex = self.model.data.landunit.load_initial('FrostIndex', default=self.model.data.landunit.full_compressed(0, dtype=np.float32))
+        self.var.FrostIndex = self.model.data.HRU.load_initial('FrostIndex', default=self.model.data.HRU.full_compressed(0, dtype=np.float32))
 
         self.var.extfrostindex = False
         if "morefrost" in binding:
