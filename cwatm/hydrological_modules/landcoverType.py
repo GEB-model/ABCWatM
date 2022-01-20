@@ -543,12 +543,12 @@ class landcoverType(object):
         if self.model.args.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
-        cover_cropCoefficientNC = self.model.data.to_HRU(
+        forest_cropCoefficientNC = self.model.data.to_HRU(
             data=readnetcdf2('forest_cropCoefficientNC', globals.dateVar['10day'], "10day"),
             fn=None
         )
         
-        self.var.cropKC[self.var.land_use_type == 0] = cover_cropCoefficientNC[self.var.land_use_type == 0]
+        self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(ETRef)
