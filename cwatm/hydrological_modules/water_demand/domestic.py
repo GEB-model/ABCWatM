@@ -73,7 +73,9 @@ class waterdemand_domestic:
             self.domConsumptionVar = "domesticNettoDemand"
         
         self.domestic_water_demand_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domWithdrawalVar, self.model.bounds)
+        self.domestic_water_demand_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domWithdrawalVar, self.model.bounds)
         self.domestic_water_consumption_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domConsumptionVar, self.model.bounds)
+        self.domestic_water_consumption_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domConsumptionVar, self.model.bounds)
 
     def dynamic(self):
         """
@@ -105,7 +107,11 @@ class waterdemand_domestic:
         
 
         # transform from mio m3 per year (or month) to m/day
-        domestic_water_demand = self.domestic_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        if globals.dateVar['currDate'].year > 2010:
+            domestic_water_demand_ds = self.domestic_water_demand_ds_SSP2
+        else:
+            domestic_water_demand_ds = self.domestic_water_demand_ds
+        domestic_water_demand = domestic_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         domestic_water_demand = downscale_volume(
             self.domestic_water_demand_ds.gt,
             self.model.data.grid.gt,
@@ -119,7 +125,11 @@ class waterdemand_domestic:
             domestic_water_demand = cp.array(domestic_water_demand)
         domestic_water_demand = self.var.M3toM(domestic_water_demand)
 
-        domestic_water_consumption = self.domestic_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
+        if globals.dateVar['currDate'].year > 2010:
+            domestic_water_consumption_ds = self.domestic_water_consumption_ds_SSP2
+        else:
+            domestic_water_consumption_ds = self.domestic_water_consumption_ds
+        domestic_water_consumption = domestic_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
         domestic_water_consumption = downscale_volume(
             self.domestic_water_consumption_ds.gt,
             self.model.data.grid.gt,

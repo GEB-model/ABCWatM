@@ -132,7 +132,6 @@ def Calendar(input,errorNo = 0):
                 raise CWATMError(msg)
             elif errorNo > 1:
                 return -99999
-
     return date
 
 

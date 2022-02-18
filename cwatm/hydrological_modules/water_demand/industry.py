@@ -72,6 +72,8 @@ class waterdemand_industry:
 
         self.industry_water_demand_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indWithdrawalVar, self.model.bounds)
         self.industry_water_consumption_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indConsumptionVar, self.model.bounds)
+        self.industry_water_demand_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indWithdrawalVar, self.model.bounds)
+        self.industry_water_consumption_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indConsumptionVar, self.model.bounds)
 
     def dynamic(self):
         if self.industryTime == 'monthly':
@@ -97,7 +99,11 @@ class waterdemand_industry:
         
 
         # transform from mio m3 per year (or month) to m/day
-        industry_water_demand = self.industry_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        if globals.dateVar['currDate'].year > 2010:
+            industry_water_demand_ds = self.industry_water_demand_ds_SSP2
+        else:
+            industry_water_demand_ds = self.industry_water_demand_ds
+        industry_water_demand = industry_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         industry_water_demand = downscale_volume(
             self.industry_water_demand_ds.gt,
             self.model.data.grid.gt,
@@ -111,7 +117,11 @@ class waterdemand_industry:
             industry_water_demand = cp.array(industry_water_demand)
         industry_water_demand = self.var.M3toM(industry_water_demand)
 
-        industry_water_consumption = self.industry_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
+        if globals.dateVar['currDate'].year > 2010:
+            industry_water_consumption_ds = self.industry_water_consumption_ds_SSP2
+        else:
+            industry_water_consumption_ds = self.industry_water_consumption_ds
+        industry_water_consumption = industry_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
         industry_water_consumption = downscale_volume(
             self.industry_water_consumption_ds.gt,
             self.model.data.grid.gt,

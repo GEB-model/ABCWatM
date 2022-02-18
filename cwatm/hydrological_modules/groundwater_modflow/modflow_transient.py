@@ -224,7 +224,7 @@ class groundwater_modflow:
 
         self.modflow_test = os.path.join(self.modflow.working_directory, 'modflow_test.csv')
         with open(self.modflow_test, 'w') as f:
-            f.write('mean_head,storage_change,recharge,abstraction,outflow\n')
+            f.write('date,mean_head,storage_change,recharge,abstraction,outflow\n')
 
 
     def dynamic(self, groundwater_recharge, groundwater_abstraction):
@@ -260,7 +260,7 @@ class groundwater_modflow:
         outflow = np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area) + (groundwater_outflow * self.modflow_cell_area).sum()
         inflow = np.nansum(groundwater_recharge_modflow * self.modflow_cell_area)
         with open(self.modflow_test, 'a') as f:
-            f.write(f'{np.nanmean(self.model.data.modflow.head )},{storage_change},{np.nansum(groundwater_recharge_modflow * self.modflow_resolution ** 2)},{np.nansum(groundwater_abstraction_modflow * self.modflow_resolution ** 2)},{(groundwater_outflow * self.modflow_resolution ** 2).sum()}\n')
+            f.write(f'{globals.dateVar["currDate"].strftime()}{np.nanmean(self.model.data.modflow.head )},{storage_change},{np.nansum(groundwater_recharge_modflow * self.modflow_resolution ** 2)},{np.nansum(groundwater_abstraction_modflow * self.modflow_resolution ** 2)},{(groundwater_outflow * self.modflow_resolution ** 2).sum()}\n')
         if not isclose(storage_change, inflow - outflow, rel_tol=0.02) and not isclose(storage_change, inflow - outflow, abs_tol=10_000_000):
             print('modflow discrepancy', storage_change, inflow - outflow)
 
