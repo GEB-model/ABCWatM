@@ -275,7 +275,7 @@ class routing_kinematic(object):
         #self.var.chanLengthPcr = decompress(self.var.chanLength)
 
         if checkOption('calcWaterBalance'):
-            self.var.catchmentAll = (loadmap('MaskMap')*0.).astype(np.int)
+            self.var.catchmentAll = (loadmap('MaskMap')*0.).astype(int)
             #self.var.catchmentNo = int(loadmap('CatchmentNo'))
             self.var.sumbalance = 0
 

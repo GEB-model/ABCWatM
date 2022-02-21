@@ -21,7 +21,7 @@ class groundwater_modflow:
     def get_corrected_modflow_cell_area(self):
         return np.bincount(
             self.indices['ModFlow_index'],
-            weights=np.invert(self.var.mask.astype(np.bool)).ravel()[self.indices['CWatM_index']] * self.indices['area'],
+            weights=np.invert(self.var.mask.astype(bool)).ravel()[self.indices['CWatM_index']] * self.indices['area'],
             minlength=self.modflow.basin.size
         ).reshape(self.modflow.basin.shape)
 
