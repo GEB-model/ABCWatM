@@ -128,8 +128,8 @@ class readmeteo(object):
                 if (latldd != latmeteo) or (lonldd != lonmeteo):
                     cutmapGlobal[0] = int(cutmap[0] / maskmapAttr['reso_mask_meteo'])
                     cutmapGlobal[2] = int(cutmap[2] / maskmapAttr['reso_mask_meteo'])
-                    cutmapGlobal[1] = int(cutmap[1] / maskmapAttr['reso_mask_meteo']+0.999)
-                    cutmapGlobal[3] = int(cutmap[3] / maskmapAttr['reso_mask_meteo']+0.999)
+                    cutmapGlobal[1] = int(cutmap[1] / maskmapAttr['reso_mask_meteo']+1)
+                    cutmapGlobal[3] = int(cutmap[3] / maskmapAttr['reso_mask_meteo']+1)
 
         # -------------------------------------------------------------------
 
@@ -212,7 +212,7 @@ class readmeteo(object):
         return input
 
 
-    def downscaling2(self,input, downscaleName = "", wc2 = 0 , wc4 = 0, downscale = 0):
+    def downscaling2(self, input, downscaleName="", wc2=0 , wc4=0, downscale=0):
         """
         Downscaling based on Delta method:
 
