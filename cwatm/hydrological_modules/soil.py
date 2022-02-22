@@ -394,9 +394,15 @@ class soil(object):
         satTerm2 = availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea])
         satTerm3 = availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea])
 
+        satTerm2[satTerm2 < 0] = 0
+        satTerm2[satTerm2 > 1] = 1
+        satTerm3[satTerm3 < 0] = 0
+        satTerm3[satTerm3 > 1] = 1
+        
         # Saturation term in Van Genuchten equation (always between 0 and 1)
         assert (satTerm2 >= 0).all() and (satTerm2 <= 1).all()
         assert (satTerm3 >= 0).all() and (satTerm3 <= 1).all()
+
 
         kUnSat2 = self.var.KSat2[bioarea] * np.sqrt(satTerm2) * np.square(1 - (1 - satTerm2 ** (1 / (self.var.lambda2[bioarea] / (self.var.lambda2[bioarea] + 1)))) ** (self.var.lambda2[bioarea] / (self.var.lambda2[bioarea] + 1)))
         kUnSat3 = self.var.KSat3[bioarea] * np.sqrt(satTerm3) * np.square(1 - (1 - satTerm3 ** (1 / (self.var.lambda3[bioarea] / (self.var.lambda3[bioarea] + 1)))) ** (self.var.lambda3[bioarea] / (self.var.lambda3[bioarea] + 1)))
