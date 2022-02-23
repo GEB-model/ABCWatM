@@ -204,7 +204,7 @@ def loadsetclone(self,name):
                 # 10 because that includes all valid LDD values [1-9]
                 mapnp[mapnp > 10] = 0
                 mapnp[mapnp < -10] = 0
-                mapnp = np.invert(mapnp.astype(np.bool))
+                mapnp = np.invert(mapnp.astype(bool))
 
                 flagmap = True
 

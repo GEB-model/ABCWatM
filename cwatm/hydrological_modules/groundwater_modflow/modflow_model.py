@@ -157,7 +157,7 @@ class ModFlowSimulation:
         hashable_dict = {}
         for key, value in arguments.items():
             if isinstance(value, np.ndarray):
-                value = str(value.tostring())
+                value = str(value.tobytes())
             hashable_dict[key] = value
 
         current_hash = hashlib.md5(json.dumps(hashable_dict, sort_keys=True).encode()).digest()

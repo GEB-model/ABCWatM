@@ -87,7 +87,7 @@ class groundwater_modflow:
         nlay = int(loadmap('nlay'))
 
         with rasterio.open(cbinding('modflow_mask'), 'r') as src:
-            modflow_basin = (~src.read(1).astype(np.bool))  # read in as 3-dimensional array (nlay, nrows, ncols).
+            modflow_basin = (~src.read(1).astype(bool))  # read in as 3-dimensional array (nlay, nrows, ncols).
             self.domain = {
                 'rowsize': abs(src.profile['transform'].e),
                 'colsize': abs(src.profile['transform'].a),
