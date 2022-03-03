@@ -103,7 +103,12 @@ class waterdemand_livestock:
         downscale_mask = ((land_use_type != 1) | (self.var.land_owners != -1))
 
         # transform from mio m3 per year (or month) to m/day
-        livestock_water_demand = self.livestock_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        if globals.dateVar['currDate'].year > 2010:
+            livestock_water_demand_ds = self.livestock_water_demand_ds_SSP2
+        else:
+            livestock_water_demand_ds = self.livestock_water_demand_ds
+
+        livestock_water_demand = livestock_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
         livestock_water_demand = downscale_volume(
             self.livestock_water_demand_ds.gt,
             self.model.data.grid.gt,
