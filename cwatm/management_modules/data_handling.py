@@ -943,7 +943,6 @@ def readmeteodata(name, date, value='None', addZeros = False, zeros = 0.0,mapssc
     cutcheck = True
     if cutcheckmask == cutcheckmap: cutcheck = False
 
-
     if cutcheck:
         mapnp = nf1.variables[value][idx, cutmapFine[2]:cutmapFine[3], cutmapFine[0]:cutmapFine[1]].astype(np.float64)
     else:
@@ -955,11 +954,9 @@ def readmeteodata(name, date, value='None', addZeros = False, zeros = 0.0,mapssc
     except:
         ii =1
 
+    assert not np.isnan(mapnp).any()
+
     nf1.close()
-
-    # add zero values to maps in order to supress missing values
-    if addZeros: mapnp[np.isnan(mapnp)] = zeros
-
 
     if mapsscale:  # if meteo maps have the same extend as the other spatial static maps -> meteomapsscale = True
         if maskinfo['shapeflat'][0]!= mapnp.size:
@@ -1713,7 +1710,7 @@ def divideValues(x, y, default = 0.):
     # have to solve this without err handler to get the error message back
     return np.nan_to_num(x / y)
 
-@njit
+@njit(cache=True)
 def downscale_volume(
     data_gt: Tuple[float, float, float, float, float, float],
     model_gt: Tuple[float, float, float, float, float, float],

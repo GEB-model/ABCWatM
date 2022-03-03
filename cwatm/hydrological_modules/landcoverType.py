@@ -21,17 +21,16 @@ from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import checkOption, readnetcdf2, returnBool, cbinding, binding, loadmap, divideValues
 
 
-@njit
+@njit(cache=True)
 def interpolate_kc(stage_start, stage_end, crop_progress, stage_start_kc, stage_end_kc):
     stage_progress = (crop_progress - stage_start) / (stage_end - stage_start)
     return (stage_end_kc - stage_start_kc) * stage_progress + stage_start_kc
 
-@njit
-def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days_map, crop_stage_data, kc_crop_stage):
+@njit(cache=True)
+def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age, crop_stage_data, kc_crop_stage):
     shape = crop_map.shape
     crop_map = crop_map.ravel()
     crop_age_days_map = crop_age_days_map.ravel()
-    crop_harvest_age_days_map = crop_harvest_age_days_map.ravel()
     
     kc = np.full(crop_map.size, np.nan, dtype=np.float32)
 
@@ -39,7 +38,7 @@ def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days_map, crop_sta
         crop = crop_map[i]
         if crop != -1:
             age_days = crop_age_days_map[i]
-            harvest_day = crop_harvest_age_days_map[i]
+            harvest_day = crop_harvest_age[crop]
             crop_progress = age_days / harvest_day
             stage = np.searchsorted(crop_stage_data[crop], crop_progress, side='left')
             if stage == 0:
@@ -536,7 +535,7 @@ class landcoverType(object):
         self.var.cropKC = get_crop_kc(
             self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
             self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
-            self.var.crop_harvest_age_days_map.get() if self.model.args.use_gpu else self.var.crop_harvest_age_days_map,
+            self.model.agents.farmers.harvest_age,
             self.crop_stage_data,
             self.kc_crop_stage
         )

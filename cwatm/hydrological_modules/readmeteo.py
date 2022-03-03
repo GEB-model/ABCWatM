@@ -128,8 +128,8 @@ class readmeteo(object):
                 if (latldd != latmeteo) or (lonldd != lonmeteo):
                     cutmapGlobal[0] = int(cutmap[0] / maskmapAttr['reso_mask_meteo'])
                     cutmapGlobal[2] = int(cutmap[2] / maskmapAttr['reso_mask_meteo'])
-                    cutmapGlobal[1] = int(cutmap[1] / maskmapAttr['reso_mask_meteo']+1)
-                    cutmapGlobal[3] = int(cutmap[3] / maskmapAttr['reso_mask_meteo']+1)
+                    cutmapGlobal[1] = int(cutmap[1] / maskmapAttr['reso_mask_meteo']+.999)
+                    cutmapGlobal[3] = int(cutmap[3] / maskmapAttr['reso_mask_meteo']+.999) + 1
 
         # -------------------------------------------------------------------
 
