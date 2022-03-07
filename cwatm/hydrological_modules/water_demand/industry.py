@@ -109,7 +109,7 @@ class waterdemand_industry:
             self.model.data.grid.gt,
             industry_water_demand,
             self.model.data.grid.mask,
-            self.var.var_to_HRU_uncompressed,
+            self.model.data.grid_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
@@ -127,7 +127,7 @@ class waterdemand_industry:
             self.model.data.grid.gt,
             industry_water_consumption,
             self.model.data.grid.mask,
-            self.var.var_to_HRU_uncompressed,
+            self.model.data.grid_to_HRU_uncompressed,
             downscale_mask,
             self.var.land_use_ratio
         )
