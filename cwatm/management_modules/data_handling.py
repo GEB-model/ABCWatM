@@ -1716,7 +1716,7 @@ def downscale_volume(
     model_gt: Tuple[float, float, float, float, float, float],
     data: np.ndarray,
     mask: np.ndarray,
-    var_to_HRU_uncompressed: np.ndarray,
+    grid_to_HRU_uncompressed: np.ndarray,
     downscale_mask: np.ndarray,
     HRU_land_size: np.ndarray
 ) -> np.ndarray:
@@ -1764,9 +1764,11 @@ def downscale_volume(
                 for xvar in range(x_left, x_right):
                     if mask[yvar, xvar] == False:
                         k = yvar * xvarsize + xvar
-                        HRU_right = var_to_HRU_uncompressed[k]
+                        HRU_right = grid_to_HRU_uncompressed[k]
+                        # assert HRU_right != -1
                         if k > 0:
-                            HRU_left = var_to_HRU_uncompressed[k-1]
+                            HRU_left = grid_to_HRU_uncompressed[k-1]
+                            # assert HRU_left != -1
                         else:
                             HRU_left = 0
                         land_area_cell += (downscale_invmask[HRU_left: HRU_right] * HRU_land_size[HRU_left: HRU_right]).sum()
@@ -1777,9 +1779,11 @@ def downscale_volume(
                     for xvar in range(x_left, x_right):
                         if mask[yvar, xvar] == False:
                             k = yvar * xvarsize + xvar
-                            HRU_right = var_to_HRU_uncompressed[k]
+                            HRU_right = grid_to_HRU_uncompressed[k]
+                            # assert HRU_right != -1
                             if k > 0:
-                                HRU_left = var_to_HRU_uncompressed[k-1]
+                                HRU_left = grid_to_HRU_uncompressed[k-1]
+                                # assert HRU_left != -1
                             else:
                                 HRU_left = 0
                             downscaled_array[HRU_left: HRU_right] = downscale_invmask[HRU_left: HRU_right] * HRU_land_size[HRU_left: HRU_right] / land_area_cell * data[y, x]
