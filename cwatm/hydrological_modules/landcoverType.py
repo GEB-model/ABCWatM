@@ -405,6 +405,8 @@ class landcoverType(object):
         # self.var.ActualPumpingRate = 0
 
         crop_factors = self.farmers.get_crop_factors()
+
+        self.var.cropKC = self.var.full_compressed(np.nan, dtype=np.float32)
         
         self.crop_stage_data = np.zeros((26, 4), dtype=np.float32)
         self.crop_stage_data[:, 0] = crop_factors['L_ini']
@@ -564,8 +566,8 @@ class landcoverType(object):
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
 
-        self.var.actual_transpiration_crop += self.var.actTransTotal
-        self.var.potential_transpiration_crop += potTranspiration
+        self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal[self.var.crop_map != -1]
+        self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration[self.var.crop_map != -1]
 
         assert not np.isnan(interflow).any()
         assert not np.isnan(groundwater_recharge).any()
