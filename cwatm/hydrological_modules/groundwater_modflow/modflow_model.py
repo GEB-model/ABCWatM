@@ -55,7 +55,7 @@ class ModFlowSimulation:
             os.makedirs(self.working_directory)
         self.verbose = verbose
 
-        arguments = locals()
+        arguments = dict(locals())
         arguments.pop('self')
         arguments.pop('model')
         self.hash_file = os.path.join(self.working_directory, 'input_hash')
@@ -68,7 +68,7 @@ class ModFlowSimulation:
                     sim_name=self.name,
                     version='mf6',
                     exe_name=os.path.join(folder, 'mf6'),
-                    sim_ws=self.working_directory,
+                    sim_ws=os.path.realpath(self.working_directory),
                     memory_print_option='all'
                 )
                 
@@ -154,6 +154,7 @@ class ModFlowSimulation:
         self.load_bmi()
 
     def load_from_disk(self, arguments):
+        return False
         hashable_dict = {}
         for key, value in arguments.items():
             if isinstance(value, np.ndarray):
@@ -180,7 +181,7 @@ class ModFlowSimulation:
         """
         parse libmf6.so and libmf6.dll stdout file
         """
-        fpth = os.path.join(model_ws, 'mfsim.stdout')
+        fpth = os.path.join('mfsim.stdout')
         return success, open(fpth).readlines()
 
     def load_bmi(self):
@@ -194,17 +195,17 @@ class ModFlowSimulation:
         else:
             raise ValueError(f'Platform {platform.system()} not recognized.')
 
-        # modflow requires the real path (no symlinks etc.)
-        library_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), libary_name))
-        try:
-            self.mf6 = XmiWrapper(library_path)
-        except Exception as e:
-            print("Failed to load " + library_path)
-            print("with message: " + str(e))
-            self.bmi_return(success, self.working_directory)
-            raise
-
         with cd(self.working_directory):
+            # modflow requires the real path (no symlinks etc.)
+            library_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), libary_name))
+            assert os.path.exists(library_path)
+            try:
+                self.mf6 = XmiWrapper(library_path)
+            except Exception as e:
+                print("Failed to load " + library_path)
+                print("with message: " + str(e))
+                self.bmi_return(success, self.working_directory)
+                raise
 
             # modflow requires the real path (no symlinks etc.)
             config_file = os.path.realpath('mfsim.nam')

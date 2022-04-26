@@ -3,9 +3,9 @@ from pathlib import Path
 from cwatm import __version__, __author__, __email__
 
 setup(
-      name='CWatM',
+      name='ABCWatM',
       version=__version__,
-      description='The Community Water Model: An open source hydrological model',
+      description='The Community Water Model: An open source hydrological model - adapted version for coupling to ABM',
       long_description=Path("README.md").read_text(encoding="utf-8"),
       long_description_content_type="text/x-rst",
       license='GPLv3',
