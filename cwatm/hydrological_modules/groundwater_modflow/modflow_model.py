@@ -154,7 +154,6 @@ class ModFlowSimulation:
         self.load_bmi()
 
     def load_from_disk(self, arguments):
-        return False
         hashable_dict = {}
         for key, value in arguments.items():
             if isinstance(value, np.ndarray):
