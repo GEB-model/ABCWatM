@@ -157,7 +157,7 @@ class ModFlowSimulation:
         hashable_dict = {}
         for key, value in arguments.items():
             if isinstance(value, np.ndarray):
-                value = str(value.tostring())
+                value = str(value.tobytes())
             hashable_dict[key] = value
 
         current_hash = hashlib.md5(json.dumps(hashable_dict, sort_keys=True).encode()).digest()
@@ -194,17 +194,17 @@ class ModFlowSimulation:
         else:
             raise ValueError(f'Platform {platform.system()} not recognized.')
 
-        # modflow requires the real path (no symlinks etc.)
-        library_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), libary_name))
-        try:
-            self.mf6 = XmiWrapper(library_path)
-        except Exception as e:
-            print("Failed to load " + library_path)
-            print("with message: " + str(e))
-            self.bmi_return(success, self.working_directory)
-            raise
-
         with cd(self.working_directory):
+            # modflow requires the real path (no symlinks etc.)
+            library_path = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), libary_name))
+            assert os.path.exists(library_path)
+            try:
+                self.mf6 = XmiWrapper(library_path)
+            except Exception as e:
+                print("Failed to load " + library_path)
+                print("with message: " + str(e))
+                self.bmi_return(success, self.working_directory)
+                raise
 
             # modflow requires the real path (no symlinks etc.)
             config_file = os.path.realpath('mfsim.nam')
