@@ -521,7 +521,7 @@ class lakes_reservoirs(object):
             # self.var.QLakeOutM3Dt = globals.inZero.copy()
             # np.put(self.var.QLakeOutM3Dt,self.var.LakeIndex,QLakeOutM3DtC)
             #if  (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
-            if self.model.save_initial and (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
+            if self.model.save_initial_data and (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
                 np.put(self.var.lakeVolume, self.var.decompress_LR, self.var.lakeVolumeM3C)
                 np.put(self.var.lakeInflow, self.var.decompress_LR, self.var.lakeInflowOldC)
                 np.put(self.var.lakeOutflow, self.var.decompress_LR, self.var.lakeOutflowC)
