@@ -39,30 +39,22 @@ def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age, crop_stage_data, 
         if crop != -1:
             age_days = crop_age_days_map[i]
             harvest_day = crop_harvest_age[crop]
-            crop_progress = age_days / harvest_day
-            stage = np.searchsorted(crop_stage_data[crop], crop_progress, side='left')
-            if stage == 0:
-                field_kc = kc_crop_stage[crop, 0]
-            elif stage == 1:
-                field_kc = interpolate_kc(
-                    stage_start=crop_stage_data[crop, 0],
-                    stage_end=crop_stage_data[crop, 1],
-                    crop_progress=crop_progress,
-                    stage_start_kc=kc_crop_stage[crop, 0],
-                    stage_end_kc=kc_crop_stage[crop, 1]
-                )
-            elif stage == 2:
-                field_kc = kc_crop_stage[crop, 1]
+            crop_progress = age_days / harvest_day * 100
+            d1, d2, d3, d4 = crop_stage_data[crop]
+            kc1, kc2, kc3 = kc_crop_stage[crop]
+            assert d1 + d2 + d3 + d4 == 100
+            if crop_progress < d1:
+                field_kc = kc1
+            elif crop_progress < d1 + d2:
+                field_kc = kc1 + (crop_progress - d1) * (kc2 - kc1) / d2
+            elif crop_progress < d1 + d2 + d3:
+                field_kc = kc2
             else:
-                assert stage == 3
-                field_kc = interpolate_kc(
-                    stage_start=crop_stage_data[crop, 2],
-                    stage_end=1,
-                    crop_progress=crop_progress,
-                    stage_start_kc=kc_crop_stage[crop, 1],
-                    stage_end_kc=kc_crop_stage[crop, 2]
-                )
+                assert age_days <= d1 + d2 + d3 + d4
+                field_kc = kc2 + (crop_progress - (d1 + d2 + d3)) * (kc3 - kc2) / d4
+            assert not np.isnan(field_kc)
             kc[i] = field_kc
+    
     return kc.reshape(shape)
 
 
@@ -404,20 +396,21 @@ class landcoverType(object):
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
 
-        crop_factors = self.farmers.get_crop_factors()
+        # crop_factors = self.farmers.get_crop_factors()
+        print('get crop factors properly')
 
-        self.var.cropKC = self.var.full_compressed(np.nan, dtype=np.float32)
+        # self.var.cropKC = self.var.full_compressed(np.nan, dtype=np.float32)
         
-        self.crop_stage_data = np.zeros((26, 4), dtype=np.float32)
-        self.crop_stage_data[:, 0] = crop_factors['L_ini']
-        self.crop_stage_data[:, 1] = crop_factors['L_dev']
-        self.crop_stage_data[:, 2] = crop_factors['L_mid']
-        self.crop_stage_data[:, 3] = crop_factors['L_late']
+        # self.crop_stage_data = np.zeros((26, 4), dtype=np.float32)
+        # self.crop_stage_data[:, 0] = crop_factors['L_ini']
+        # self.crop_stage_data[:, 1] = crop_factors['L_dev']
+        # self.crop_stage_data[:, 2] = crop_factors['L_mid']
+        # self.crop_stage_data[:, 3] = crop_factors['L_late']
 
-        self.kc_crop_stage = np.zeros((26, 3), dtype=np.float32)
-        self.kc_crop_stage[:, 0] = crop_factors['kc_ini']
-        self.kc_crop_stage[:, 1] = crop_factors['kc_mid']
-        self.kc_crop_stage[:, 2] = crop_factors['kc_end']
+        # self.kc_crop_stage = np.zeros((26, 3), dtype=np.float32)
+        # self.kc_crop_stage[:, 0] = crop_factors['kc_ini']
+        # self.kc_crop_stage[:, 1] = crop_factors['kc_mid']
+        # self.kc_crop_stage[:, 2] = crop_factors['kc_end']
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -538,8 +531,8 @@ class landcoverType(object):
             self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
             self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
             self.model.agents.farmers.harvest_age,
-            self.crop_stage_data,
-            self.kc_crop_stage
+            self.farmers.crop_stage_lengths,
+            self.farmers.crop_factors
         )
         if self.model.args.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)

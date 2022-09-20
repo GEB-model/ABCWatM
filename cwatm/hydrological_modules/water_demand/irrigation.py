@@ -90,6 +90,7 @@ class waterdemand_irrigation:
                 (self.var.maxtopwater - (self.var.topwater[paddy_irrigated_land] + self.var.natural_available_water_infiltration[paddy_irrigated_land]))
             ), 
             0.)
+        assert not np.isnan(pot_irrConsumption).any()
 
         nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
 
@@ -149,7 +150,9 @@ class waterdemand_irrigation:
             ),
             0.
         )
+        assert not np.isnan(pot_irrConsumption).any()
         # should not be bigger than infiltration capacity
         pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity)
         
+        assert not np.isnan(pot_irrConsumption).any()
         return pot_irrConsumption
