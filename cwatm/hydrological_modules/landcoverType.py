@@ -27,7 +27,7 @@ def interpolate_kc(stage_start, stage_end, crop_progress, stage_start_kc, stage_
     return (stage_end_kc - stage_start_kc) * stage_progress + stage_start_kc
 
 @njit(cache=True)
-def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age, crop_stage_data, kc_crop_stage):
+def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_lenght, crop_stage_data, kc_crop_stage):
     shape = crop_map.shape
     crop_map = crop_map.ravel()
     crop_age_days_map = crop_age_days_map.ravel()
@@ -38,7 +38,7 @@ def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age, crop_stage_data, 
         crop = crop_map[i]
         if crop != -1:
             age_days = crop_age_days_map[i]
-            harvest_day = crop_harvest_age[crop]
+            harvest_day = crop_growth_lenght[crop, season_idx]
             crop_progress = age_days / harvest_day * 100
             d1, d2, d3, d4 = crop_stage_data[crop]
             kc1, kc2, kc3 = kc_crop_stage[crop]
@@ -50,7 +50,7 @@ def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age, crop_stage_data, 
             elif crop_progress < d1 + d2 + d3:
                 field_kc = kc2
             else:
-                assert age_days <= d1 + d2 + d3 + d4
+                assert crop_progress <= d1 + d2 + d3 + d4
                 field_kc = kc2 + (crop_progress - (d1 + d2 + d3)) * (kc3 - kc2) / d4
             assert not np.isnan(field_kc)
             kc[i] = field_kc
@@ -396,22 +396,6 @@ class landcoverType(object):
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
 
-        # crop_factors = self.farmers.get_crop_factors()
-        print('get crop factors properly')
-
-        # self.var.cropKC = self.var.full_compressed(np.nan, dtype=np.float32)
-        
-        # self.crop_stage_data = np.zeros((26, 4), dtype=np.float32)
-        # self.crop_stage_data[:, 0] = crop_factors['L_ini']
-        # self.crop_stage_data[:, 1] = crop_factors['L_dev']
-        # self.crop_stage_data[:, 2] = crop_factors['L_mid']
-        # self.crop_stage_data[:, 3] = crop_factors['L_late']
-
-        # self.kc_crop_stage = np.zeros((26, 3), dtype=np.float32)
-        # self.kc_crop_stage[:, 0] = crop_factors['kc_ini']
-        # self.kc_crop_stage[:, 1] = crop_factors['kc_mid']
-        # self.kc_crop_stage[:, 2] = crop_factors['kc_end']
-
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
         riverbedExchangeM3 = self.model.data.grid.leakageriver_factor * self.var.cellArea * ((1 - self.var.capriseindex + 0.25) // 1)
@@ -527,10 +511,19 @@ class landcoverType(object):
             topwater_pre = self.var.topwater.copy()
 
 
+        if self.farmers.current_season == 'Kharif':
+            season_idx = 0
+        elif self.farmers.current_season == 'Rabi':
+            season_idx = 1
+        elif self.farmers.current_season == 'Summer':
+            season_idx = 2
+        else:
+            raise ValueError(f"Unknown season: {self.farmers.current_season}")
         self.var.cropKC = get_crop_kc(
+            season_idx,
             self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
             self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
-            self.model.agents.farmers.harvest_age,
+            self.model.agents.farmers.growth_length,
             self.farmers.crop_stage_lengths,
             self.farmers.crop_factors
         )
