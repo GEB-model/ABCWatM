@@ -592,7 +592,7 @@ class lakes_reservoirs(object):
             self.var.reservoirStorageM3C = self.var.reservoirStorageM3C - self.var.resEvapWaterBodyC
 
             reservoirOutflow = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
-            reservoirOutflow[[self.var.waterBodyTypC == 2]] = self.model.agents.reservoir_operators.regulate_reservoir_outflow(
+            reservoirOutflow[self.var.waterBodyTypC == 2] = self.model.agents.reservoir_operators.regulate_reservoir_outflow(
                 self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
                 inflowC[self.var.waterBodyTypC == 2],
                 self.var.waterBodyIDC[self.var.waterBodyTypC == 2]
