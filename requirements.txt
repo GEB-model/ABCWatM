@@ -4,3 +4,7 @@ netCDF4
 gdal
 flopy
 numba
+bmipy
+xmipy
+xlrd
+pyflow
