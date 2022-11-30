@@ -7,27 +7,22 @@
 # Created:     15/07/2016
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
-from osgeo import gdal
 import numpy as np
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
     pass
-import pandas as pd
 from numba import njit
-import calendar
-from datetime import datetime
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import checkOption, readnetcdf2, returnBool, cbinding, binding, loadmap, divideValues
+from cwatm.management_modules.data_handling import checkOption, readnetcdf2, binding, loadmap
 
 
 @njit(cache=True)
-def interpolate_kc(stage_start, stage_end, crop_progress, stage_start_kc, stage_end_kc):
-    stage_progress = (crop_progress - stage_start) / (stage_end - stage_start)
-    return (stage_end_kc - stage_start_kc) * stage_progress + stage_start_kc
+def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_length, crop_stage_data, kc_crop_stage):
+    assert (kc_crop_stage != 0).all()
+    assert (crop_stage_data != 0).all()
+    assert (crop_growth_length != 0).all()
 
-@njit(cache=True)
-def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_lenght, crop_stage_data, kc_crop_stage):
     shape = crop_map.shape
     crop_map = crop_map.ravel()
     crop_age_days_map = crop_age_days_map.ravel()
@@ -38,7 +33,8 @@ def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_lenght, cro
         crop = crop_map[i]
         if crop != -1:
             age_days = crop_age_days_map[i]
-            harvest_day = crop_growth_lenght[crop, season_idx]
+            harvest_day = crop_growth_length[crop, season_idx]
+            assert harvest_day > 0
             crop_progress = age_days / harvest_day * 100
             d1, d2, d3, d4 = crop_stage_data[crop]
             kc1, kc2, kc3 = kc_crop_stage[crop]
