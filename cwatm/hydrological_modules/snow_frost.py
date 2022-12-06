@@ -164,7 +164,7 @@ class snow_frost(object):
                 self.var.frostindexS.append(globals.inZero)
 
 
-    def dynamic(self, Tavg):
+    def dynamic(self):
         """
         Dynamic part of the snow module
 
@@ -205,7 +205,7 @@ class snow_frost(object):
         self.var.SnowMelt = self.var.full_compressed(0, dtype=np.float32)
 
         for i in range(self.var.numberSnowLayers):
-            TavgS = Tavg + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
+            TavgS = self.var.Tavg + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
             # Temperature at center of each zone (temperature at zone B equals Tavg)
             # i=0 -> highest zone
             # i=2 -> lower zone
@@ -223,7 +223,7 @@ class snow_frost(object):
             # for the others it is calculated with the corrected temp
             # this is to mimic glacier transport to lower zones
             if i <= self.var.glaciertransportZone:
-                IceMeltS = Tavg * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                IceMeltS = self.var.Tavg * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
                 # if i = 0 and 1 -> higher and middle zone
                 # Ice melt coeff in m/C/deg
             else:
@@ -273,8 +273,8 @@ class snow_frost(object):
 
         # ---------------------------------------------------------------------------------
         # Dynamic part of frost index
-        Kfrost = np.where(Tavg < 0, 0.08, 0.5).astype(Tavg.dtype)
-        FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.FrostIndex - Tavg * \
+        Kfrost = np.where(self.var.Tavg < 0, 0.08, 0.5).astype(self.var.Tavg.dtype)
+        FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.FrostIndex - self.var.Tavg * \
             np.exp(-0.4 * 100 * Kfrost * np.minimum(1.0, (np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat) / self.var.SnowWaterEquivalent))
         # Rate of change of frost index (expressed as rate, [degree days/day])
         self.var.FrostIndex = np.maximum(self.var.FrostIndex + FrostIndexChangeRate * self.model.DtDay, 0)
@@ -301,5 +301,6 @@ class snow_frost(object):
                 self.var.frostInd2 = self.var.frostInd2 / float(dateVar['diffdays'])
                 ii = 1
         """
+        del self.var.Tavg
 
 

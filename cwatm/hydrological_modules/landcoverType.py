@@ -485,7 +485,7 @@ class landcoverType(object):
 
         groundwater_recharge += waterbed_recharge
 
-    def dynamic(self, ETRef):
+    def dynamic(self):
         """
         Dynamic part of the land cover type module
 
@@ -534,7 +534,8 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
-        potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(ETRef)
+        potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
+        del self.var.ETRef
         potTranspiration = self.model.interception_module.dynamic(potTranspiration)
 
         # *********  WATER Demand   *************************
