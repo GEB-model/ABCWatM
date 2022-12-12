@@ -129,7 +129,7 @@ class readmeteo(object):
                 # interpolation option can be spline or bilinear
                 self.var.InterpolationMethod = cbinding('InterpolationMethod')
                 if self.var.InterpolationMethod != 'bilinear' and self.var.InterpolationMethod != 'spline' and self.var.InterpolationMethod != 'kron':
-                    msg = 'Error: InterpolationMethod in settings file must be one of the following: "spline" or  "bilinear", but it is {}'.format(self.var.InterpolationMethod)
+                    msg = 'Error: InterpolationMethod in settings file must be one of the following: "spline" or "bilinear" or "kron", but it is {}'.format(self.var.InterpolationMethod)
                     raise CWATMError(msg)
                 if self.var.InterpolationMethod == 'bilinear':
                     self.var.buffer = True
@@ -251,13 +251,6 @@ class readmeteo(object):
         self.var.demAnomaly = compressArray(demAnomaly[cutmapVfine[2]:cutmapVfine[3], cutmapVfine[0]:cutmapVfine[1]],pcr = False)
         """
 
-        self.model.data.HRU.Precipitation = self.model.data.HRU.full_compressed(0, dtype=np.float32)
-
-
-
-
-# --------------------------------------------------------------------------
-# --------------------------------------------------------------------------
 
     #def downscaling1(self,input, downscale = 0):
         """
@@ -587,6 +580,7 @@ class readmeteo(object):
         self.var.Precipitation = np.maximum(0., self.var.Precipitation)
         
         if self.var.includeGlaciers:
+            raise NotImplementedError
             self.var.GlacierMelt, MaskMapBoundary = readmeteodata(self.var.glaciermeltMaps, dateVar['currDate'], addZeros=True, mapsscale = True)
             if not self.var.includeOnlyGlaciersMelt:
                 self.var.GlacierRain, MaskMapBoundary = readmeteodata(self.var.glacierrainMaps, dateVar['currDate'], addZeros=True, mapsscale = True)
@@ -601,6 +595,7 @@ class readmeteo(object):
                 self.var.Precipitation, self.var.wc2_prec, self.var.wc4_prec = self.downscaling2(self.var.Precipitation, "downscale_wordclim_prec", self.var.wc2_prec, self.var.wc4_prec, downscale=2)
         else:
             self.var.Precipitation = self.downscaling2(self.var.Precipitation, "downscale_wordclim_prec", self.var.wc2_prec, self.var.wc4_prec, downscale=0)
+        self.model.data.HRU.Precipitation = self.model.data.to_HRU(data=self.var.Precipitation, fn=None)  # checked
 
         if Flags['check']:
             checkmap(self.var.preMaps, "", self.var.Precipitation, True, True, self.var.Precipitation)
@@ -799,4 +794,3 @@ class readmeteo(object):
             #self.var.EWRef_all.append(self.var.EWRef)
             #self.var.Tavg_all.append(self.var.Tavg)
             #self.var.Precipitation_all.append(self.var.Precipitation)
-            ii =1
