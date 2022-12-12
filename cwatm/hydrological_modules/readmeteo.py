@@ -602,11 +602,6 @@ class readmeteo(object):
         else:
             self.var.Precipitation = self.downscaling2(self.var.Precipitation, "downscale_wordclim_prec", self.var.wc2_prec, self.var.wc4_prec, downscale=0)
 
-        #self.var.Precipitation = self.var.Precipitation * 1000
-        
-
-        self.var.prec = self.var.Precipitation / self.var.con_precipitation
-        # precipitation (conversion to [m] per time step)  `
         if Flags['check']:
             checkmap(self.var.preMaps, "", self.var.Precipitation, True, True, self.var.Precipitation)
 
@@ -646,7 +641,6 @@ class readmeteo(object):
         # -----------------------------------------------------------------------
 
         if checkOption('calc_evaporation'):
-
             #self.var.TMin = readnetcdf2('TminMaps', dateVar['currDate'], addZeros = True, zeros = ZeroKelvin, meteo = True)
             self.var.TMin, MaskMapBoundary = readmeteodata('TminMaps',dateVar['currDate'], addZeros=True, zeros=ZeroKelvin, mapsscale = self.var.meteomapsscale, buffering= self.var.buffer)
             if self.var.meteodown:
@@ -704,9 +698,6 @@ class readmeteo(object):
             # Shuttleworth, W.J. (1993) in Maidment, D.R. (1993), p. 4.36
             self.var.Wind = self.var.Wind * 0.749
 
-
-
-
             if self.var.only_radition:
                 # read daily calculated radiation [in KJ/m2/day]
                 # named here Rsds instead of rds, because use in evaproationPot in the same way as rsds
@@ -719,7 +710,6 @@ class readmeteo(object):
                 self.var.EAct, MaskMapBoundary = readmeteodata('EActMaps', dateVar['currDate'], addZeros=True, mapsscale=self.var.meteomapsscale)
                 self.var.EAct = self.downscaling2(self.var.EAct) * 0.1  # convert from hP to kP
                 return
-
 
             #self.var.Psurf = readnetcdf2('PSurfMaps', dateVar['currDate'], addZeros = True, meteo = True)
             self.var.Psurf, MaskMapBoundary = readmeteodata('PSurfMaps', dateVar['currDate'], addZeros=True, mapsscale = self.var.meteomapsscale)
