@@ -17,8 +17,8 @@ from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import checkOption, readnetcdf2, binding, loadmap
 
 
-@njit(cache=True)
-def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_length, crop_stage_data, kc_crop_stage):
+# @njit(cache=True)
+def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days, crop_growth_length, crop_stage_data, kc_crop_stage):
     assert (kc_crop_stage != 0).all()
     assert (crop_stage_data != 0).all()
     assert (crop_growth_length != 0).all()
@@ -33,7 +33,7 @@ def get_crop_kc(season_idx, crop_map, crop_age_days_map, crop_growth_length, cro
         crop = crop_map[i]
         if crop != -1:
             age_days = crop_age_days_map[i]
-            harvest_day = crop_growth_length[crop, season_idx]
+            harvest_day = crop_harvest_age_days[i]
             assert harvest_day > 0
             crop_progress = age_days / harvest_day * 100
             d1, d2, d3, d4 = crop_stage_data[crop]
@@ -506,19 +506,10 @@ class landcoverType(object):
             w3_pre = self.var.w3.copy()
             topwater_pre = self.var.topwater.copy()
 
-
-        if self.farmers.current_season == 'Kharif':
-            season_idx = 0
-        elif self.farmers.current_season == 'Rabi':
-            season_idx = 1
-        elif self.farmers.current_season == 'Summer':
-            season_idx = 2
-        else:
-            raise ValueError(f"Unknown season: {self.farmers.current_season}")
         self.var.cropKC = get_crop_kc(
-            season_idx,
             self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
             self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
+            self.var.crop_harvest_age_days,
             self.model.agents.farmers.growth_length,
             self.farmers.crop_stage_lengths,
             self.farmers.crop_factors
