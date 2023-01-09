@@ -17,7 +17,7 @@ from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import checkOption, readnetcdf2, binding, loadmap
 
 
-# @njit(cache=True)
+@njit(cache=True)
 def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days, crop_growth_length, crop_stage_data, kc_crop_stage):
     assert (kc_crop_stage != 0).all()
     assert (crop_stage_data != 0).all()
