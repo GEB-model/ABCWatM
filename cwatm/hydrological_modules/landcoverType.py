@@ -507,8 +507,8 @@ class landcoverType(object):
             topwater_pre = self.var.topwater.copy()
 
         self.var.cropKC = get_crop_kc(
-            self.var.crop_map.get() if self.model.args.use_gpu else self.var.crop_map,
-            self.var.crop_age_days_map.get() if self.model.args.use_gpu else self.var.crop_age_days_map,
+            self.var.crop_map,
+            self.var.crop_age_days_map,
             self.var.crop_harvest_age_days,
             self.model.agents.farmers.growth_length,
             self.farmers.crop_stage_lengths,
