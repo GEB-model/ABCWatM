@@ -540,8 +540,12 @@ class landcoverType(object):
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
 
-        self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal[self.var.crop_map != -1]
-        self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration[self.var.crop_map != -1]
+        if self.model.args.use_gpu:
+            self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal.get()[self.var.crop_map != -1]
+            self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration.get()[self.var.crop_map != -1]
+        else:
+            self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal[self.var.crop_map != -1]
+            self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration[self.var.crop_map != -1]
 
         assert not np.isnan(interflow).any()
         assert not np.isnan(groundwater_recharge).any()
