@@ -65,7 +65,7 @@ class CWATModel_dyn(DynamicModel):
         self.readmeteo_module.dynamic()
         timemeasure("Read meteo") # 1. timing after read input maps
 
-        Tavg, ETRef, self.data.HRU.EWRef = self.evaporationPot_module.dynamic()
+        self.evaporationPot_module.dynamic()
         timemeasure("ET pot") # 2. timing after read input maps
 
         #if Flags['check']: return  # if check than finish here
@@ -78,13 +78,13 @@ class CWATModel_dyn(DynamicModel):
         self.lakes_reservoirs_module.dynamic()
 
         # ***** RAIN AND SNOW *****************************************
-        self.snowfrost_module.dynamic(Tavg)
+        self.snowfrost_module.dynamic()
         timemeasure("Snow")  # 3. timing
 
         # ***** READ land use fraction maps***************************
 
         # *********  Soil splitted in different land cover fractions *************
-        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic(ETRef)
+        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic()
         timemeasure("Soil main")  # 5. timing
 
         self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)

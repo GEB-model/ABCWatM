@@ -157,7 +157,7 @@ FlagName = ['quiet', 'veryquiet', 'loud',
             'checkfiles', 'noheader', 'printtime','warranty']
 Flags = {'quiet': False, 'veryquiet': False, 'loud': False,
          'check': False, 'noheader': False, 'printtime': False, 'warranty': False, 'use': False,
-         'test': False}
+         'test': False, 'calib': False, 'warm': False}
 
 
 

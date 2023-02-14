@@ -122,9 +122,3 @@ class miscInitial(object):
         self.var.con_precipitation = loadmap('precipitation_coversion')
 
         self.var.con_e = loadmap('evaporation_coversion')
-
-
-
-
-
-

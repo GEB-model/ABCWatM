@@ -621,6 +621,6 @@ class soil(object):
                 tollerance=1e-6
             )
 
-        print(time() - t0)
+        # print(time() - t0)
 
         return interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap

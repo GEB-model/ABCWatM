@@ -55,7 +55,7 @@ class ModFlowSimulation:
             os.makedirs(self.working_directory)
         self.verbose = verbose
 
-        arguments = locals()
+        arguments = dict(locals())
         arguments.pop('self')
         arguments.pop('model')
         self.hash_file = os.path.join(self.working_directory, 'input_hash')
@@ -68,7 +68,7 @@ class ModFlowSimulation:
                     sim_name=self.name,
                     version='mf6',
                     exe_name=os.path.join(folder, 'mf6'),
-                    sim_ws=self.working_directory,
+                    sim_ws=os.path.realpath(self.working_directory),
                     memory_print_option='all'
                 )
                 
@@ -180,7 +180,7 @@ class ModFlowSimulation:
         """
         parse libmf6.so and libmf6.dll stdout file
         """
-        fpth = os.path.join(model_ws, 'mfsim.stdout')
+        fpth = os.path.join('mfsim.stdout')
         return success, open(fpth).readlines()
 
     def load_bmi(self):
