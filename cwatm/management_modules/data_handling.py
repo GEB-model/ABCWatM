@@ -887,7 +887,7 @@ def multinetdf(meteomaps, startcheck = 'dateBegin'):
                     start = num2date(startint * datediv, units=nctime.units, calendar=nctime.calendar)
 
             else:
-                if (datestartint >= startint) and (datestartint < endint ):
+                if (datestartint >= startint) and (datestartint <= endint ):
                     startfile += 1
                     indstart = startint - datestartint
                     indend = dateendint - datestartint
