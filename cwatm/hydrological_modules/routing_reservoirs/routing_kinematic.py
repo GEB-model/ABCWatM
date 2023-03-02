@@ -11,7 +11,7 @@
 from cwatm.management_modules.data_handling import *
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
 from cwatm.hydrological_modules.lakes_reservoirs import *
-
+from datetime import datetime, timedelta
 
 class routing_kinematic(object):
 
@@ -279,11 +279,6 @@ class routing_kinematic(object):
             #self.var.catchmentNo = int(loadmap('CatchmentNo'))
             self.var.sumbalance = 0
 
-
-
-    # --------------------------------------------------------------------------
-# --------------------------------------------------------------------------
-
     def dynamic(self, openWaterEvap, channel_abstraction_m, returnFlow):
         """
         Dynamic part of the routing module
@@ -413,6 +408,9 @@ class routing_kinematic(object):
         #self.var.prechannelStorageM3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
         avgDis = 0
 
+        if not hasattr(self, 'previous_discharges'):
+            self.previous_discharges = {i: [] for i in self.var.sampleAdresses.keys()}
+            self.previous_discharges['time'] = []
 
         for subrouting in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
@@ -479,6 +477,13 @@ class routing_kinematic(object):
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
             avgDis = avgDis  + self.var.discharge / self.var.noRoutingSteps
+
+            current_time = datetime.fromisoformat(dateVar['currDate'].isoformat()) + timedelta(days=1) / self.var.noRoutingSteps * subrouting
+            self.previous_discharges['time'].append(current_time)
+            for sample_id in range(1, len(self.var.sampleAdresses) + 1):
+                sample_loc = self.var.sampleAdresses[sample_id]
+                cur_discharge = self.var.discharge[sample_loc]
+                self.previous_discharges[sample_id].append(cur_discharge)
 
         # -- end substeping ---------------------
         if checkOption('includeWaterBodies'):
