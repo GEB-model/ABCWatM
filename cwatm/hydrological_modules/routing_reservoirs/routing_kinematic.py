@@ -409,8 +409,8 @@ class routing_kinematic(object):
         avgDis = 0
 
         if not hasattr(self, 'previous_discharges'):
-            self.previous_discharges = {i: [] for i in self.var.sampleAdresses.keys()}
-            self.previous_discharges['time'] = []
+            self.var.previous_discharges = {i: [] for i in self.var.sampleAdresses.keys()}
+            self.var.previous_discharges['time'] = []
 
         for subrouting in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
@@ -479,11 +479,11 @@ class routing_kinematic(object):
             avgDis = avgDis  + self.var.discharge / self.var.noRoutingSteps
 
             current_time = datetime.fromisoformat(dateVar['currDate'].isoformat()) + timedelta(days=1) / self.var.noRoutingSteps * subrouting
-            self.previous_discharges['time'].append(current_time)
+            self.var.previous_discharges['time'].append(current_time)
             for sample_id in range(1, len(self.var.sampleAdresses) + 1):
                 sample_loc = self.var.sampleAdresses[sample_id]
                 cur_discharge = self.var.discharge[sample_loc]
-                self.previous_discharges[sample_id].append(cur_discharge)
+                self.var.previous_discharges[sample_id].append(cur_discharge)
 
         # -- end substeping ---------------------
         if checkOption('includeWaterBodies'):
