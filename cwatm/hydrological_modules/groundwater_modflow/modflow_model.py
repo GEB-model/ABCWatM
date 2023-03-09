@@ -51,8 +51,7 @@ class ModFlowSimulation:
         self.basin = basin
         self.n_active_cells = self.basin.sum()
         self.working_directory = os.path.join(outDir['OUTPUT'], 'modflow_model')
-        if not os.path.exists(self.working_directory):
-            os.makedirs(self.working_directory)
+        os.makedirs(self.working_directory, exist_ok=True)
         self.verbose = verbose
 
         arguments = dict(locals())
