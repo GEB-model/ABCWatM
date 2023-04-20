@@ -140,24 +140,23 @@ class soil(object):
         # ------------ SOIL DEPTH ----------------------------------------------------------
         # soil thickness and storage
 
-        soildepth = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (3, 1))
+        self.var.soildepth = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (3, 1))
 
         # first soil layer = 5 cm
-        soildepth[0] = self.var.full_compressed(0.05, dtype=np.float32)
+        self.var.soildepth[0] = self.var.full_compressed(0.05, dtype=np.float32)
         # second soil layer minimum 5cm
         stordepth1 = self.model.data.to_HRU(data=loadmap('StorDepth1'), fn=None)
-        soildepth[1] = np.maximum(0.05, stordepth1 - soildepth[0])
+        self.var.soildepth[1] = np.maximum(0.05, stordepth1 - self.var.soildepth[0])
 
         stordepth2 = self.model.data.to_HRU(data=loadmap('StorDepth2'), fn=None)
-        soildepth[2] = np.maximum(0.05, stordepth2)
+        self.var.soildepth[2] = np.maximum(0.05, stordepth2)
 
         # Calibration
         soildepth_factor =  loadmap('soildepth_factor')
-        soildepth[1] = soildepth[1] * soildepth_factor
-        soildepth[2] = soildepth[2] * soildepth_factor
+        self.var.soildepth[1] = self.var.soildepth[1] * soildepth_factor
+        self.var.soildepth[2] = self.var.soildepth[2] * soildepth_factor
 
-        self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=soildepth[1] + soildepth[2], fn='mean')
-        return soildepth
+        self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn='mean')
 
     def dynamic(self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET):
         """

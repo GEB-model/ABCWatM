@@ -301,6 +301,5 @@ class snow_frost(object):
                 self.var.frostInd2 = self.var.frostInd2 / float(dateVar['diffdays'])
                 ii = 1
         """
-        del self.var.Tavg
 
 

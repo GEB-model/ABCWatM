@@ -82,16 +82,6 @@ class evaporationPot(object):
         Based on Penman Monteith - FAO 56
 
         """
-
-        self.var.TMax = self.model.data.to_HRU(data=self.model.data.grid.TMax, fn=None)  # checked
-        self.var.TMin = self.model.data.to_HRU(data=self.model.data.grid.TMin, fn=None)  # checked
-        self.var.Tavg = self.model.data.to_HRU(data=self.model.data.grid.Tavg, fn=None)  # checked
-        self.var.Rsdl = self.model.data.to_HRU(data=self.model.data.grid.Rsdl, fn=None)  # checked
-        self.var.Rsds = self.model.data.to_HRU(data=self.model.data.grid.Rsds, fn=None)  # checked
-        self.var.Wind = self.model.data.to_HRU(data=self.model.data.grid.Wind, fn=None)  # checked
-        self.var.Psurf = self.model.data.to_HRU(data=self.model.data.grid.Psurf, fn=None)  # checked
-        self.var.Qair = self.model.data.to_HRU(data=self.model.data.grid.Qair, fn=None)  # checked
-
         ESatmin = 0.6108* np.exp((17.27 * self.var.TMin) / (self.var.TMin + 237.3))
         ESatmax = 0.6108* np.exp((17.27 * self.var.TMax) / (self.var.TMax + 237.3))
         ESat = (ESatmin + ESatmax) / 2.0   # [KPa]
@@ -140,13 +130,13 @@ class evaporationPot(object):
             # calculate actual vapour pressure
             if returnBool('useHuss'):
                 # if specific humidity calculate actual vapour pressure this way
-                self.var.EAct = (self.var.Psurf * self.var.Qair) / ((0.378 * self.var.Qair) + 0.622)
+                self.var.EAct = (self.var.Psurf * self.var.huss) / ((0.378 * self.var.huss) + 0.622)
                 # http://www.eol.ucar.edu/projects/ceop/dm/documents/refdata_report/eqns.html
                 # (self.var.Psurf * self.var.Qair)/0.622
                 # old calculation not completely ok
             else:
                 # if relative humidity
-                self.var.EAct = ESat * self.var.Qair / 100.0
+                self.var.EAct = ESat * self.var.hurs / 100.0
                 # longwave radiation balance
             RLN = RNup - self.var.Rsdl
             # RDL is stored on disk as W/m2 but converted in MJ/m2/s in readmeteo.py
@@ -208,11 +198,3 @@ class evaporationPot(object):
         #ii=1
 
         #report(decompress(self.var.sumETRef), "C:\work\output2/sumetref.map")
-
-        del self.var.TMax
-        del self.var.TMin
-        del self.var.Rsdl
-        del self.var.Rsds
-        del self.var.Wind
-        del self.var.Psurf
-        del self.var.Qair

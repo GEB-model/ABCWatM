@@ -93,12 +93,12 @@ class CWATModel_ini(DynamicModel):
         ElevationStD = self.data.to_HRU(data=loadmap('ElevationStD'), fn=None)  # checked
 
         self.snowfrost_module.initial(ElevationStD)
-        soildepth = self.soil_module.initial()
+        self.soil_module.initial()
 
         self.groundwater_modflow_module.initial()
         # groundwater before meteo, bc it checks steady state
 
-        self.landcoverType_module.initial(ElevationStD, soildepth)
+        self.landcoverType_module.initial(ElevationStD)
         self.interception_module.initial()
 
         self.runoff_concentration_module.initial()

@@ -183,10 +183,10 @@ class readmeteo(object):
         if checkOption('calc_evaporation'):
             if self.var.only_radition:
                 # for maps from EMO-5 with total radiation and vapor pressure instead of huss, air pressure, rsds and rlds
-                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','WindMaps','RGDMaps','EActMaps']
+                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','WindMaps','RGDMaps','EActMaps', 'QAirMaps', 'RhsMaps']
             else:
 
-                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','PSurfMaps','WindMaps','RSDSMaps','RSDLMaps']
+                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','PSurfMaps','WindMaps','RSDSMaps','RSDLMaps', 'QAirMaps', 'RhsMaps']
                 if returnBool('useHuss'):
                     meteomaps.append('QAirMaps')
                 else:
@@ -251,6 +251,7 @@ class readmeteo(object):
         self.var.demAnomaly = compressArray(demAnomaly[cutmapVfine[2]:cutmapVfine[3], cutmapVfine[0]:cutmapVfine[1]],pcr = False)
         """
 
+        self.var.Precipitation = self.var.full_compressed(0, dtype=np.float32)
 
     #def downscaling1(self,input, downscale = 0):
         """
@@ -711,14 +712,11 @@ class readmeteo(object):
             self.var.Psurf = self.downscaling2(self.var.Psurf)
                 # Instantaneous surface pressure[Pa]
 
-            if returnBool('useHuss'):
-                #self.var.Qair = readnetcdf2('QAirMaps', dateVar['currDate'], addZeros = True, meteo = True)
-                self.var.Qair, MaskMapBoundary = readmeteodata('QAirMaps', dateVar['currDate'], addZeros=True, mapsscale =self.var.meteomapsscale)
-                # 2 m istantaneous specific humidity[kg / kg]
-            else:
-                #self.var.Qair = readnetcdf2('RhsMaps', dateVar['currDate'], addZeros = True, meteo = True)
-                self.var.Qair, MaskMapBoundary = readmeteodata('RhsMaps', dateVar['currDate'], addZeros=True, mapsscale =self.var.meteomapsscale)
-            self.var.Qair = self.downscaling2(self.var.Qair)
+            self.var.huss, MaskMapBoundary = readmeteodata('QAirMaps', dateVar['currDate'], addZeros=True, mapsscale =self.var.meteomapsscale)
+            self.var.huss = self.downscaling2(self.var.huss)
+            # 2 m istantaneous specific humidity[kg / kg]
+            self.var.hurs, MaskMapBoundary = readmeteodata('RhsMaps', dateVar['currDate'], addZeros=True, mapsscale =self.var.meteomapsscale)
+            self.var.hurs = self.downscaling2(self.var.hurs)
 
             #self.var.Rsds = readnetcdf2('RSDSMaps', dateVar['currDate'], addZeros = True, meteo = True)
             self.var.Rsds, MaskMapBoundary = readmeteodata('RSDSMaps', dateVar['currDate'], addZeros=True, mapsscale = self.var.meteomapsscale)
@@ -794,3 +792,13 @@ class readmeteo(object):
             #self.var.EWRef_all.append(self.var.EWRef)
             #self.var.Tavg_all.append(self.var.Tavg)
             #self.var.Precipitation_all.append(self.var.Precipitation)
+
+        self.model.data.HRU.TMax = self.model.data.to_HRU(data=self.model.data.grid.TMax, fn=None)  # checked
+        self.model.data.HRU.TMin = self.model.data.to_HRU(data=self.model.data.grid.TMin, fn=None)  # checked
+        self.model.data.HRU.Tavg = self.model.data.to_HRU(data=self.model.data.grid.Tavg, fn=None)  # checked
+        self.model.data.HRU.Rsdl = self.model.data.to_HRU(data=self.model.data.grid.Rsdl, fn=None)  # checked
+        self.model.data.HRU.Rsds = self.model.data.to_HRU(data=self.model.data.grid.Rsds, fn=None)  # checked
+        self.model.data.HRU.Wind = self.model.data.to_HRU(data=self.model.data.grid.Wind, fn=None)  # checked
+        self.model.data.HRU.Psurf = self.model.data.to_HRU(data=self.model.data.grid.Psurf, fn=None)  # checked
+        self.model.data.HRU.huss = self.model.data.to_HRU(data=self.model.data.grid.huss, fn=None)  # checked
+        self.model.data.HRU.hurs = self.model.data.to_HRU(data=self.model.data.grid.hurs, fn=None)  # checked

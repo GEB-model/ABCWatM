@@ -181,7 +181,7 @@ class landcoverType(object):
         self.model = model
         self.farmers = model.agents.farmers
 
-    def initial(self, ElevationStD, soildepth):
+    def initial(self, ElevationStD):
         """
         Initial part of the land cover type module
         Initialise the six land cover types
@@ -219,18 +219,18 @@ class landcoverType(object):
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
             # calculate rootdepth for each soillayer and each land cover class
-            rootDepth1[land_use_indices] = soildepth[0][land_use_indices]  # 0.05 m
+            rootDepth1[land_use_indices] = self.var.soildepth[0][land_use_indices]  # 0.05 m
             if coverNum in (0, 2, 3):  # forest, paddy irrigated, non-paddy irrigated
                 # soil layer 1 = root max of land cover - first soil layer
-                h1 = np.maximum(soildepth[1][land_use_indices], maxRootDepth[land_use_indices] - soildepth[0][land_use_indices])
+                h1 = np.maximum(self.var.soildepth[1][land_use_indices], maxRootDepth[land_use_indices] - self.var.soildepth[0][land_use_indices])
                 #
-                rootDepth2[land_use_indices] = np.minimum(soildepth[1][land_use_indices] + soildepth[2][land_use_indices] - 0.05, h1)
+                rootDepth2[land_use_indices] = np.minimum(self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - 0.05, h1)
                 # soil layer is minimum 0.05 m
-                rootDepth3[land_use_indices] = np.maximum(0.05, soildepth[1][land_use_indices] + soildepth[2][land_use_indices] - rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
+                rootDepth3[land_use_indices] = np.maximum(0.05, self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
             else:
                 assert coverNum == 1  # grassland
-                rootDepth2[land_use_indices] = soildepth[1][land_use_indices]
-                rootDepth3[land_use_indices] = soildepth[2][land_use_indices]
+                rootDepth2[land_use_indices] = self.var.soildepth[1][land_use_indices]
+                rootDepth3[land_use_indices] = self.var.soildepth[2][land_use_indices]
 
         self.var.KSat1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.KSat2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -525,9 +525,59 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
+        if self.model.config['general']['couple_plantFATE']:
+            def couple_plantFATE(
+                soil_moisture_layer_1,  # ratio [0-1]
+                soil_moisture_layer_2,  # ratio [0-1]
+                soil_moisture_layer_3,  # ratio [0-1]
+                soil_tickness_layer_1,  # m
+                soil_tickness_layer_2,  # m
+                soil_tickness_layer_3,  # m
+                soil_moisture_wilting_point_1,  # ratio [0-1]
+                soil_moisture_wilting_point_2,  # ratio [0-1]
+                soil_moisture_wilting_point_3,  # ratio [0-1]
+                soil_moisture_field_capacity_1,  # ratio [0-1]
+                soil_moisture_field_capacity_2,  # ratio [0-1]
+                soil_moisture_field_capacity_3,  # ratio [0-1]
+                mean_temperature,  # degrees Celcius - mean temperature
+                relative_humidity,  # ratio [0-1]
+                shortwave_radiation,  # W/m2
+                longwave_radiation  # W/m2):
+            ):
+                print(longwave_radiation)
+            
+            couple_plantFATE(
+                self.var.w1,
+                self.var.w2,
+                self.var.w3,
+                self.var.soildepth[0],
+                self.var.soildepth[1],
+                self.var.soildepth[2],
+                self.var.wwp1,
+                self.var.wwp2,
+                self.var.wwp3,
+                self.var.wfc1,
+                self.var.wfc2,
+                self.var.wfc3,
+                self.var.Tavg,
+                self.var.hurs,
+                self.var.Rsds,
+                self.var.Rsdl,
+            )
+
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
-        del self.var.ETRef
         potTranspiration = self.model.interception_module.dynamic(potTranspiration)
+
+        del self.var.ETRef
+        del self.var.TMax
+        del self.var.TMin
+        del self.var.Tavg
+        del self.var.Rsdl
+        del self.var.Rsds
+        del self.var.Wind
+        del self.var.Psurf
+        del self.var.huss
+        del self.var.hurs
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = self.model.waterdemand_module.dynamic(totalPotET)
