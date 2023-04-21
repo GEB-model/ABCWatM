@@ -8,6 +8,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 import numpy as np
+import pandas as pd
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
@@ -527,6 +528,9 @@ class landcoverType(object):
 
         if self.model.config['general']['couple_plantFATE']:
             def couple_plantFATE(
+                date,
+                plant_fate_df,
+                land_use_type,  # int 0=forest, 1=grassland, 2=crop, 3=urban, 4=water, 5=sealed
                 soil_moisture_layer_1,  # ratio [0-1]
                 soil_moisture_layer_2,  # ratio [0-1]
                 soil_moisture_layer_3,  # ratio [0-1]
@@ -544,9 +548,35 @@ class landcoverType(object):
                 shortwave_radiation,  # W/m2
                 longwave_radiation  # W/m2):
             ):
-                print(longwave_radiation)
+                index_with_forest = np.where(land_use_type == 0)[0][0]
+                # append variables to dataframe
+                plant_fate_df = plant_fate_df.append(pd.Series({
+                    'w1': soil_moisture_layer_1[index_with_forest],
+                    'w2': soil_moisture_layer_2[index_with_forest],
+                    'w3': soil_moisture_layer_3[index_with_forest],
+                    'soildepth_1': soil_tickness_layer_1[index_with_forest],
+                    'soildepth_2': soil_tickness_layer_2[index_with_forest],
+                    'soildepth_3': soil_tickness_layer_3[index_with_forest],
+                    'wwp1': soil_moisture_wilting_point_1[index_with_forest],
+                    'wwp2': soil_moisture_wilting_point_2[index_with_forest],
+                    'wwp3': soil_moisture_wilting_point_3[index_with_forest],
+                    'wfc1': soil_moisture_field_capacity_1[index_with_forest],
+                    'wfc2': soil_moisture_field_capacity_2[index_with_forest],
+                    'wfc3': soil_moisture_field_capacity_3[index_with_forest],
+                    'Tavg': mean_temperature[index_with_forest],
+                    'hurs': relative_humidity[index_with_forest],
+                    'Rsds': shortwave_radiation[index_with_forest],
+                    'Rsdl': longwave_radiation[index_with_forest]
+                }, name=date))
+                return plant_fate_df
             
-            couple_plantFATE(
+            if not hasattr(self.var, 'plant_fate_df'):
+                self.var.plant_fate_df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'soildepth_1', 'soildepth_2', 'soildepth_3', 'wwp1', 'wwp2', 'wwp3', 'wfc1', 'wfc2', 'wfc3', 'Tavg', 'hurs', 'Rsds', 'Rsdl'])
+            
+            self.var.plant_fate_df = couple_plantFATE(
+                self.model.current_time,
+                self.var.plant_fate_df,
+                self.var.land_use_type,
                 self.var.w1,
                 self.var.w2,
                 self.var.w3,
