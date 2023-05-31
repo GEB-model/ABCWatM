@@ -347,12 +347,9 @@ class routing_kinematic(object):
             # calculate outflow from lakes and reservoirs
 
             # average evaporation overeach lake
-            EWRefavg = npareaaverage(EWRefact, self.var.waterBodyID)
-            # evaporation for the whole lake for each routing step
-            eWaterBody = np.maximum(0.0, EWRefavg * self.var.lakeArea) / self.var.noRoutingSteps
-            # compressed to the number lakes
-            self.var.evapWaterBodyC = self.var.lakeEvaFactorC  * np.compress(self.var.compress_LR, eWaterBody)
-            # exclude evaporation where lakes are, because they are filled in again with evapWaterBodyC
+            EWRefavg = (np.bincount(self.var.waterBodyID, weights=EWRefact)/ np.bincount(self.var.waterBodyID))[self.var.waterBodyIDC]
+            self.var.evapWaterBodyC = EWRefavg * self.var.lakeAreaC / self.var.noRoutingSteps
+            assert np.all(self.var.evapWaterBodyC >= 0.0), 'evapWaterBodyC < 0.0'
 
             if self.model.args.use_gpu:
                 fraction_water = cp.array(self.model.data.HRU.land_use_ratio)
