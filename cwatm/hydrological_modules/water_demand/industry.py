@@ -70,10 +70,10 @@ class waterdemand_industry:
         else:
             self.indConsumptionVar = "industryNettoDemand"
 
-        self.industry_water_demand_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indWithdrawalVar, self.model.bounds)
-        self.industry_water_consumption_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indConsumptionVar, self.model.bounds)
-        self.industry_water_demand_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indWithdrawalVar, self.model.bounds)
-        self.industry_water_consumption_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indConsumptionVar, self.model.bounds)
+        self.industry_water_demand_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.industry_water_consumption_ds = NetCDFReader(cbinding('industryWaterDemandFile'), self.indConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.industry_water_demand_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.industry_water_consumption_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
 
     def dynamic(self):
         if self.industryTime == 'monthly':

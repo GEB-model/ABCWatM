@@ -72,10 +72,10 @@ class waterdemand_domestic:
         else:
             self.domConsumptionVar = "domesticNettoDemand"
         
-        self.domestic_water_demand_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domWithdrawalVar, self.model.bounds)
-        self.domestic_water_demand_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domWithdrawalVar, self.model.bounds)
-        self.domestic_water_consumption_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domConsumptionVar, self.model.bounds)
-        self.domestic_water_consumption_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domConsumptionVar, self.model.bounds)
+        self.domestic_water_demand_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.domestic_water_demand_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.domestic_water_consumption_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.domestic_water_consumption_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
 
     def dynamic(self):
         """

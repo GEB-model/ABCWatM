@@ -183,10 +183,10 @@ class readmeteo(object):
         if checkOption('calc_evaporation'):
             if self.var.only_radition:
                 # for maps from EMO-5 with total radiation and vapor pressure instead of huss, air pressure, rsds and rlds
-                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','WindMaps','RGDMaps','EActMaps', 'QAirMaps', 'RhsMaps']
+                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','WindMaps','RGDMaps','EActMaps']
             else:
 
-                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','PSurfMaps','WindMaps','RSDSMaps','RSDLMaps', 'QAirMaps', 'RhsMaps']
+                meteomaps = [self.var.preMaps, self.var.tempMaps,'TminMaps','TmaxMaps','PSurfMaps','WindMaps','RSDSMaps','RSDLMaps']
                 if returnBool('useHuss'):
                     meteomaps.append('QAirMaps')
                 else:

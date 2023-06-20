@@ -68,8 +68,8 @@ class waterdemand_livestock:
         else:
             self.livestockVar = "livestockDemand"
 
-        self.livestock_water_demand_ds = NetCDFReader(cbinding('livestockWaterDemandFile'), self.livestockVar, self.model.bounds)
-        self.livestock_water_demand_ds_SSP2 = NetCDFReader(cbinding('livestockWaterDemandFile_SSP2'), self.livestockVar, self.model.bounds)
+        self.livestock_water_demand_ds = NetCDFReader(cbinding('livestockWaterDemandFile'), self.livestockVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        self.livestock_water_demand_ds_SSP2 = NetCDFReader(cbinding('livestockWaterDemandFile_SSP2'), self.livestockVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
 
     def dynamic(self):
         """

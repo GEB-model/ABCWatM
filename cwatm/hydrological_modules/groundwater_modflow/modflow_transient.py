@@ -127,15 +127,15 @@ class groundwater_modflow:
         else:
             raise NotImplementedError
 
-        modflow_x = np.load(os.path.join(cbinding('cwatm_modflow_indices'), 'modflow_x.npy'))
-        modflow_y = np.load(os.path.join(cbinding('cwatm_modflow_indices'), 'modflow_y.npy'))
-        cwatm_x = np.load(os.path.join(cbinding('cwatm_modflow_indices'), 'cwatm_x.npy'))
-        cwatm_y = np.load(os.path.join(cbinding('cwatm_modflow_indices'), 'cwatm_y.npy'))
+        modflow_x = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'x_modflow.npz'))['data']
+        modflow_y = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'y_modflow.npz'))['data']
+        x_hydro = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'x_hydro.npz'))['data']
+        y_hydro = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'y_hydro.npz'))['data']
 
         self.indices = {
-            'area': np.load(os.path.join(cbinding('cwatm_modflow_indices'), 'area.npy')),
+            'area': np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'area.npz'))['data'],
             'ModFlow_index': np.array(modflow_y * self.domain['ncol'] + modflow_x),
-            'CWatM_index': np.array(cwatm_y * self.var.mask.shape[1] + cwatm_x)
+            'CWatM_index': np.array(y_hydro * self.var.mask.shape[1] + x_hydro)
         }
 
         self.modflow_cell_area = np.bincount(self.indices['ModFlow_index'], weights=self.indices['area'], minlength=self.domain['nrow'] * self.domain['ncol']).reshape(self.domain['nrow'], self.domain['ncol'])
