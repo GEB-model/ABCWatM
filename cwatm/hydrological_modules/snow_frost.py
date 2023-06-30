@@ -204,16 +204,20 @@ class snow_frost(object):
         self.var.Rain = self.var.full_compressed(0, dtype=np.float32)
         self.var.SnowMelt = self.var.full_compressed(0, dtype=np.float32)
 
+        tas_C = self.model.data.to_HRU(data=self.model.data.grid.tas, fn=None) - 273.15
+        converstion_factor = 0.001 * 86400.0  # kg/m2/s to m/day
+        self.var.precipitation_m_day = self.model.DtDay * converstion_factor * self.model.data.to_HRU(data=self.model.data.grid.pr, fn=None)
+
         for i in range(self.var.numberSnowLayers):
-            TavgS = self.var.Tavg + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
+            TavgS = tas_C + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
             # Temperature at center of each zone (temperature at zone B equals Tavg)
             # i=0 -> highest zone
             # i=2 -> lower zone
-            SnowS = np.where(TavgS < self.var.TempSnow, self.var.SnowFactor * self.var.Precipitation, self.var.full_compressed(0, dtype=np.float32))
+            SnowS = np.where(TavgS < self.var.TempSnow, self.var.SnowFactor * self.var.precipitation_m_day, self.var.full_compressed(0, dtype=np.float32))
             # Precipitation is assumed to be snow if daily average temperature is below TempSnow
             # Snow is multiplied by correction factor to account for undercatch of
             # snow precipitation (which is common)
-            RainS = np.where(TavgS >= self.var.TempSnow, self.var.Precipitation, self.var.full_compressed(0, dtype=np.float32))
+            RainS = np.where(TavgS >= self.var.TempSnow, self.var.precipitation_m_day, self.var.full_compressed(0, dtype=np.float32))
             # if it's snowing then no rain
             # snowmelt coeff in m/deg C/day
             SnowMeltS = (TavgS - self.var.TempMelt) * SeasSnowMeltCoef * (1 + 0.01 * RainS) * self.model.DtDay
@@ -223,7 +227,7 @@ class snow_frost(object):
             # for the others it is calculated with the corrected temp
             # this is to mimic glacier transport to lower zones
             if i <= self.var.glaciertransportZone:
-                IceMeltS = self.var.Tavg * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                IceMeltS = tas_C * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
                 # if i = 0 and 1 -> higher and middle zone
                 # Ice melt coeff in m/C/deg
             else:
@@ -273,8 +277,8 @@ class snow_frost(object):
 
         # ---------------------------------------------------------------------------------
         # Dynamic part of frost index
-        Kfrost = np.where(self.var.Tavg < 0, 0.08, 0.5).astype(self.var.Tavg.dtype)
-        FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.FrostIndex - self.var.Tavg * \
+        Kfrost = np.where(tas_C < 0, 0.08, 0.5).astype(tas_C.dtype)
+        FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.FrostIndex - tas_C * \
             np.exp(-0.4 * 100 * Kfrost * np.minimum(1.0, (np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat) / self.var.SnowWaterEquivalent))
         # Rate of change of frost index (expressed as rate, [degree days/day])
         self.var.FrostIndex = np.maximum(self.var.FrostIndex + FrostIndexChangeRate * self.model.DtDay, 0)

@@ -31,11 +31,11 @@ class ModFlowSimulation:
         nlay,
         nrow,
         ncol,
-        rowsize,
-        colsize,
+        row_resolution,
+        col_resolution,
         top,
         bottom,
-        basin,
+        basin_mask,
         head,
         drainage_elevation,
         permeability,
@@ -46,10 +46,11 @@ class ModFlowSimulation:
         self.folder = folder
         self.nrow = nrow
         self.ncol = ncol
-        self.rowsize = rowsize
-        self.colsize = colsize
-        self.basin = basin
-        self.n_active_cells = self.basin.sum()
+        self.row_resolution = row_resolution
+        self.col_resolution = col_resolution
+        self.basin_mask = basin_mask
+        assert self.basin_mask.dtype == bool
+        self.n_active_cells = self.basin_mask.size - self.basin_mask.sum()
         self.working_directory = os.path.join(outDir['OUTPUT'], 'modflow_model')
         os.makedirs(self.working_directory, exist_ok=True)
         self.verbose = verbose
@@ -81,8 +82,8 @@ class ModFlowSimulation:
                 gwf = flopy.mf6.ModflowGwf(sim, modelname=self.name, newtonoptions='under_relaxation', print_input=False, print_flows=False)
 
                 discretization = flopy.mf6.ModflowGwfdis(gwf, nlay=nlay, nrow=self.nrow, ncol=self.ncol,
-                    delr=self.rowsize, delc=self.colsize, top=top,
-                    botm=bottom, idomain=self.basin, nogrb=True)
+                    delr=self.row_resolution, delc=self.col_resolution, top=top,
+                    botm=bottom, idomain=~self.basin_mask, nogrb=True)
 
                 initial_conditions = flopy.mf6.ModflowGwfic(gwf, strt=head)
                 node_property_flow = flopy.mf6.ModflowGwfnpf(gwf, save_flows=True, icelltype=1, k=permeability)
@@ -100,8 +101,8 @@ class ModFlowSimulation:
                     transient=True,
                 )
 
-                recharge = np.zeros((self.basin.sum(), 4), dtype=np.int32)
-                recharge_locations = np.where(self.basin == True)  # only set wells where basin is True
+                recharge = np.zeros((self.n_active_cells, 4), dtype=np.int32)
+                recharge_locations = np.where(self.basin_mask == False)  # only set wells where basin mask is False
                 # 0: layer, 1: y-idx, 2: x-idx, 3: rate
                 recharge[:, 0] = 0
                 recharge[:, 1] = recharge_locations[0]
@@ -113,32 +114,31 @@ class ModFlowSimulation:
                 recharge = flopy.mf6.ModflowGwfrch(gwf, fixed_cell=False,
                                 print_input=False, print_flows=False,
                                 save_flows=False, boundnames=None,
-                                maxbound=self.basin.sum(), stress_period_data=recharge)
+                                maxbound=self.n_active_cells, stress_period_data=recharge)
 
-                wells = np.zeros((self.basin.sum(), 4), dtype=np.int32)
-                well_locations = np.where(self.basin == True)  # only set wells where basin is True
+                wells = np.zeros((self.n_active_cells, 4), dtype=np.int32)
+                well_locations = np.where(self.basin_mask == False)  # only set wells where basin is False
                 # 0: layer, 1: y-idx, 2: x-idx, 3: rate
                 wells[:, 1] = well_locations[0]
                 wells[:, 2] = well_locations[1]
                 wells = wells.tolist()
 
                 wells = flopy.mf6.ModflowGwfwel(gwf, print_input=False, print_flows=False, save_flows=False,
-                                            maxbound=self.basin.sum(), stress_period_data=wells,
+                                            maxbound=self.n_active_cells, stress_period_data=wells,
                                             boundnames=False, auto_flow_reduce=0.1)
 
-                drainage = np.zeros((self.basin.sum(), 5))  # Only i,j,k indices should be integer
-                #drainage = np.zeros((self.basin.sum(), 5), dtype=np.int32)
-                drainage_locations = np.where(self.basin == True)  # only set wells where basin is True
+                drainage = np.zeros((self.n_active_cells, 5))  # Only i,j,k indices should be integer
+                drainage_locations = np.where(self.basin_mask == False)  # only set wells where basin is True
                 # 0: layer, 1: y-idx, 2: x-idx, 3: drainage altitude, 4: permeability
                 drainage[:, 0] = 0
                 drainage[:, 1] = drainage_locations[0]
                 drainage[:, 2] = drainage_locations[1]
                 drainage[:, 3] = drainage_elevation[drainage_locations] # This one should not be an integer
-                drainage[:, 4] = permeability[0, self.basin == True] * self.rowsize * self.colsize
+                drainage[:, 4] = permeability[0, self.basin_mask == False] * self.row_resolution * self.col_resolution
                 drainage = drainage.tolist()
                 drainage = [[(int(i), int(j), int(k)), l, m] for i, j, k, l, m in drainage]
 
-                drainage = flopy.mf6.ModflowGwfdrn(gwf, maxbound=self.basin.sum(), stress_period_data=drainage,
+                drainage = flopy.mf6.ModflowGwfdrn(gwf, maxbound=self.n_active_cells, stress_period_data=drainage,
                                             print_input=False, print_flows=False, save_flows=False)
                 
                 sim.write_simulation()
@@ -246,11 +246,11 @@ class ModFlowSimulation:
         self.prepare_time_step()
 
     def compress(self, a):
-        return a[self.basin]
+        return a[~self.basin_mask]
 
     def decompress(self, a):
-        o = np.full(self.basin.shape, np.nan, dtype=a.dtype)
-        o[self.basin] = a
+        o = np.full(self.basin_mask.shape, np.nan, dtype=a.dtype)
+        o[~self.basin_mask] = a
         return o
 
     def prepare_time_step(self):
@@ -259,18 +259,18 @@ class ModFlowSimulation:
 
     def set_recharge(self, recharge):
         """Set recharge, value in m/day"""
-        recharge = recharge[self.basin == True]
-        self.recharge[:] = recharge * (self.rowsize * self.colsize)
+        recharge = recharge[~self.basin_mask]
+        self.recharge[:] = recharge * (self.row_resolution * self.col_resolution)
     
     def set_groundwater_abstraction(self, groundwater_abstraction):
         """Set well rate, value in m/day"""
-        well_rate = - groundwater_abstraction[self.basin == True]  # modflow well rate is negative if abstraction occurs
+        well_rate = - groundwater_abstraction[~self.basin_mask]  # modflow well rate is negative if abstraction occurs
         assert (well_rate <= 0).all()
-        self.well_rate[:] = well_rate * (self.rowsize * self.colsize)
+        self.well_rate[:] = well_rate * (self.row_resolution * self.col_resolution)
 
     def get_drainage(self):
         """Get Modflow drainage in m/day"""
-        return self.decompress(self.drainage / (self.rowsize * self.colsize))
+        return self.decompress(self.drainage / (self.row_resolution * self.col_resolution))
 
     def step(self, plot=False):
         if self.mf6.get_current_time() > self.end_time:

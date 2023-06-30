@@ -62,8 +62,8 @@ class CWATModel_dyn(DynamicModel):
             sys.exit("done with Environmental Flow")
 
 
-        self.readmeteo_module.dynamic()
-        timemeasure("Read meteo") # 1. timing after read input maps
+        # self.readmeteo_module.dynamic()
+        # timemeasure("Read meteo") # 1. timing after read input maps
 
         self.evaporationPot_module.dynamic()
         timemeasure("ET pot") # 2. timing after read input maps

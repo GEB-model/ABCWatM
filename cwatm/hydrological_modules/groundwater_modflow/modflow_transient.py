@@ -22,22 +22,22 @@ class groundwater_modflow:
         return np.bincount(
             self.indices['ModFlow_index'],
             weights=np.invert(self.var.mask.astype(bool)).ravel()[self.indices['CWatM_index']] * self.indices['area'],
-            minlength=self.modflow.basin.size
-        ).reshape(self.modflow.basin.shape)
+            minlength=self.modflow.basin_mask.size
+        ).reshape(self.modflow.basin_mask.shape)
 
     def get_corrected_cwatm_cell_area(self):
         return (self.var.cell_area_uncompressed.ravel() - np.bincount(
             self.indices['CWatM_index'],
-            weights=np.invert(self.modflow.basin).ravel()[self.indices['ModFlow_index']] * self.indices['area'],
+            weights=self.modflow.basin_mask.ravel()[self.indices['ModFlow_index']] * self.indices['area'],
             minlength=self.var.mask.size
         )).reshape(self.var.mask.shape)
 
     def CWATM2modflow(self, variable, correct_boundary=False):
         if correct_boundary:
-            modflow_cell_area = self.modflow_cell_area_corrected.ravel()
+            modflow_cell_area = self.modflow_cell_area_corrected
             area = self.indices['modflow_area']
         else:
-            modflow_cell_area = self.modflow_cell_area.ravel()
+            modflow_cell_area = self.modflow_cell_area
             area = self.indices['area']
         variable[self.var.mask == 1] = 0
         assert not (np.isnan(variable).any())
@@ -45,12 +45,17 @@ class groundwater_modflow:
             self.indices['ModFlow_index'],
             variable.ravel()[self.indices['CWatM_index']] * area,
             minlength=self.domain['nrow'] * self.domain['ncol']
-        ) / modflow_cell_area).reshape((self.domain['nrow'], self.domain['ncol'])).astype(variable.dtype)
+        )).reshape((self.domain['nrow'], self.domain['ncol'])).astype(variable.dtype)
+
+        # just make sure that there 
+        assert (array[(modflow_cell_area == 0)] == 0).all()
+        array = array / modflow_cell_area
+        array[self.modflow_basin_mask] = 0
         return array
 
     def modflow2CWATM(self, variable, correct_boundary=False):
         variable = variable.copy()
-        variable[self.modflow.basin == False] = 0  
+        variable[self.modflow.basin_mask == True] = 0  
         assert not (np.isnan(variable).any())
         if correct_boundary:
             variable = variable / (self.modflow_cell_area_corrected / self.modflow_cell_area)
@@ -87,14 +92,14 @@ class groundwater_modflow:
         nlay = int(loadmap('nlay'))
 
         with rasterio.open(cbinding('modflow_mask'), 'r') as src:
-            modflow_basin = (~src.read(1).astype(bool))  # read in as 3-dimensional array (nlay, nrows, ncols).
+            self.modflow_basin_mask = (~src.read(1).astype(bool))  # read in as 3-dimensional array (nlay, nrows, ncols).
             self.domain = {
-                'rowsize': abs(src.profile['transform'].e),
-                'colsize': abs(src.profile['transform'].a),
+                'row_resolution': abs(src.profile['transform'].e),
+                'col_resolution': abs(src.profile['transform'].a),
                 'nrow': src.profile['height'],
                 'ncol': src.profile['width'],
             }
-        self.modflow_cell_area = self.domain['rowsize'] * self.domain['colsize']
+        self.modflow_cell_area = self.domain['row_resolution'] * self.domain['col_resolution']
 
         thickness = cbinding('thickness')
         if is_float(thickness):
@@ -108,7 +113,7 @@ class groundwater_modflow:
 
         with rasterio.open(cbinding('topo_modflow'), 'r') as src:
             topography = src.read(1).astype(np.float32)
-            topography[modflow_basin == False] = np.nan
+            topography[self.modflow_basin_mask == True] = np.nan
 
         with rasterio.open(cbinding('chanRatio'), 'r') as src:
             self.var.channel_ratio = self.var.compress(src.read(1))
@@ -120,7 +125,7 @@ class groundwater_modflow:
         else:
             raise NotImplementedError
 
-        self.porosity = cbinding('poro')   # default = 0.1
+        self.porosity = cbinding('poro')  # default = 0.1
         if is_float(self.porosity):
             self.porosity = float(self.porosity)
             self.porosity = np.full((nlay, self.domain['nrow'], self.domain['ncol']), self.porosity, dtype=np.float32)
@@ -203,11 +208,11 @@ class groundwater_modflow:
             nlay=nlay,
             nrow=self.domain['nrow'],
             ncol=self.domain['ncol'],
-            rowsize=self.domain['rowsize'],
-            colsize=self.domain['colsize'],
+            row_resolution=self.domain['row_resolution'],
+            col_resolution=self.domain['col_resolution'],
             top=self.layer_boundaries[0],
             bottom=self.layer_boundaries[1],
-            basin=modflow_basin,
+            basin_mask=self.modflow_basin_mask,
             head=self.model.data.modflow.head,
             drainage_elevation=self.layer_boundaries[0],
             permeability=self.permeability,

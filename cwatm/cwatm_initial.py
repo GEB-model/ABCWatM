@@ -10,7 +10,6 @@
 
 
 from cwatm.hydrological_modules.miscInitial import miscInitial
-from cwatm.hydrological_modules.readmeteo import readmeteo
 from cwatm.hydrological_modules.evaporationPot import evaporationPot
 from cwatm.hydrological_modules.inflow import inflow
 from cwatm.hydrological_modules.snow_frost import snow_frost
@@ -61,7 +60,6 @@ class CWATModel_ini(DynamicModel):
         # include all the hydrological modules
         self.misc_module = miscInitial(self)
         self.waterbalance_module = waterbalance(self)
-        self.readmeteo_module = readmeteo(self)
         self.environflow_module = environflow(self)
         self.evaporationPot_module = evaporationPot(self)
         self.inflow_module = inflow(self)
@@ -85,7 +83,7 @@ class CWATModel_ini(DynamicModel):
         # run intial misc to get all global variables
         self.misc_module.initial()
 
-        self.readmeteo_module.initial()
+        # self.readmeteo_module.initial()
         self.inflow_module.initial()
 
         self.evaporationPot_module.initial()

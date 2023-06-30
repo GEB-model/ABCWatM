@@ -9,7 +9,7 @@
 # -------------------------------------------------------------------------
 
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import returnBool, binding, readnetcdf2
+from cwatm.management_modules.data_handling import returnBool, binding
 import numpy as np
 
 class waterdemand_environmental_need:

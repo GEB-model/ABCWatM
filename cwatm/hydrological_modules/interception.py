@@ -9,8 +9,9 @@
 # -------------------------------------------------------------------------
 
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import loadmap, readnetcdf2, divideValues, checkOption
+from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption, cbinding
 import numpy as np
+import xarray as xr
 
 class interception(object):
     """
@@ -56,6 +57,11 @@ class interception(object):
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()
 
+        self.interception_ds = {}
+        for land_cover in ('forest', 'grassland'):
+            dataset_name, variable_name = cbinding(land_cover + '_interceptCapNC').split(':')
+            self.interception_ds[land_cover] = xr.open_dataset(dataset_name)[variable_name]
+
     def dynamic(self, potTranspiration):
         """
         Dynamic part of the interception module
@@ -74,8 +80,14 @@ class interception(object):
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
             if coverType in ('forest', 'grassland'):
-                covertype_interceptCapNC = readnetcdf2(coverType + '_interceptCapNC', globals.dateVar['10day'], "10day")
-                covertype_interceptCapNC = self.model.data.to_HRU(data=covertype_interceptCapNC, fn=None)  # checked
+                covertype_interceptCapNC = self.model.data.to_HRU(
+                    data=self.model.data.grid.compress(
+                        self.interception_ds[coverType].sel(
+                            time=self.model.current_time.replace(year=2000),
+                            method='ffill').data
+                    ),
+                    fn=None
+                )
                 interceptCap[coverType_indices] = covertype_interceptCapNC[coverType_indices]
             else:
                 interceptCap[coverType_indices] = self.var.minInterceptCap[coverType_indices]

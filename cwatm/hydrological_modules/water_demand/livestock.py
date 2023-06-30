@@ -15,7 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import returnBool, binding, cbinding, loadmap, readnetcdf2, checkOption, downscale_volume
+from cwatm.management_modules.data_handling import returnBool, binding, cbinding, loadmap, checkOption, downscale_volume
 from honeybees.library.mapIO import NetCDFReader
 
 class waterdemand_livestock:

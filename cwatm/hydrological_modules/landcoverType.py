@@ -9,20 +9,20 @@
 # -------------------------------------------------------------------------
 import numpy as np
 import pandas as pd
+import xarray as xr
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import checkOption, readnetcdf2, binding, loadmap
+from cwatm.management_modules.data_handling import checkOption, binding, loadmap, cbinding
 
 
 @njit(cache=True)
-def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days, crop_growth_length, crop_stage_data, kc_crop_stage):
+def get_crop_kc(crop_map, crop_age_days_map, crop_harvest_age_days, crop_stage_data, kc_crop_stage):
     assert (kc_crop_stage != 0).all()
     assert (crop_stage_data != 0).all()
-    assert (crop_growth_length != 0).all()
 
     shape = crop_map.shape
     crop_map = crop_map.ravel()
@@ -392,6 +392,9 @@ class landcoverType(object):
 
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
+        dataset_name, variable_name = cbinding('forest_cropCoefficientNC').split(':')
+        self.forest_kc_ds = xr.open_dataset(dataset_name)[variable_name]
+
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -507,19 +510,35 @@ class landcoverType(object):
             w3_pre = self.var.w3.copy()
             topwater_pre = self.var.topwater.copy()
 
+        crop_stage_lenghts = np.column_stack([
+            self.farmers.crop_variables['d1'],
+            self.farmers.crop_variables['d2a'] + self.farmers.crop_variables['d2b'],
+            self.farmers.crop_variables['d3a'] + self.farmers.crop_variables['d3b'],
+            self.farmers.crop_variables['d4']
+        ])
+
+        crop_factors = np.column_stack([
+            self.farmers.crop_variables['Kc1'],
+            self.farmers.crop_variables['Kc3'],
+            self.farmers.crop_variables['Kc5'],
+        ])
+
         self.var.cropKC = get_crop_kc(
             self.var.crop_map,
             self.var.crop_age_days_map,
             self.var.crop_harvest_age_days,
-            self.model.agents.farmers.growth_length,
-            self.farmers.crop_stage_lengths,
-            self.farmers.crop_factors
+            crop_stage_lenghts,
+            crop_factors
         )
         if self.model.args.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
         forest_cropCoefficientNC = self.model.data.to_HRU(
-            data=readnetcdf2('forest_cropCoefficientNC', globals.dateVar['10day'], "10day"),
+            data=self.model.data.grid.compress(
+                self.forest_kc_ds.sel(
+                    time=self.model.current_time.replace(year=2000),
+                    method='ffill').data
+            ),
             fn=None
         )
         
@@ -598,17 +617,6 @@ class landcoverType(object):
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
         potTranspiration = self.model.interception_module.dynamic(potTranspiration)
 
-        del self.var.ETRef
-        del self.var.TMax
-        del self.var.TMin
-        del self.var.Tavg
-        del self.var.Rsdl
-        del self.var.Rsds
-        del self.var.Wind
-        del self.var.Psurf
-        del self.var.huss
-        del self.var.hurs
-
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = self.model.waterdemand_module.dynamic(totalPotET)
 
@@ -660,7 +668,7 @@ class landcoverType(object):
 
             self.model.waterbalance_module.waterBalanceCheck(
                 how='cellwise',
-                influxes=[self.var.Precipitation, self.var.actual_irrigation_consumption, capillar],
+                influxes=[self.var.precipitation_m_day, self.var.actual_irrigation_consumption, capillar],
                 outfluxes=[
                     directRunoff, interflow, groundwater_recharge,
                     self.var.actTransTotal, self.var.actBareSoilEvap, openWaterEvap,
