@@ -15,7 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 import cftime
-from cwatm.management_modules.data_handling import returnBool, binding, cbinding, divideValues, downscale_volume, checkOption
+from cwatm.management_modules.data_handling import returnBool, binding, cbinding, divideValues, downscale_volume
 from honeybees.library.mapIO import NetCDFReader
 
 class waterdemand_domestic:
