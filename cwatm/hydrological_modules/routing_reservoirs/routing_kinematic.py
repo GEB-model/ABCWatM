@@ -255,12 +255,12 @@ class routing_kinematic(object):
         #self.var.chanQKin = np.where(self.var.channelAlpha > 0, (self.var.totalCrossSectionArea / self.var.channelAlpha) ** self.var.invbeta, 0.)
         dischargeIni = (self.var.channelStorageM3 * self.var.invchanLength * self.var.invchannelAlpha) ** self.var.invbeta
         self.var.discharge = self.var.load_initial("discharge", default=dischargeIni)
+        self.var.discharge_substep = self.var.load_initial("discharge_substep", default=np.full((self.var.noRoutingSteps, self.var.discharge.size), 0, dtype=self.var.discharge.dtype))
         #self.var.chanQKin = chanQKinIni
 
         #self.var.riverbedExchangeM = globals.inZero.copy()
         #self.var.riverbedExchangeM = self.var.load_initial("riverbedExchange", default = globals.inZero.copy())
         #self.var.discharge = self.var.chanQKin.copy()
-
 
         #if checkOption('includeWaterDemand'):
         #    self.var.readAvlChannelStorage = 0.95 * self.var.channelStorage
@@ -269,10 +269,6 @@ class routing_kinematic(object):
 
         # factor for evaporation from lakes, reservoirs and open channels
         self.var.lakeEvaFactor = globals.inZero + loadmap('lakeEvaFactor')
-
-
-        #self.var.channelAlphaPcr = decompress(self.var.channelAlpha)
-        #self.var.chanLengthPcr = decompress(self.var.chanLength)
 
         if checkOption('calcWaterBalance'):
             self.var.catchmentAll = (loadmap('MaskMap')*0.).astype(int)
@@ -404,7 +400,7 @@ class routing_kinematic(object):
         # Question: Is this fine?? It is already used above differently
         #self.var.prechannelStorageM3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
 
-        self.var.hourly_discharge = np.full((self.var.noRoutingSteps, self.var.discharge.size), np.nan, dtype=self.var.discharge.dtype)
+        self.var.discharge_substep = np.full((self.var.noRoutingSteps, self.var.discharge.size), np.nan, dtype=self.var.discharge.dtype)
         for subrouting in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
             sideflowChanM3 = runoffM3.copy()
@@ -467,7 +463,7 @@ class routing_kinematic(object):
                    self.var.lendirDown
                 )
             self.var.discharge = Qnew.copy()
-            self.var.hourly_discharge[subrouting, :] = self.var.discharge.copy()
+            self.var.discharge_substep[subrouting, :] = self.var.discharge.copy()
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
 
