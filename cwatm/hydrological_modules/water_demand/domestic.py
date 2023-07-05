@@ -10,6 +10,7 @@
 
 from cwatm.management_modules import globals
 import numpy as np
+import xarray as xr
 import calendar
 try:
     import cupy as cp
@@ -17,7 +18,6 @@ except (ModuleNotFoundError, ImportError):
     pass
 import cftime
 from cwatm.management_modules.data_handling import returnBool, binding, cbinding, divideValues, downscale_volume
-from honeybees.library.mapIO import NetCDFReader
 
 class waterdemand_domestic:
     """
@@ -51,32 +51,7 @@ class waterdemand_domestic:
         self.model = model
 
     def initial(self):
-        """
-        Initial part of the water demand module
-
-        """
-
-        if "domesticTimeMonthly" in binding:
-            if returnBool('domesticTimeMonthly'):
-                self.domesticTime = 'monthly'
-            else:
-                self.domesticTime = 'yearly'
-        else:
-            self.domesticTime = 'monthly'
-
-        if "domesticWithdrawalvarname" in binding:
-            self.domWithdrawalVar = cbinding("domesticWithdrawalvarname")
-        else:
-            self.domWithdrawalVar = "domesticGrossDemand"
-        if "domesticConsuptionvarname" in binding:
-            self.domConsumptionVar = cbinding("domesticConsuptionvarname")
-        else:
-            self.domConsumptionVar = "domesticNettoDemand"
-        
-        self.domestic_water_demand_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
-        self.domestic_water_demand_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domWithdrawalVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
-        self.domestic_water_consumption_ds = NetCDFReader(cbinding('domesticWaterDemandFile'), self.domConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
-        self.domestic_water_consumption_ds_SSP2 = NetCDFReader(cbinding('domesticWaterDemandFile_SSP2'), self.domConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
+        pass
 
     def dynamic(self):
         """
@@ -87,18 +62,13 @@ class waterdemand_domestic:
         downscale_mask = (self.var.land_use_type != 4)
         if self.model.args.use_gpu:
             downscale_mask = downscale_mask.get()
-        
-        # transform from mio m3 per year (or month) to m/day
-        if self.model.current_time.year > 2010:
-            domestic_water_demand_ds = self.domestic_water_demand_ds_SSP2
-        else:
-            domestic_water_demand_ds = self.domestic_water_demand_ds
         days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
-        domestic_water_demand = domestic_water_demand_ds.get_data_array(self.model.current_time.replace(day=1)) * 1_000_000 / days_in_month
+        date = cftime.datetime(self.model.current_time.year, self.model.current_time.month, 1, calendar='360_day')
+        domestic_water_demand = self.model.domestic_water_demand_ds.sel(time=date).domestic_water_demand * 1_000_000 / days_in_month
         domestic_water_demand = downscale_volume(
-            self.domestic_water_demand_ds.gt,
+            self.model.domestic_water_demand_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,
-            domestic_water_demand,
+            domestic_water_demand.values,
             self.model.data.grid.mask,
             self.model.data.grid_to_HRU_uncompressed,
             downscale_mask,
@@ -108,15 +78,11 @@ class waterdemand_domestic:
             domestic_water_demand = cp.array(domestic_water_demand)
         domestic_water_demand = self.var.M3toM(domestic_water_demand)
 
-        if self.model.current_time.year > 2010:
-            domestic_water_consumption_ds = self.domestic_water_consumption_ds_SSP2
-        else:
-            domestic_water_consumption_ds = self.domestic_water_consumption_ds
-        domestic_water_consumption = domestic_water_consumption_ds.get_data_array(self.model.current_time.replace(day=1)) * 1_000_000 / days_in_month
+        domestic_water_consumption = self.model.domestic_water_consumption_ds.sel(time=date).domestic_water_consumption * 1_000_000 / days_in_month
         domestic_water_consumption = downscale_volume(
-            self.domestic_water_consumption_ds.gt,
+            self.model.domestic_water_consumption_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,
-            domestic_water_consumption,
+            domestic_water_consumption.values,
             self.model.data.grid.mask,
             self.model.data.grid_to_HRU_uncompressed,
             downscale_mask,
