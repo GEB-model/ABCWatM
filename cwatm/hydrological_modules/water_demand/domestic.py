@@ -10,6 +10,7 @@
 
 from cwatm.management_modules import globals
 import numpy as np
+import calendar
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
@@ -83,35 +84,17 @@ class waterdemand_domestic:
         read monthly (or yearly) water demand from netcdf and transform (if necessary) to [m/day]
 
         """
-
-        if self.domesticTime == 'monthly':
-            timediv = globals.dateVar['daysInMonth']
-        else:
-            timediv = globals.dateVar['daysInYear']
-        
-        if self.domesticTime == 'monthly':
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                globals.dateVar['currDate'].month,
-                1
-            )
-        else:
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                1,
-                1
-            )
         downscale_mask = (self.var.land_use_type != 4)
         if self.model.args.use_gpu:
             downscale_mask = downscale_mask.get()
         
-
         # transform from mio m3 per year (or month) to m/day
-        if globals.dateVar['currDate'].year > 2010:
+        if self.model.current_time.year > 2010:
             domestic_water_demand_ds = self.domestic_water_demand_ds_SSP2
         else:
             domestic_water_demand_ds = self.domestic_water_demand_ds
-        domestic_water_demand = domestic_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
+        domestic_water_demand = domestic_water_demand_ds.get_data_array(self.model.current_time.replace(day=1)) * 1_000_000 / days_in_month
         domestic_water_demand = downscale_volume(
             self.domestic_water_demand_ds.gt,
             self.model.data.grid.gt,
@@ -125,11 +108,11 @@ class waterdemand_domestic:
             domestic_water_demand = cp.array(domestic_water_demand)
         domestic_water_demand = self.var.M3toM(domestic_water_demand)
 
-        if globals.dateVar['currDate'].year > 2010:
+        if self.model.current_time.year > 2010:
             domestic_water_consumption_ds = self.domestic_water_consumption_ds_SSP2
         else:
             domestic_water_consumption_ds = self.domestic_water_consumption_ds
-        domestic_water_consumption = domestic_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
+        domestic_water_consumption = domestic_water_consumption_ds.get_data_array(self.model.current_time.replace(day=1)) * 1_000_000 / days_in_month
         domestic_water_consumption = downscale_volume(
             self.domestic_water_consumption_ds.gt,
             self.model.data.grid.gt,

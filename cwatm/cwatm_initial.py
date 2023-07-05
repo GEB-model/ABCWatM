@@ -77,9 +77,6 @@ class CWATModel_ini(DynamicModel):
         self.lakes_reservoirs_module = lakes_reservoirs(self)
         self.waterquality1 = waterquality1(self)
 
-        # reading of the metainformation of variables to put into output netcdfs
-        metaNetCDF()
-
         # run intial misc to get all global variables
         self.misc_module.initial()
 
@@ -112,7 +109,7 @@ class CWATModel_ini(DynamicModel):
         self.waterbalance_module.initial()
         # calculate initial amount of water in the catchment
 
-        self.output_module.initial()
+        # self.output_module.initial()
         self.environflow_module.initial()
         self.waterquality1.initial()
 

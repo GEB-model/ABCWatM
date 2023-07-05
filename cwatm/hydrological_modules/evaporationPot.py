@@ -10,7 +10,7 @@
 
 import numpy as np
 from cwatm.management_modules.data_handling import loadmap, returnBool, loadmap
-from cwatm.management_modules.globals import dateVar, binding
+from cwatm.management_modules.globals import binding
 
 
 class evaporationPot(object):

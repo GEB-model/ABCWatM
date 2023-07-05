@@ -411,9 +411,9 @@ class lakes_reservoirs(object):
         Dynamic part set lakes and reservoirs for each year
         """
         if checkOption('includeWaterBodies'):
-            # check years
-            if dateVar['newStart'] or dateVar['newYear']:
-                year = dateVar['currDate'].year
+            # if first timestep, or beginning of new year
+            if self.model.current_timestep == 1 or (self.model.current_time.month == 1 and self.model.current_time.day == 1):
+                year = self.model.current_time.year
 
                 # - 3 = reservoirs and lakes (used as reservoirs but before the year of construction as lakes
                 # - 2 = reservoirs (regulated discharge)
@@ -422,7 +422,7 @@ class lakes_reservoirs(object):
                 if returnBool('DynamicResAndLakes'):
                     raise NotImplementedError("DynamicResAndLakes not implemented yet")
                     if returnBool('dynamicLakesRes'):
-                        year = dateVar['currDate'].year
+                        year = self.model.current_time.year
                     else:
                         year = loadmap('fixLakesResYear')
 

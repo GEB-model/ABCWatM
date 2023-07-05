@@ -104,7 +104,7 @@ initCondVar = []
 #date variable
 global dateVar
 # noinspection PyRedeclaration
-dateVar = {}
+# dateVar = {}
 
 # Output variables
 global outDir, outsection, outputTyp

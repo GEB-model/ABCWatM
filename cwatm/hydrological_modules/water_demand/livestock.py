@@ -10,6 +10,7 @@
 
 import numpy as np
 import cftime
+import calendar
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
@@ -77,24 +78,8 @@ class waterdemand_livestock:
         read monthly (or yearly) water demand from netcdf and transform (if necessary) to [m/day]
 
         """
-        if self.livestockTime == 'monthly':
-            timediv = globals.dateVar['daysInMonth']
-        else:
-            timediv = globals.dateVar['daysInYear']
-        
-        if self.livestockTime == 'monthly':
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                globals.dateVar['currDate'].month,
-                1
-            )
-        else:
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                1,
-                1
-            )
-        
+
+        days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
         # grassland/non-irrigated land that is not owned by a crop farmer
         if self.model.args.use_gpu:
             land_use_type = self.var.land_use_type.get()
@@ -102,13 +87,13 @@ class waterdemand_livestock:
             land_use_type = self.var.land_use_type
         downscale_mask = ((land_use_type != 1) | (self.var.land_owners != -1))
 
-        if globals.dateVar['currDate'].year > 2010:
+        if self.model.current_time.year > 2010:
             livestock_water_demand_ds = self.livestock_water_demand_ds_SSP2
         else:
             livestock_water_demand_ds = self.livestock_water_demand_ds
 
         # transform from mio m3 per year (or month) to m/day
-        livestock_water_demand = livestock_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        livestock_water_demand = livestock_water_demand_ds.get_data_array(self.model.current_time.replace(day=1)) * 1_000_000 / days_in_month
         livestock_water_demand = downscale_volume(
             livestock_water_demand_ds.gt,
             self.model.data.grid.gt,

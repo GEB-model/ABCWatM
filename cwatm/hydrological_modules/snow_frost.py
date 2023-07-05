@@ -185,7 +185,8 @@ class snow_frost(object):
         if checkOption('calcWaterBalance'):
             self.var.prevSnowCover = np.sum(self.var.SnowCoverS, axis=0)
 
-        SeasSnowMeltCoef = self.var.SnowSeason * np.sin(math.radians((dateVar['doy'] - 81)
+        day_of_year = self.model.current_time.timetuple().tm_yday
+        SeasSnowMeltCoef = self.var.SnowSeason * np.sin(math.radians((day_of_year - 81)
                                 * self.var.SnowDayDegrees)) + self.var.SnowMeltCoef
 
         # SeasSnowMeltCoef = SnowSeason * sin((dateVar['doy']-81)* SnowDayDegrees) + SnowMeltCoef;
@@ -195,8 +196,8 @@ class snow_frost(object):
         # TODO change this for the southern hemisspere
 
 
-        if (dateVar['doy'] > self.var.summerSeasonStart) and (dateVar['doy'] < 260):
-            SummerSeason = np.sin(math.radians((dateVar['doy'] - self.var.summerSeasonStart) * self.var.IceDayDegrees))
+        if (day_of_year > self.var.summerSeasonStart) and (day_of_year < 260):
+            SummerSeason = np.sin(math.radians((day_of_year - self.var.summerSeasonStart) * self.var.IceDayDegrees))
         else:
             SummerSeason = 0.0
 

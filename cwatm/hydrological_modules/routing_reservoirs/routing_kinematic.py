@@ -403,12 +403,8 @@ class routing_kinematic(object):
         self.var.sumsideflow = 0
         # Question: Is this fine?? It is already used above differently
         #self.var.prechannelStorageM3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
-        avgDis = 0
 
-        if not hasattr(self, 'previous_discharges'):
-            self.var.previous_discharges = {i: [] for i in self.var.sampleAdresses.keys()}
-            self.var.previous_discharges['time'] = []
-
+        self.var.hourly_discharge = np.full((self.var.noRoutingSteps, self.var.discharge.size), np.nan, dtype=self.var.discharge.dtype)
         for subrouting in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
             sideflowChanM3 = runoffM3.copy()
@@ -471,16 +467,9 @@ class routing_kinematic(object):
                    self.var.lendirDown
                 )
             self.var.discharge = Qnew.copy()
+            self.var.hourly_discharge[subrouting, :] = self.var.discharge.copy()
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
-            avgDis = avgDis  + self.var.discharge / self.var.noRoutingSteps
-
-            current_time = datetime.fromisoformat(dateVar['currDate'].isoformat()) + timedelta(days=1) / self.var.noRoutingSteps * subrouting
-            self.var.previous_discharges['time'].append(current_time)
-            for sample_id in range(1, len(self.var.sampleAdresses) + 1):
-                sample_loc = self.var.sampleAdresses[sample_id]
-                cur_discharge = self.var.discharge[sample_loc]
-                self.var.previous_discharges[sample_id].append(cur_discharge)
 
         # -- end substeping ---------------------
         if checkOption('includeWaterBodies'):
@@ -506,65 +495,3 @@ class routing_kinematic(object):
                     name="lake_res",
                     tollerance=1e-3
                 )
-
-
-        # if checkOption('calcWaterBalance'):
-        #     self.model.waterbalance_module.waterBalanceCheck(
-        #         influxes=[runoffM3, lakesResOut ],  # In
-        #         outfluxes=[sideflowChanM3, EvapoChannelM3Dt, WDAddM3Dt],  # Out
-        #         name="rout1"
-        #     )
-
-#             self.model.waterbalance_module.waterBalanceCheckSum(
-#                 [self.var.runoff, self.var.returnFlow, lakesResOut/ self.var.cellArea],  # In
-#                 [self.var.sumsideflow / self.var.cellArea, EvapoChannel / self.var.cellArea, self.var.act_SurfaceWaterAbstract, ],  # Out
-#                 [],  # prev storage
-#                 [],
-#                 "rout2", False)
-
-
-
-#         #if (dateVar['curr'] == 99):
-        #   ii = 1
-        """
-        if checkOption('calcWaterBalance'):
-            self.var.sumbalance = self.var.sumbalance + self.model.waterbalance_module.waterBalanceCheckSum(
-                [sumside ],  # In
-                [DisOut],  # Out
-                [ch1],   # prev storage
-                [ch2],
-                "rout3", False)
-            #print "  ",self.var.sumbalance,"   ", avgDis[0],"   ",
-        """
-
-        # if checkOption('calcWaterBalance'):
-        #     self.model.waterbalance_module.waterBalanceCheckSum(
-        #         [self.var.runoff, self.var.returnFlow ],  # In
-        #         [self.var.sumsideflow / self.var.cellArea,EvapoChannel / self.var.cellArea, self.var.act_SurfaceWaterAbstract],  # Out
-        #         [],   # prev storage
-        #         [],
-        #         "rout4", False)
-
-        # if checkOption('calcWaterBalance'):
-        #     self.model.waterbalance_module.waterBalanceCheckSum(
-        #         [self.var.runoff, self.var.returnFlow, lakesResOut// self.var.cellArea],  # In
-        #         [DisOut, EvapoChannel / self.var.cellArea, self.var.act_SurfaceWaterAbstract ],  # Out
-        #         [self.var.prechannelStorageM3/self.var.cellArea],   # prev storage
-        #         [self.var.channelStorageM3/self.var.cellArea],
-        #         "rout5", False)
-
-        # self.var.wb_routingKinematic = (self.var.runoff + self.var.returnFlow)-(self.var.sumsideflow / self.var.cellArea + EvapoChannel / self.var.cellArea + self.model.data.to_grid(HRU_data=self.model.data.HRU.act_channelAbstract, fn='mean')) - (self.var.channelStorageM3/self.var.cellArea - self.var.prechannelStorageM3/self.var.cellArea)
-
-
-
-
-        """
-        a = readmap("C:\work\output/q_pcr")
-        b = nominal(a*100)
-        c = ifthenelse(b == 105779, scalar(9999), scalar(0))
-        report(c,"C:\work\output/t3.map")
-        d = compressArray(c)
-        np.where(d == 9999)   #23765
-        e = pcr2numpy(c, 0).astype(np.float64)
-        np.where(e > 9000)   # 75, 371  -> 76, 372
-        """

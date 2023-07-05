@@ -15,6 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 import cftime
+import calendar
 from cwatm.management_modules.data_handling import returnBool, binding, cbinding, loadmap, divideValues, downscale_volume, checkOption
 from honeybees.library.mapIO import NetCDFReader
 
@@ -76,34 +77,18 @@ class waterdemand_industry:
         self.industry_water_consumption_ds_SSP2 = NetCDFReader(cbinding('industryWaterDemandFile_SSP2'), self.indConsumptionVar, xmin=self.model.xmin, xmax=self.model.xmax, ymin=self.model.ymin, ymax=self.model.ymax)
 
     def dynamic(self):
-        if self.industryTime == 'monthly':
-            timediv = globals.dateVar['daysInMonth']
-        else:
-            timediv = globals.dateVar['daysInYear']
-        
-        if self.industryTime == 'monthly':
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                globals.dateVar['currDate'].month,
-                1
-            )
-        else:
-            date = cftime.Datetime360Day(
-                globals.dateVar['currDate'].year,
-                1,
-                1
-            )
         downscale_mask = (self.var.land_use_type != 4)
         if self.model.args.use_gpu: 
             downscale_mask = downscale_mask.get()
-        
 
+        days_in_year = 366 if calendar.isleap(self.model.current_time.year) else 365
+        
         # transform from mio m3 per year (or month) to m/day
-        if globals.dateVar['currDate'].year > 2010:
+        if self.model.current_time.year > 2010:
             industry_water_demand_ds = self.industry_water_demand_ds_SSP2
         else:
             industry_water_demand_ds = self.industry_water_demand_ds
-        industry_water_demand = industry_water_demand_ds.get_data_array(date) * 1_000_000 / timediv
+        industry_water_demand = industry_water_demand_ds.get_data_array(self.model.current_time.replace(month=1, day=1)) * 1_000_000 / days_in_year
         industry_water_demand = downscale_volume(
             self.industry_water_demand_ds.gt,
             self.model.data.grid.gt,
@@ -117,11 +102,11 @@ class waterdemand_industry:
             industry_water_demand = cp.array(industry_water_demand)
         industry_water_demand = self.var.M3toM(industry_water_demand)
 
-        if globals.dateVar['currDate'].year > 2010:
+        if self.model.current_time.year > 2010:
             industry_water_consumption_ds = self.industry_water_consumption_ds_SSP2
         else:
             industry_water_consumption_ds = self.industry_water_consumption_ds
-        industry_water_consumption = industry_water_consumption_ds.get_data_array(date) * 1_000_000 / timediv
+        industry_water_consumption = industry_water_consumption_ds.get_data_array(self.model.current_time.replace(month=1, day=1)) * 1_000_000 / days_in_year
         industry_water_consumption = downscale_volume(
             self.industry_water_consumption_ds.gt,
             self.model.data.grid.gt,

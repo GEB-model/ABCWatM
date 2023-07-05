@@ -202,7 +202,7 @@ class groundwater_modflow:
             self.model,
             'transient',
             modflow_directory,
-            ndays=globals.dateVar['intEnd'],
+            ndays=self.model.n_timesteps,
             specific_storage=0,
             specific_yield=float(cbinding('poro')),
             nlay=nlay,

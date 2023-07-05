@@ -31,7 +31,7 @@ class CWATModel_dyn(DynamicModel):
 
         #self.CalendarDate = dateVar['dateStart'] + datetime.timedelta(days=dateVar['curr'])
         #self.CalendarDay = int(self.CalendarDate.strftime("%j"))
-        timestep_dynamic(self)
+        # timestep_dynamic(self)
 
 
         del timeMes[:]
@@ -40,13 +40,13 @@ class CWATModel_dyn(DynamicModel):
 
 
         if Flags['loud']:
-            print("%-6i %10s" %(dateVar['currStart'],dateVar['currDatestr']), end=' ')
+            print("%-6i %10s" %(self.current_timestep, self.current_time_fmt), end=' ')
         else:
             if not(Flags['check']):
                 if (Flags['quiet']) and (not(Flags['veryquiet'])):
                     sys.stdout.write(".")
                 if (not(Flags['quiet'])) and (not(Flags['veryquiet'])):
-                    sys.stdout.write("\r%d" % dateVar['currStart'])
+                    sys.stdout.write("\r%d" % self.current_timestep)
                     sys.stdout.flush()
                 if not (Flags['veryquiet']): print()
 
@@ -58,7 +58,7 @@ class CWATModel_dyn(DynamicModel):
         if checkOption('calc_environflow') and (returnBool('calc_ef_afterRun')  == False):
             # if only the dis is used for calculation of EF
             self.environflow_module.dynamic()
-            self.output_module.dynamic(ef = True)
+            # self.output_module.dynamic(ef = True)
             sys.exit("done with Environmental Flow")
 
 
@@ -101,8 +101,6 @@ class CWATModel_dyn(DynamicModel):
         timemeasure("Routing_Kin")  # 10. timing
 
         self.waterquality1.dynamic()
-
-
         # *******  Calculate CUMULATIVE MASS BALANCE ERROR  **********
         # self.waterbalance_module.dynamic()
 
@@ -115,13 +113,3 @@ class CWATModel_dyn(DynamicModel):
 
         self.environflow_module.dynamic()
         # in case environmental flow is calculated last
-
-        self.output_module.dynamic()
-        timemeasure("Output")  # 12. timing
-
-        for i in range(len(timeMes)):
-            #if self.currentTimeStep() == self.firstTimeStep():
-            if self.currentStep == self.firstStep:
-                timeMesSum.append(timeMes[i] - timeMes[0])
-            else:
-                timeMesSum[i] += timeMes[i] - timeMes[0]

@@ -22,27 +22,7 @@ class ModelFrame:
         :return: -
         """
 
-        self._model = model
-        self._model.lastStep = lastTimeStep
-        self._model.firstStep = firstTimestep
+        self.model = model
 
     def step(self):
-        self._model.currentStep = self.currentStep
-        self._model.dynamic()
-        self.currentStep += 1    
-
-    def initialize_run(self):
-        self.currentStep = self._model.firstStep
-
-    def run(self):
-        """  Run the dynamic part of the model
-
-        :return: -
-        """
-        self.initialize_run()
-        while self.currentStep <= self._model.lastStep:
-            self.step()
-
-
-
-
+        self.model.dynamic()
