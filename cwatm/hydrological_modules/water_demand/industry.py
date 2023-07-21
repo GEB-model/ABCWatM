@@ -56,9 +56,8 @@ class waterdemand_industry:
             downscale_mask = downscale_mask.get()
 
         days_in_year = 366 if calendar.isleap(self.model.current_time.year) else 365
-        date = cftime.datetime(self.model.current_time.year, 1, 1, calendar='360_day')
         
-        industry_water_demand = self.model.industry_water_demand_ds.sel(time=date).industry_water_demand * 1_000_000 / days_in_year
+        industry_water_demand = self.model.industry_water_demand_ds.sel(time=self.model.current_time, method='ffill').industry_water_demand * 1_000_000 / days_in_year
         industry_water_demand = downscale_volume(
             self.model.industry_water_demand_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,
@@ -72,7 +71,7 @@ class waterdemand_industry:
             industry_water_demand = cp.array(industry_water_demand)
         industry_water_demand = self.var.M3toM(industry_water_demand)
 
-        industry_water_consumption = self.model.industry_water_consumption_ds.sel(time=date).industry_water_consumption * 1_000_000 / days_in_year
+        industry_water_consumption = self.model.industry_water_consumption_ds.sel(time=self.model.current_time, method='ffill').industry_water_consumption * 1_000_000 / days_in_year
         industry_water_consumption = downscale_volume(
             self.model.industry_water_consumption_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,

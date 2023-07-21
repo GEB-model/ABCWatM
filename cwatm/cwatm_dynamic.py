@@ -37,24 +37,6 @@ class CWATModel_dyn(DynamicModel):
         del timeMes[:]
         timemeasure("Start dynamic")
 
-
-
-        if Flags['loud']:
-            print("%-6i %10s" %(self.current_timestep, self.current_time_fmt), end=' ')
-        else:
-            if not(Flags['check']):
-                if (Flags['quiet']) and (not(Flags['veryquiet'])):
-                    sys.stdout.write(".")
-                if (not(Flags['quiet'])) and (not(Flags['veryquiet'])):
-                    sys.stdout.write("\r%d" % self.current_timestep)
-                    sys.stdout.flush()
-                if not (Flags['veryquiet']): print()
-
-        # ************************************************************
-        """ up to here it was fun, now the real stuff starts
-        """
-
-
         if checkOption('calc_environflow') and (returnBool('calc_ef_afterRun')  == False):
             # if only the dis is used for calculation of EF
             self.environflow_module.dynamic()

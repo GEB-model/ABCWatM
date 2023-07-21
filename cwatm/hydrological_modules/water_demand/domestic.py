@@ -63,8 +63,7 @@ class waterdemand_domestic:
         if self.model.args.use_gpu:
             downscale_mask = downscale_mask.get()
         days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
-        date = cftime.datetime(self.model.current_time.year, self.model.current_time.month, 1, calendar='360_day')
-        domestic_water_demand = self.model.domestic_water_demand_ds.sel(time=date).domestic_water_demand * 1_000_000 / days_in_month
+        domestic_water_demand = self.model.domestic_water_demand_ds.sel(time=self.model.current_time, method='ffill').domestic_water_demand * 1_000_000 / days_in_month
         domestic_water_demand = downscale_volume(
             self.model.domestic_water_demand_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,
@@ -78,7 +77,7 @@ class waterdemand_domestic:
             domestic_water_demand = cp.array(domestic_water_demand)
         domestic_water_demand = self.var.M3toM(domestic_water_demand)
 
-        domestic_water_consumption = self.model.domestic_water_consumption_ds.sel(time=date).domestic_water_consumption * 1_000_000 / days_in_month
+        domestic_water_consumption = self.model.domestic_water_consumption_ds.sel(time=self.model.current_time, method='ffill').domestic_water_consumption * 1_000_000 / days_in_month
         domestic_water_consumption = downscale_volume(
             self.model.domestic_water_consumption_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,

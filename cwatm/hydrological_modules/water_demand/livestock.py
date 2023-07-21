@@ -59,7 +59,6 @@ class waterdemand_livestock:
         """
 
         days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
-        date = cftime.datetime(self.model.current_time.year, self.model.current_time.month, 1, calendar='360_day')
 
         # grassland/non-irrigated land that is not owned by a crop farmer
         if self.model.args.use_gpu:
@@ -69,7 +68,7 @@ class waterdemand_livestock:
         downscale_mask = ((land_use_type != 1) | (self.var.land_owners != -1))
 
         # transform from mio m3 per year (or month) to m/day
-        livestock_water_consumption = self.model.livestock_water_consumption_ds.sel(time=date).livestock_water_consumption * 1_000_000 / days_in_month
+        livestock_water_consumption = self.model.livestock_water_consumption_ds.sel(time=self.model.current_time, method='ffill').livestock_water_consumption * 1_000_000 / days_in_month
         livestock_water_consumption = downscale_volume(
             self.model.livestock_water_consumption_ds.rio.transform().to_gdal(),
             self.model.data.grid.gt,

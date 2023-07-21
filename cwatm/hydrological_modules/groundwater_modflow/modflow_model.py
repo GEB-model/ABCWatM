@@ -180,7 +180,9 @@ class ModFlowSimulation:
         parse libmf6.so and libmf6.dll stdout file
         """
         fpth = os.path.join('mfsim.stdout')
-        return success, open(fpth).readlines()
+        with open(fpth) as f:
+            lines = f.readlines()
+        return success, lines
 
     def load_bmi(self):
         """Load the Basic Model Interface"""
@@ -302,6 +304,9 @@ class ModFlowSimulation:
         # will be overwritten when preparing the next timestep.
         if self.mf6.get_current_time() < self.end_time:
             self.prepare_time_step()
+        else:
+            print('finalizing modflow')
+            self.mf6.finalize()
 
     def finalize(self):
         self.mf6.finalize()
