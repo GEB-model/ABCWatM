@@ -305,7 +305,6 @@ class ModFlowSimulation:
         if self.mf6.get_current_time() < self.end_time:
             self.prepare_time_step()
         else:
-            print('finalizing modflow')
             self.mf6.finalize()
 
     def finalize(self):
