@@ -26,3 +26,10 @@ class ModelFrame:
 
     def step(self):
         self.model.dynamic()
+
+    def finalize(self):
+        """
+        Finalize the model
+        """
+        # finalize modflow model
+        self.model.groundwater_modflow_module.modflow.finalize()

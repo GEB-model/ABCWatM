@@ -224,6 +224,30 @@ class ModFlowSimulation:
         
         self.end_time = self.mf6.get_end_time()
 
+        self.prepare_time_step()
+
+    @property
+    def head(self):
+        head_tag = self.mf6.get_var_address("X", self.name)
+        return self.mf6.get_value_ptr(head_tag)
+
+    @property
+    def well_rate(self):
+        well_tag = self.mf6.get_var_address("BOUND", self.name, "WEL_0")
+        return self.mf6.get_value_ptr(well_tag)[:, 0]
+
+    @well_rate.setter
+    def well_rate(self, value):
+        well_tag = self.mf6.get_var_address("BOUND", self.name, "WEL_0")
+        self.mf6.get_value_ptr(well_tag)[:, 0][:] = value
+
+    @property
+    def drainage(self):
+        drainage_tag = self.mf6.get_var_address("BOUND", self.name, "DRN_0")
+        return self.mf6.get_value_ptr(drainage_tag)[:, 1]
+
+    @property
+    def recharge(self):
         recharge_tag = self.mf6.get_var_address("BOUND", self.name, "RCH_0")
         # there seems to be a bug in xmipy where the size of the pointer to RCHA is
         # is the size of the entire modflow area, including basined cells. Only the first
@@ -231,21 +255,17 @@ class ModFlowSimulation:
         # numpy returns a view of the array when the array[]-syntax is used, we can simply
         # use the view of the first part of the array up to the number of active
         # (non-basined) cells
-        self.recharge = self.mf6.get_value_ptr(recharge_tag)[:, 0]
-        
-        head_tag = self.mf6.get_var_address("X", self.name)
-        self.head = self.mf6.get_value_ptr(head_tag)
+        return self.mf6.get_value_ptr(recharge_tag)[:, 0]
 
-        well_tag = self.mf6.get_var_address("BOUND", self.name, "WEL_0")
-        self.well_rate = self.mf6.get_value_ptr(well_tag)[:, 0]
+    @recharge.setter
+    def recharge(self, value):
+        recharge_tag = self.mf6.get_var_address("BOUND", self.name, "RCH_0")
+        self.mf6.get_value_ptr(recharge_tag)[:, 0][:] = value
 
-        drainage_tag = self.mf6.get_var_address("BOUND", self.name, "DRN_0")
-        self.drainage = self.mf6.get_value_ptr(drainage_tag)[:, 1]
-
+    @property
+    def max_iter(self):
         mxit_tag = self.mf6.get_var_address("MXITER", "SLN_1")
-        self.max_iter = self.mf6.get_value_ptr(mxit_tag)[0]
-
-        self.prepare_time_step()
+        return self.mf6.get_value_ptr(mxit_tag)[0]
 
     def compress(self, a):
         return a[~self.basin_mask]
@@ -261,14 +281,13 @@ class ModFlowSimulation:
 
     def set_recharge(self, recharge):
         """Set recharge, value in m/day"""
-        recharge = recharge[~self.basin_mask]
-        self.recharge[:] = recharge * (self.row_resolution * self.col_resolution)
+        self.recharge = recharge[~self.basin_mask] * (self.row_resolution * self.col_resolution)
     
     def set_groundwater_abstraction(self, groundwater_abstraction):
         """Set well rate, value in m/day"""
         well_rate = - groundwater_abstraction[~self.basin_mask]  # modflow well rate is negative if abstraction occurs
         assert (well_rate <= 0).all()
-        self.well_rate[:] = well_rate * (self.row_resolution * self.col_resolution)
+        self.well_rate = well_rate * (self.row_resolution * self.col_resolution)
 
     def get_drainage(self):
         """Get Modflow drainage in m/day"""
@@ -304,8 +323,6 @@ class ModFlowSimulation:
         # will be overwritten when preparing the next timestep.
         if self.mf6.get_current_time() < self.end_time:
             self.prepare_time_step()
-        else:
-            self.mf6.finalize()
 
     def finalize(self):
         self.mf6.finalize()
