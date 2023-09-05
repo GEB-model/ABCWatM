@@ -61,7 +61,7 @@ class waterdemand_livestock:
         days_in_month = calendar.monthrange(self.model.current_time.year, self.model.current_time.month)[1]
 
         # grassland/non-irrigated land that is not owned by a crop farmer
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             land_use_type = self.var.land_use_type.get()
         else:
             land_use_type = self.var.land_use_type
@@ -78,7 +78,7 @@ class waterdemand_livestock:
             downscale_mask,
             self.var.land_use_ratio
         )
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             livestock_water_consumption = cp.array(livestock_water_consumption)
         livestock_water_consumption = self.var.M3toM(livestock_water_consumption)
 

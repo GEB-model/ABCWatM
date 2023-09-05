@@ -530,7 +530,7 @@ class landcoverType(object):
             crop_stage_lenghts,
             crop_factors
         )
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
         forest_cropCoefficientNC = self.model.data.to_HRU(
@@ -628,7 +628,7 @@ class landcoverType(object):
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
 
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal.get()[self.var.crop_map != -1]
             self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration.get()[self.var.crop_map != -1]
         else:

@@ -253,14 +253,14 @@ class water_demand:
                 return_flow_irrigation_m,
                 addtoevapotrans_m,
             ) = self.farmers.abstract_water(
-                cell_area = self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
+                cell_area = self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea,
                 HRU_to_grid=self.var.HRU_to_grid,
-                totalPotIrrConsumption=pot_irrConsumption.get() if self.model.args.use_gpu else pot_irrConsumption,
+                totalPotIrrConsumption=pot_irrConsumption.get() if self.model.use_gpu else pot_irrConsumption,
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,
                 groundwater_head=groundwater_head,
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
-                command_areas=self.var.reservoir_command_areas.get() if self.model.args.use_gpu else self.var.reservoir_command_areas,
+                command_areas=self.var.reservoir_command_areas.get() if self.model.use_gpu else self.var.reservoir_command_areas,
             )
 
             if checkOption('calcWaterBalance'):
@@ -271,7 +271,7 @@ class water_demand:
                     tollerance=1e-7
                 )
             
-            if self.model.args.use_gpu:
+            if self.model.use_gpu:
                 # reservoir_abstraction = cp.asarray(reservoir_abstraction_m)
                 ## Water application
                 self.var.actual_irrigation_consumption = cp.asarray(irrigation_water_consumption_m)
@@ -312,7 +312,7 @@ class water_demand:
                         domestic_withdrawal_m3,
                         industry_withdrawal_m3,
                         livestock_withdrawal_m3,
-                        irrigation_water_withdrawal_m * self.var.cellArea.get() if self.model.args.use_gpu else self.var.cellArea,
+                        irrigation_water_withdrawal_m * self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea,
 
                     ],
                     prestorages=[available_channel_storage_m3_pre, available_reservoir_storage_m3_pre, available_groundwater_m3_pre],

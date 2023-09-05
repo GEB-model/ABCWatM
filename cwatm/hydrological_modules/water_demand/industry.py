@@ -52,7 +52,7 @@ class waterdemand_industry:
 
     def dynamic(self):
         downscale_mask = (self.var.land_use_type != 4)
-        if self.model.args.use_gpu: 
+        if self.model.use_gpu: 
             downscale_mask = downscale_mask.get()
 
         days_in_year = 366 if calendar.isleap(self.model.current_time.year) else 365
@@ -67,7 +67,7 @@ class waterdemand_industry:
             downscale_mask,
             self.var.land_use_ratio
         )
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             industry_water_demand = cp.array(industry_water_demand)
         industry_water_demand = self.var.M3toM(industry_water_demand)
 
@@ -81,7 +81,7 @@ class waterdemand_industry:
             downscale_mask,
             self.var.land_use_ratio
         )
-        if self.model.args.use_gpu:
+        if self.model.use_gpu:
             industry_water_consumption = cp.array(industry_water_consumption)
         industry_water_consumption = self.var.M3toM(industry_water_consumption)
 
