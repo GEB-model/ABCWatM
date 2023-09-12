@@ -229,8 +229,9 @@ def loadsetclone(self,name):
     # if there is no ldd at a cell, this cell should be excluded from modelling
 
     maskldd = loadmap('Ldd', compress = False)
-    maskarea = np.bool8(mapnp)
-    mask = np.logical_not(np.logical_and(maskldd,maskarea))
+    # make sure mapnp dtype is bool
+    assert mapnp.dtype == bool
+    mask = np.logical_not(np.logical_and(maskldd, mapnp))
 
 #    mask=np.isnan(mapnp)
 #    mask[mapnp==0] = True # all 0 become mask out
