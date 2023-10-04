@@ -392,8 +392,7 @@ class landcoverType(object):
 
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
-        dataset_name, variable_name = cbinding('forest_cropCoefficientNC').split(':')
-        self.forest_kc_ds = xr.open_dataset(dataset_name)[variable_name]
+        self.forest_kc_ds = xr.open_dataset(self.model.model_structure['forcing']['landcover/forest/cropCoefficientForest_10days'])['cropCoefficientForest_10days']
 
 
     def water_body_exchange(self, groundwater_recharge):

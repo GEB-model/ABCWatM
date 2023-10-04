@@ -59,8 +59,9 @@ class interception(object):
 
         self.interception_ds = {}
         for land_cover in ('forest', 'grassland'):
-            dataset_name, variable_name = cbinding(land_cover + '_interceptCapNC').split(':')
-            self.interception_ds[land_cover] = xr.open_dataset(dataset_name)[variable_name]
+            self.interception_ds[land_cover] = xr.open_dataset(
+                self.model.model_structure['forcing'][f'landcover/{land_cover}/interceptCap{land_cover.title()}_10days']
+            )[f'interceptCap{land_cover.title()}_10days']
 
     def dynamic(self, potTranspiration):
         """

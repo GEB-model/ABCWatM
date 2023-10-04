@@ -138,95 +138,25 @@ def loadsetclone(self,name):
     """
 
     filename = cbinding(name)
-    coord = filename.split()
 
-    if len(coord) == 2:
-        name = "Ldd"
+    nf2 = gdal.Open(str(filename), gdalconst.GA_ReadOnly)
+    geotransform = nf2.GetGeoTransform()
+    geotrans.append(geotransform)
+    setmaskmapAttr( geotransform[0], geotransform[3], nf2.RasterXSize, nf2.RasterYSize, geotransform[1])
 
-    if len(coord) == 5:
-        # changed order of x, y i- in setclone y is first in CWATM
-        # settings x is first
-        # setclone row col cellsize xupleft yupleft
-        # retancle: Number of Cols, Number of rows, cellsize, upper left corner X, upper left corner Y
+    band = nf2.GetRasterBand(1)
+    #bandtype = gdal.GetDataTypeName(band.DataType)
+    mapnp = band.ReadAsArray(0, 0, nf2.RasterXSize, nf2.RasterYSize)
+    # 10 because that includes all valid LDD values [1-9]
+    mapnp[mapnp > 10] = 0
+    mapnp[mapnp < -10] = 0
+    mapnp = np.invert(mapnp.astype(bool))
 
-        mapnp = np.ones((int(coord[1]), int(coord[0])))
-        setmaskmapAttr(float(coord[3]),float(coord[4]), int(coord[0]),int(coord[1]),float(coord[2]))
-        #mapnp[mapnp == 0] = 1
-        #map = numpy2pcr(Boolean, mapnp, -9999)
-
-    elif len(coord) < 3:
-
-        filename = os.path.splitext(cbinding(name))[0] + '.nc'
-        try:
-            nf1 = Dataset(filename, 'r')
-            value = list(nf1.variables.items())[-1][0]  # get the last variable name
-
-            #x1 = nf1.variables.values()[0][0]
-            #x2 = nf1.variables.values()[0][1]
-            #xlast = nf1.variables.values()[0][-1]
-            x1 = nf1.variables['lon'][0]
-            x2 = nf1.variables['lon'][1]
-            xlast = nf1.variables['lon'][-1]
-
-            y1 = nf1.variables['lat'][0]
-            ylast = nf1.variables['lat'][-1]
-            # swap to make y1 the biggest number
-            if y1 < ylast:
-                y1, ylast = ylast, y1
-
-            cellSize = np.abs(x2 - x1)
-            invcell = round(1/cellSize)
-            nrRows = int(0.5 + np.abs(ylast - y1) * invcell + 1)
-            nrCols = int(0.5 + np.abs(xlast - x1) * invcell + 1)
-            x = x1 - cellSize / 2
-            y = y1 + cellSize / 2
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                mapnp = np.array(nf1.variables[value][0:nrRows, 0:nrCols])
-            nf1.close()
-            setmaskmapAttr( x, y, nrCols, nrRows, cellSize)
-
-            flagmap = True
-
-        except:
-            # load geotiff
-            try:
-
-                filename = cbinding(name)
-                nf2 = gdal.Open(filename, gdalconst.GA_ReadOnly)
-                geotransform = nf2.GetGeoTransform()
-                geotrans.append(geotransform)
-                setmaskmapAttr( geotransform[0], geotransform[3], nf2.RasterXSize, nf2.RasterYSize, geotransform[1])
-
-                band = nf2.GetRasterBand(1)
-                #bandtype = gdal.GetDataTypeName(band.DataType)
-                mapnp = band.ReadAsArray(0, 0, nf2.RasterXSize, nf2.RasterYSize)
-                # 10 because that includes all valid LDD values [1-9]
-                mapnp[mapnp > 10] = 0
-                mapnp[mapnp < -10] = 0
-                mapnp = np.invert(mapnp.astype(bool))
-
-                flagmap = True
-
-            except:
-                raise CWATMFileError(filename, sname=name)
+    flagmap = True
 
 
-
-        if Flags['check']:
-            checkmap(name, filename, mapnp, flagmap, False,0)
-
-
-    else:
-        msg = "Maskmap: " + filename + " is not a valid mask map nor valid coordinates nor valid point\n"
-        msg +="Or there is a whitespace or undefined character in Maskmap"
-        raise CWATMError(msg)
-
-
-
-    # put in the ldd map
-    # if there is no ldd at a cell, this cell should be excluded from modelling
+    if Flags['check']:
+        checkmap(name, filename, mapnp, flagmap, False,0)
 
     maskldd = loadmap('Ldd', compress = False)
     # make sure mapnp dtype is bool
@@ -250,17 +180,6 @@ def loadsetclone(self,name):
 
     if Flags['check']:
         checkmap("Mask+Ldd", "", np.ma.masked_array(mask,mask), flagmap, True, mapC)
-
-    outpoints = 0
-    if len(coord) == 2:
-       outpoints = valuecell(coord, filename)
-       outpoints[outpoints < 0] = 0
-
-       print("Create catchment from point and river network")
-       mask2D, xleft, yup = self.routing_kinematic_module.catchment(outpoints)
-       mapC = maskfrompoint(mask2D, xleft, yup) + 1
-       area = np.sum(loadmap('CellArea')) * 1e-6
-       print("Number of cells in catchment: %6i = %7.0f km2" % (np.sum(mask2D), area))
 
     # if the final results map should be cover up with some mask:
     if "coverresult" in binding:
@@ -323,7 +242,7 @@ def loadmap(name, compress=True, local=False, cut=True):
     :return:  1D numpy array of map
     """
 
-    value = cbinding(name)
+    value = str(cbinding(name))
     filename = value
 
     try:  # loading an integer or float but not a map
@@ -383,7 +302,7 @@ def loadmap(name, compress=True, local=False, cut=True):
 
     else:
 
-        filename = cbinding(name)
+        filename = str(cbinding(name))
         try:
             nf2 = gdal.Open(filename, gdalconst.GA_ReadOnly)
             band = nf2.GetRasterBand(1)

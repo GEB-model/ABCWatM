@@ -91,7 +91,7 @@ class groundwater_modflow:
 
         nlay = int(loadmap('nlay'))
 
-        with rasterio.open(cbinding('modflow_mask'), 'r') as src:
+        with rasterio.open(self.model.model_structure['MODFLOW_grid']["groundwater/modflow/modflow_mask"], 'r') as src:
             self.modflow_basin_mask = (~src.read(1).astype(bool))  # read in as 3-dimensional array (nlay, nrows, ncols).
             self.domain = {
                 'row_resolution': abs(src.profile['transform'].e),
@@ -111,7 +111,7 @@ class groundwater_modflow:
         # Coef to multiply transmissivity and storage coefficient (because ModFlow convergence is better if aquifer's thicknes is big and permeability is small)
         self.coefficient = 1
 
-        with rasterio.open(cbinding('topo_modflow'), 'r') as src:
+        with rasterio.open(self.model.model_structure['MODFLOW_grid']["groundwater/modflow/modflow_elevation"], 'r') as src:
             topography = src.read(1).astype(np.float32)
             topography[self.modflow_basin_mask == True] = np.nan
 
@@ -132,13 +132,13 @@ class groundwater_modflow:
         else:
             raise NotImplementedError
 
-        modflow_x = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'x_modflow.npz'))['data']
-        modflow_y = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'y_modflow.npz'))['data']
-        x_hydro = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'x_hydro.npz'))['data']
-        y_hydro = np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'y_hydro.npz'))['data']
+        modflow_x = np.load(self.model.model_structure['binary']['groundwater/modflow/x_modflow'])['data']
+        modflow_y = np.load(self.model.model_structure['binary']['groundwater/modflow/y_modflow'])['data']
+        x_hydro = np.load(self.model.model_structure['binary']['groundwater/modflow/x_hydro'])['data']
+        y_hydro = np.load(self.model.model_structure['binary']['groundwater/modflow/y_hydro'])['data']
 
         self.indices = {
-            'area': np.load(os.path.join(cbinding('PathGroundwaterModflow'), 'area.npz'))['data'],
+            'area': np.load(self.model.model_structure['binary']['groundwater/modflow/area'])['data'],
             'ModFlow_index': np.array(modflow_y * self.domain['ncol'] + modflow_x),
             'CWatM_index': np.array(y_hydro * self.var.mask.shape[1] + x_hydro)
         }

@@ -50,7 +50,7 @@ class CWATMFileError(CWATMError):
         path, name = os.path.split(filename)
         if os.path.exists(filename):
             text1 = "In  \"" + sname + "\"\n"
-            text1 += "filename: "+ filename + " exists, but an error was raised"
+            text1 += "filename: "+ str(filename) + " exists, but an error was raised"
         elif os.path.exists(path):
             text1 = "In  \"" + sname + "\"\n"
             text1 += "path: "+ path + " exists\nbut filename: "+name+ " does not\n"
