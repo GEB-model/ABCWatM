@@ -51,7 +51,7 @@ setup(
             'flopy',
             'numba',
             'rasterio',
-            'xmipy'
+            'xmipy>=1.4'
       ],
       entry_points={
             'console_scripts': ['cwatm=cwatm.run_cwatm:run_from_command_line']
