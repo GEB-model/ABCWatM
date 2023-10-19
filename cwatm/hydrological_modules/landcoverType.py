@@ -17,6 +17,7 @@ except (ModuleNotFoundError, ImportError):
 from numba import njit
 from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import checkOption, binding, loadmap, cbinding
+from cwatm.hydrological_modules import plantFATE
 
 
 @njit(cache=True)
@@ -394,6 +395,8 @@ class landcoverType(object):
         # self.var.ActualPumpingRate = 0
         self.forest_kc_ds = xr.open_dataset(self.model.model_structure['forcing']['landcover/forest/cropCoefficientForest_10days'])['cropCoefficientForest_10days']
 
+        if self.model.config['general']['couple_plantFATE']:
+            self.plantFATE = plantFATE.PlantFATECoupling('input/plantFATE/params/p_daily.ini')
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -545,73 +548,32 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
         if self.model.config['general']['couple_plantFATE']:
-            def couple_plantFATE(
-                date,
-                plant_fate_df,
-                land_use_type,  # int 0=forest, 1=grassland, 2=crop, 3=urban, 4=water, 5=sealed
-                soil_moisture_layer_1,  # ratio [0-1]
-                soil_moisture_layer_2,  # ratio [0-1]
-                soil_moisture_layer_3,  # ratio [0-1]
-                soil_tickness_layer_1,  # m
-                soil_tickness_layer_2,  # m
-                soil_tickness_layer_3,  # m
-                soil_moisture_wilting_point_1,  # ratio [0-1]
-                soil_moisture_wilting_point_2,  # ratio [0-1]
-                soil_moisture_wilting_point_3,  # ratio [0-1]
-                soil_moisture_field_capacity_1,  # ratio [0-1]
-                soil_moisture_field_capacity_2,  # ratio [0-1]
-                soil_moisture_field_capacity_3,  # ratio [0-1]
-                mean_temperature,  # degrees Celcius - mean temperature
-                relative_humidity,  # ratio [0-1]
-                shortwave_radiation,  # W/m2
-                longwave_radiation  # W/m2):
-            ):
-                index_with_forest = np.where(land_use_type == 0)[0][0]
-                # append variables to dataframe
-                plant_fate_df = plant_fate_df.append(pd.Series({
-                    'w1': soil_moisture_layer_1[index_with_forest],
-                    'w2': soil_moisture_layer_2[index_with_forest],
-                    'w3': soil_moisture_layer_3[index_with_forest],
-                    'soildepth_1': soil_tickness_layer_1[index_with_forest],
-                    'soildepth_2': soil_tickness_layer_2[index_with_forest],
-                    'soildepth_3': soil_tickness_layer_3[index_with_forest],
-                    'wwp1': soil_moisture_wilting_point_1[index_with_forest],
-                    'wwp2': soil_moisture_wilting_point_2[index_with_forest],
-                    'wwp3': soil_moisture_wilting_point_3[index_with_forest],
-                    'wfc1': soil_moisture_field_capacity_1[index_with_forest],
-                    'wfc2': soil_moisture_field_capacity_2[index_with_forest],
-                    'wfc3': soil_moisture_field_capacity_3[index_with_forest],
-                    'Tavg': mean_temperature[index_with_forest],
-                    'hurs': relative_humidity[index_with_forest],
-                    'Rsds': shortwave_radiation[index_with_forest],
-                    'Rsdl': longwave_radiation[index_with_forest]
-                }, name=date))
-                return plant_fate_df
-            
-            if not hasattr(self.var, 'plant_fate_df'):
-                self.var.plant_fate_df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'soildepth_1', 'soildepth_2', 'soildepth_3', 'wwp1', 'wwp2', 'wwp3', 'wfc1', 'wfc2', 'wfc3', 'Tavg', 'hurs', 'Rsds', 'Rsdl'])
-            
-            self.var.plant_fate_df = couple_plantFATE(
-                self.model.current_time,
-                self.var.plant_fate_df,
-                self.var.land_use_type,
-                self.var.w1,
-                self.var.w2,
-                self.var.w3,
-                self.var.soildepth[0],
-                self.var.soildepth[1],
-                self.var.soildepth[2],
-                self.var.wwp1,
-                self.var.wwp2,
-                self.var.wwp3,
-                self.var.wfc1,
-                self.var.wfc2,
-                self.var.wfc3,
-                self.var.Tavg,
-                self.var.hurs,
-                self.var.Rsds,
-                self.var.Rsdl,
-            )
+            RU_index_with_forest = np.where(self.var.land_use_type == 0)[0][0]
+            grid_index_with_forest = self.var.HRU_to_grid[RU_index_with_forest]
+    
+            plantFATE_data = {
+                "soil_moisture_layer_1": self.var.w1[RU_index_with_forest],
+                "soil_moisture_layer_2": self.var.w2[RU_index_with_forest],
+                "soil_moisture_layer_3": self.var.w3[RU_index_with_forest],
+                "soil_tickness_layer_1": self.var.soildepth[0][RU_index_with_forest],
+                "soil_tickness_layer_2": self.var.soildepth[1][RU_index_with_forest],
+                "soil_tickness_layer_3": self.var.soildepth[2][RU_index_with_forest],
+                "soil_moisture_wilting_point_1": self.var.wwp1[RU_index_with_forest],
+                "soil_moisture_wilting_point_2": self.var.wwp2[RU_index_with_forest],
+                "soil_moisture_wilting_point_3": self.var.wwp3[RU_index_with_forest],
+                "soil_moisture_field_capacity_1": self.var.wfc1[RU_index_with_forest],
+                "soil_moisture_field_capacity_2": self.var.wfc2[RU_index_with_forest],
+                "soil_moisture_field_capacity_3": self.var.wfc3[RU_index_with_forest],
+                "temperature": self.model.data.grid.tas[grid_index_with_forest] - 273.15,  # K to C
+                "relative_humidity": self.model.data.grid.hurs[grid_index_with_forest],
+                "shortwave_radiation": self.model.data.grid.rsds[grid_index_with_forest],
+                "longwave_radiation": self.model.data.grid.rlds[grid_index_with_forest],
+            }
+
+            if self.model.current_timestep == 1:
+                self.plantFATE.plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
+            else:
+                self.plantFATE.step(**plantFATE_data)
 
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
         potTranspiration = self.model.interception_module.dynamic(potTranspiration)
