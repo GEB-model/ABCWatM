@@ -57,19 +57,30 @@ class PlantFATECoupling:
 
     def calculate_soil_water_potential(
             self,
-            soil_moisture,  # [0-1]
-            soil_moisture_wilting_point,  # [0-1]
-            soil_moisture_field_capacity,  # [0-1]
+            soil_moisture,  # [m]
+            soil_moisture_wilting_point,  # [m]
+            soil_moisture_field_capacity,  # [m]
+            soil_tickness,  # [m]
             wilting_point=-1500,  # kPa
             field_capacity=-33  # kPa
     ):
-        # https://doi.org/10.1016/B978-0-12-374460-9.00007-X
+        # https://doi.org/10.1016/B978-0-12-374460-9.00007-X (eq. 7.16)
+        soil_moisture_fraction = soil_moisture / soil_tickness
+        assert soil_moisture_fraction >= 0 and soil_moisture_fraction <= 1
+        del soil_moisture
+        soil_moisture_wilting_point_fraction = soil_moisture_wilting_point / soil_tickness
+        assert soil_moisture_wilting_point_fraction >= 0 and soil_moisture_wilting_point_fraction <= 1
+        del soil_moisture_wilting_point
+        soil_moisture_field_capacity_fraction = soil_moisture_field_capacity / soil_tickness
+        assert soil_moisture_field_capacity_fraction >= 0 and soil_moisture_field_capacity_fraction <= 1
+        del soil_moisture_field_capacity
+        
         n_potential = - np.log(wilting_point / field_capacity) / np.log(
-            soil_moisture_wilting_point / soil_moisture_field_capacity)
+            soil_moisture_wilting_point_fraction / soil_moisture_field_capacity_fraction)
         assert n_potential >= 0
-        a_potential = 1.5 * 10 ** 6 * soil_moisture_wilting_point ** n_potential
+        a_potential = 1.5 * 10 ** 6 * soil_moisture_wilting_point_fraction ** n_potential
         assert a_potential >= 0
-        soil_water_potential = -a_potential * soil_moisture ** (-n_potential)
+        soil_water_potential = -a_potential * soil_moisture_fraction ** (-n_potential)
         return soil_water_potential / 1000000  # Pa to MPa
 
     def calculate_vapour_pressure_deficit(self, temperature, relative_humidity):
@@ -86,18 +97,18 @@ class PlantFATECoupling:
         return photosynthetically_active_radiation
 
     def get_plantFATE_input(self,
-                            soil_moisture_layer_1,  # ratio [0-1]
-                            soil_moisture_layer_2,  # ratio [0-1]
-                            soil_moisture_layer_3,  # ratio [0-1]
+                            soil_moisture_layer_1,  # m
+                            soil_moisture_layer_2,  # m
+                            soil_moisture_layer_3,  # m
                             soil_tickness_layer_1,  # m
                             soil_tickness_layer_2,  # m
                             soil_tickness_layer_3,  # m
-                            soil_moisture_wilting_point_1,  # ratio [0-1]
-                            soil_moisture_wilting_point_2,  # ratio [0-1]
-                            soil_moisture_wilting_point_3,  # ratio [0-1]
-                            soil_moisture_field_capacity_1,  # ratio [0-1]
-                            soil_moisture_field_capacity_2,  # ratio [0-1]
-                            soil_moisture_field_capacity_3,  # ratio [0-1]
+                            soil_moisture_wilting_point_1,  # m
+                            soil_moisture_wilting_point_2,  # m
+                            soil_moisture_wilting_point_3,  # m
+                            soil_moisture_field_capacity_1,  # m
+                            soil_moisture_field_capacity_2,  # m
+                            soil_moisture_field_capacity_3,  # m
                             temperature,  # degrees Celcius, mean temperature
                             relative_humidity,  # percentage [0-100]
                             shortwave_radiation,  # W/m2, daily mean
@@ -109,15 +120,25 @@ class PlantFATECoupling:
         assert temperature < 100  # temperature is in Celsius. So on earth should be well below 100.
         assert relative_humidity >= 0 and relative_humidity <= 100
 
-        soil_water_potential_1 = self.calculate_soil_water_potential(soil_moisture_layer_1,
-                                                                     soil_moisture_wilting_point_1,
-                                                                     soil_moisture_field_capacity_1)
-        soil_water_potential_2 = self.calculate_soil_water_potential(soil_moisture_layer_2,
-                                                                     soil_moisture_wilting_point_2,
-                                                                     soil_moisture_field_capacity_2)
-        soil_water_potential_3 = self.calculate_soil_water_potential(soil_moisture_layer_3,
-                                                                     soil_moisture_wilting_point_3,
-                                                                     soil_moisture_field_capacity_3)
+        soil_water_potential_1 = self.calculate_soil_water_potential(
+            soil_moisture_layer_1,
+            soil_moisture_wilting_point_1,
+            soil_moisture_field_capacity_1,
+            soil_tickness_layer_1
+        )
+        soil_water_potential_2 = self.calculate_soil_water_potential(
+            soil_moisture_layer_2,
+            soil_moisture_wilting_point_2,
+            soil_moisture_field_capacity_2,
+            soil_tickness_layer_2
+        )
+        soil_water_potential_3 = self.calculate_soil_water_potential(
+                soil_moisture_layer_3,
+                soil_moisture_wilting_point_3,
+                soil_moisture_field_capacity_3,
+                soil_tickness_layer_3
+            )
+        print(soil_water_potential_1, soil_water_potential_2, soil_water_potential_3)
 
         vapour_pressure_deficit = self.calculate_vapour_pressure_deficit(temperature, relative_humidity)
 
@@ -171,5 +192,10 @@ class PlantFATECoupling:
             temperature
         )
 
-        print("check unit")
+        soil_specific_depletion_1 = np.nan  # this is currently not calculated in plantFATE, so just setting to np.nan to avoid confusion
+        soil_specific_depletion_2 = np.nan  # this is currently not calculated in plantFATE, so just setting to np.nan to avoid confusion
+        soil_specific_depletion_3 = np.nan  # this is currently not calculated in plantFATE, so just setting to np.nan to avoid confusion
+
+        evapotranspiration = evapotranspiration / 1000  # kg H2O/m2/day to m/day
+
         return evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3
