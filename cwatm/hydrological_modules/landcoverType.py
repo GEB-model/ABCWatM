@@ -214,24 +214,24 @@ class landcoverType(object):
             rootFraction1[land_use_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
             maxRootDepth[land_use_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
 
-        rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        rootDepth3 = self.var.full_compressed(np.nan, dtype=np.float32)
+        self.var.rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
+        self.var.rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
+        self.var.rootDepth3 = self.var.full_compressed(np.nan, dtype=np.float32)
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
             # calculate rootdepth for each soillayer and each land cover class
-            rootDepth1[land_use_indices] = self.var.soildepth[0][land_use_indices]  # 0.05 m
+            self.var.rootDepth1[land_use_indices] = self.var.soildepth[0][land_use_indices]  # 0.05 m
             if coverNum in (0, 2, 3):  # forest, paddy irrigated, non-paddy irrigated
                 # soil layer 1 = root max of land cover - first soil layer
                 h1 = np.maximum(self.var.soildepth[1][land_use_indices], maxRootDepth[land_use_indices] - self.var.soildepth[0][land_use_indices])
                 #
-                rootDepth2[land_use_indices] = np.minimum(self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - 0.05, h1)
+                self.var.rootDepth2[land_use_indices] = np.minimum(self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - 0.05, h1)
                 # soil layer is minimum 0.05 m
-                rootDepth3[land_use_indices] = np.maximum(0.05, self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
+                self.var.rootDepth3[land_use_indices] = np.maximum(0.05, self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - self.var.rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
             else:
                 assert coverNum == 1  # grassland
-                rootDepth2[land_use_indices] = self.var.soildepth[1][land_use_indices]
-                rootDepth3[land_use_indices] = self.var.soildepth[2][land_use_indices]
+                self.var.rootDepth2[land_use_indices] = self.var.soildepth[1][land_use_indices]
+                self.var.rootDepth3[land_use_indices] = self.var.soildepth[2][land_use_indices]
 
         self.var.KSat1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.KSat2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -293,13 +293,13 @@ class landcoverType(object):
 
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
-            self.var.ws1[land_use_indices] = thetas1[land_use_indices] * rootDepth1[land_use_indices]
-            self.var.ws2[land_use_indices] = thetas2[land_use_indices] * rootDepth2[land_use_indices]
-            self.var.ws3[land_use_indices] = thetas3[land_use_indices] * rootDepth3[land_use_indices]
+            self.var.ws1[land_use_indices] = thetas1[land_use_indices] * self.var.rootDepth1[land_use_indices]
+            self.var.ws2[land_use_indices] = thetas2[land_use_indices] * self.var.rootDepth2[land_use_indices]
+            self.var.ws3[land_use_indices] = thetas3[land_use_indices] * self.var.rootDepth3[land_use_indices]
 
-            self.var.wres1[land_use_indices] = thetar1[land_use_indices] * rootDepth1[land_use_indices]
-            self.var.wres2[land_use_indices] = thetar2[land_use_indices] * rootDepth2[land_use_indices]
-            self.var.wres3[land_use_indices] = thetar3[land_use_indices] * rootDepth3[land_use_indices]
+            self.var.wres1[land_use_indices] = thetar1[land_use_indices] * self.var.rootDepth1[land_use_indices]
+            self.var.wres2[land_use_indices] = thetar2[land_use_indices] * self.var.rootDepth2[land_use_indices]
+            self.var.wres3[land_use_indices] = thetar3[land_use_indices] * self.var.rootDepth3[land_use_indices]
 
             # Soil moisture at field capacity (pF2, 100 cm) [mm water slice]    # Mualem equation (van Genuchten, 1980)
             self.var.wfc1[land_use_indices] = self.var.wres1[land_use_indices] + (self.var.ws1[land_use_indices] - self.var.wres1[land_use_indices]) / ((1 + (alpha1[land_use_indices] * 100) ** (self.var.lambda1[land_use_indices] + 1)) ** (self.var.lambda1[land_use_indices] / (self.var.lambda1[land_use_indices] + 1)))
@@ -364,7 +364,7 @@ class landcoverType(object):
             # TODO: Extend soil depths to match maximum root depths
             
             rootFrac = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
-            fractionroot12 = rootDepth1[land_use_indices] / (rootDepth1[land_use_indices] + rootDepth2[land_use_indices])
+            fractionroot12 = self.var.rootDepth1[land_use_indices] / (self.var.rootDepth1[land_use_indices] + self.var.rootDepth2[land_use_indices])
             rootFrac[0][land_use_indices] = fractionroot12 * rootFraction1[land_use_indices]
             rootFrac[1][land_use_indices] = (1 - fractionroot12) * rootFraction1[land_use_indices]
             rootFrac[2][land_use_indices] = 1.0 - rootFraction1[land_use_indices]
@@ -385,6 +385,7 @@ class landcoverType(object):
             self.var.maxtopwater = 0.05
 
         # for irrigation of non paddy -> No =3
+        print("look at this, really not multiply by root depth?")
         totalWaterPlant1 = np.maximum(0., self.var.wfc1 - self.var.wwp1) #* self.var.rootDepth[0][3]
         totalWaterPlant2 = np.maximum(0., self.var.wfc2 - self.var.wwp2) #* self.var.rootDepth[1][3]
         #totalWaterPlant3 = np.maximum(0., self.var.wfc3[3] - self.var.wwp3[3]) * self.var.rootDepth[2][3]  # Why is this turned off? MS

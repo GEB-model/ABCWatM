@@ -290,29 +290,29 @@ class soil(object):
 
         # transpiration is 0 when soil is frozen
         TaMax = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0., TaMax)
-        print('What happens when the soil is frozen?')
 
         if self.model.config['general']['couple_plantFATE']:
+            print('What happens when the soil is frozen? - Elisa is asking Jaideep')
             transpiration_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)  # transpiration in a hydrological model is transpiration from plants and evaporation from the plant's surface in plantFATE.
-            soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
-            soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
-            soil_specific_depletion_3_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
+            # soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
+            # soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
+            # soil_specific_depletion_3_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             for i, forest_RU in enumerate(self.plantFATE_forest_RUs):
                 forest_grid = self.var.HRU_to_grid[forest_RU]
         
                 plantFATE_data = {
-                    "soil_moisture_layer_1": self.var.w1[forest_RU],
+                    "soil_moisture_layer_1": self.var.w1[forest_RU],  # this is not used for now
                     "soil_moisture_layer_2": self.var.w2[forest_RU],
-                    "soil_moisture_layer_3": self.var.w3[forest_RU],
-                    "soil_tickness_layer_1": self.var.soildepth[0][forest_RU],
-                    "soil_tickness_layer_2": self.var.soildepth[1][forest_RU],
-                    "soil_tickness_layer_3": self.var.soildepth[2][forest_RU],
-                    "soil_moisture_wilting_point_1": self.var.wwp1[forest_RU],
+                    "soil_moisture_layer_3": self.var.w3[forest_RU],  # this is not used for now
+                    "soil_tickness_layer_1": self.var.rootDepth1[forest_RU],  # this is not used for now
+                    "soil_tickness_layer_2": self.var.rootDepth2[forest_RU],
+                    "soil_tickness_layer_3": self.var.rootDepth3[forest_RU],  # this is not used for now
+                    "soil_moisture_wilting_point_1": self.var.wwp1[forest_RU],  # this is not used for now
                     "soil_moisture_wilting_point_2": self.var.wwp2[forest_RU],
-                    "soil_moisture_wilting_point_3": self.var.wwp3[forest_RU],
-                    "soil_moisture_field_capacity_1": self.var.wfc1[forest_RU],
+                    "soil_moisture_wilting_point_3": self.var.wwp3[forest_RU],  # this is not used for now
+                    "soil_moisture_field_capacity_1": self.var.wfc1[forest_RU],  # this is not used for now
                     "soil_moisture_field_capacity_2": self.var.wfc2[forest_RU],
-                    "soil_moisture_field_capacity_3": self.var.wfc3[forest_RU],
+                    "soil_moisture_field_capacity_3": self.var.wfc3[forest_RU],  # this is not used for now
                     "temperature": self.model.data.grid.tas[forest_grid] - 273.15,  # K to C
                     "relative_humidity": self.model.data.grid.hurs[forest_grid],
                     "shortwave_radiation": self.model.data.grid.rsds[forest_grid],
@@ -321,9 +321,19 @@ class soil(object):
 
                 if self.model.current_timestep == 1 and self.model.scenario == 'spinup':
                     self.plantFATE[i].plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
-                    transpiration_plantFATE[i], soil_specific_depletion_1_plantFATE[i], soil_specific_depletion_2_plantFATE[i], soil_specific_depletion_3_plantFATE[i] = (0, 0, 0, 0)  # first timestep, set all to 0. Just for initialization of spinup.
+                    transpiration_plantFATE[i], _, _, _ = (0, 0, 0, 0)  # first timestep, set all to 0. Just for initialization of spinup.
                 else:
-                    transpiration_plantFATE[i], soil_specific_depletion_1_plantFATE[i], soil_specific_depletion_2_plantFATE[i], soil_specific_depletion_3_plantFATE[i] = self.plantFATE[i].step(**plantFATE_data)
+                    transpiration_plantFATE[i], _, _, _ = self.plantFATE[i].step(**plantFATE_data)
+
+            bioarea_forest = np.where(self.var.land_use_type[bioarea] == 0)[0].astype(np.int32)  # these are the forest cells within the bioarea
+
+            ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
+            ta1[bioarea_forest] = 0  # assume no transpiration from top layer for now.
+            ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
+            ta2[bioarea_forest] = transpiration_plantFATE
+            ta3 = np.maximum(np.minimum(TaMax * self.var.adjRoot[2][bioarea], self.var.w3[bioarea] - self.var.wwp3[bioarea]), 0.0)
+            ta3[bioarea_forest] = 0
+
         else:
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
             ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
