@@ -173,4 +173,5 @@ class PlantFATECoupling:
             temperature
         )
 
+        print("check unit")
         return evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3

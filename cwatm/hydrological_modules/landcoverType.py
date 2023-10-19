@@ -17,7 +17,6 @@ except (ModuleNotFoundError, ImportError):
 from numba import njit
 from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import checkOption, binding, loadmap, cbinding
-from cwatm.hydrological_modules import plantFATE
 
 
 @njit(cache=True)
@@ -395,9 +394,6 @@ class landcoverType(object):
         # self.var.ActualPumpingRate = 0
         self.forest_kc_ds = xr.open_dataset(self.model.model_structure['forcing']['landcover/forest/cropCoefficientForest_10days'])['cropCoefficientForest_10days']
 
-        if self.model.config['general']['couple_plantFATE']:
-            self.plantFATE = plantFATE.PlantFATECoupling('input/plantFATE/params/p_daily.ini')
-
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
         riverbedExchangeM3 = self.model.data.grid.leakageriver_factor * self.var.cellArea * ((1 - self.var.capriseindex + 0.25) // 1)
@@ -547,36 +543,10 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
-        if self.model.config['general']['couple_plantFATE']:
-            RU_index_with_forest = np.where(self.var.land_use_type == 0)[0][0]
-            grid_index_with_forest = self.var.HRU_to_grid[RU_index_with_forest]
-    
-            plantFATE_data = {
-                "soil_moisture_layer_1": self.var.w1[RU_index_with_forest],
-                "soil_moisture_layer_2": self.var.w2[RU_index_with_forest],
-                "soil_moisture_layer_3": self.var.w3[RU_index_with_forest],
-                "soil_tickness_layer_1": self.var.soildepth[0][RU_index_with_forest],
-                "soil_tickness_layer_2": self.var.soildepth[1][RU_index_with_forest],
-                "soil_tickness_layer_3": self.var.soildepth[2][RU_index_with_forest],
-                "soil_moisture_wilting_point_1": self.var.wwp1[RU_index_with_forest],
-                "soil_moisture_wilting_point_2": self.var.wwp2[RU_index_with_forest],
-                "soil_moisture_wilting_point_3": self.var.wwp3[RU_index_with_forest],
-                "soil_moisture_field_capacity_1": self.var.wfc1[RU_index_with_forest],
-                "soil_moisture_field_capacity_2": self.var.wfc2[RU_index_with_forest],
-                "soil_moisture_field_capacity_3": self.var.wfc3[RU_index_with_forest],
-                "temperature": self.model.data.grid.tas[grid_index_with_forest] - 273.15,  # K to C
-                "relative_humidity": self.model.data.grid.hurs[grid_index_with_forest],
-                "shortwave_radiation": self.model.data.grid.rsds[grid_index_with_forest],
-                "longwave_radiation": self.model.data.grid.rlds[grid_index_with_forest],
-            }
-
-            if self.model.current_timestep == 1:
-                self.plantFATE.plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
-            else:
-                self.plantFATE.step(**plantFATE_data)
-
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
-        potTranspiration = self.model.interception_module.dynamic(potTranspiration)
+        
+        print('check whether this is correct with plantFATE implementation')
+        potTranspiration = self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the water intercepted water.
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = self.model.waterdemand_module.dynamic(totalPotET)
@@ -586,7 +556,13 @@ class landcoverType(object):
         capillar = self.model.data.to_HRU(data=self.model.data.grid.capillar, fn=None)
         del self.model.data.grid.capillar
 
-        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET)
+        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(
+            capillar,
+            openWaterEvap,
+            potTranspiration,
+            potBareSoilEvap,
+            totalPotET
+        )
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
 
         if self.model.use_gpu:
