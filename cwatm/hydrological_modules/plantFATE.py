@@ -2,8 +2,6 @@ import numpy as np
 import pyplantFATE
 
 class PlantFATECoupling:
-    # plantFATE_model = None
-    # soil_data = None
     def __init__(self, param_file):
         self.plantFATE_model = pyplantFATE.PlantFATERunner(param_file)
 
