@@ -328,11 +328,20 @@ class soil(object):
             bioarea_forest = np.where(self.var.land_use_type[bioarea] == 0)[0].astype(np.int32)  # these are the forest cells within the bioarea
 
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
-            ta1[bioarea_forest] = 0  # assume no transpiration from top layer for now.
             ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
-            ta2[bioarea_forest] = transpiration_plantFATE
             ta3 = np.maximum(np.minimum(TaMax * self.var.adjRoot[2][bioarea], self.var.w3[bioarea] - self.var.wwp3[bioarea]), 0.0)
-            ta3[bioarea_forest] = 0
+
+            CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
+            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
+            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
+            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
+
+            assert self.model.waterbalance_module.waterBalanceCheck(
+                how='cellwise',
+                influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
+                outfluxes=[transpiration_plantFATE],
+                tollerance=1e-7
+            )
 
         else:
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)

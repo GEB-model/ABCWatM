@@ -22,7 +22,7 @@ class PlantFATECoupling:
                        shortwave_radiation,  # W/m2, daily mean
                        longwave_radiation  # W/m2, daily mean
                        ):
-        soil_water_potentials0, vapour_pressure_deficit0, photosynthetically_active_radiation0, temperature0 = self.get_plantFATE_input(
+        soil_water_potential, vapour_pressure_deficit0, photosynthetically_active_radiation0, temperature0 = self.get_plantFATE_input(
             soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
             soil_moisture_layer_3,  # ratio [0-1]
@@ -39,8 +39,13 @@ class PlantFATECoupling:
             relative_humidity,  # percentage [0-100]
             shortwave_radiation,  # W/m2, daily mean
             longwave_radiation)
-        self.plantFATE_model.init(tstart, temperature0, soil_water_potentials0, vapour_pressure_deficit0,
-                                  photosynthetically_active_radiation0)
+        self.plantFATE_model.init(
+            tstart,
+            temperature0,
+            soil_water_potential,
+            vapour_pressure_deficit0,
+            photosynthetically_active_radiation0
+        )
 
     def close_simulation(self):
         self.plantFATE_model.plantFATE_model.close()
@@ -120,33 +125,21 @@ class PlantFATECoupling:
         assert temperature < 100  # temperature is in Celsius. So on earth should be well below 100.
         assert relative_humidity >= 0 and relative_humidity <= 100
 
-        soil_water_potential_1 = self.calculate_soil_water_potential(
-            soil_moisture_layer_1,
-            soil_moisture_wilting_point_1,
-            soil_moisture_field_capacity_1,
-            soil_tickness_layer_1
+        soil_water_potential = self.calculate_soil_water_potential(
+            soil_moisture_layer_1 + soil_moisture_layer_2 + soil_moisture_layer_3,
+            soil_moisture_wilting_point_1 + soil_moisture_wilting_point_2 + soil_moisture_wilting_point_3,
+            soil_moisture_field_capacity_1 + soil_moisture_field_capacity_2 + soil_moisture_field_capacity_3,
+            soil_tickness_layer_1 + soil_tickness_layer_2 + soil_tickness_layer_3
         )
-        soil_water_potential_2 = self.calculate_soil_water_potential(
-            soil_moisture_layer_2,
-            soil_moisture_wilting_point_2,
-            soil_moisture_field_capacity_2,
-            soil_tickness_layer_2
-        )
-        soil_water_potential_3 = self.calculate_soil_water_potential(
-                soil_moisture_layer_3,
-                soil_moisture_wilting_point_3,
-                soil_moisture_field_capacity_3,
-                soil_tickness_layer_3
-            )
-        print(soil_water_potential_1, soil_water_potential_2, soil_water_potential_3)
 
         vapour_pressure_deficit = self.calculate_vapour_pressure_deficit(temperature, relative_humidity)
 
-        photosynthetically_active_radiation = self.calculate_photosynthetically_active_radiation(shortwave_radiation,
-                                                                                                 longwave_radiation)
+        photosynthetically_active_radiation = self.calculate_photosynthetically_active_radiation(
+            shortwave_radiation,
+            longwave_radiation
+        )
 
-        return [soil_water_potential_1, soil_water_potential_2,
-                soil_water_potential_3], vapour_pressure_deficit, photosynthetically_active_radiation, temperature
+        return soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation, temperature
 
     def step(
             self,
@@ -167,7 +160,7 @@ class PlantFATECoupling:
             shortwave_radiation,  # W/m2, daily mean
             longwave_radiation  # W/m2, daily mean
     ):
-        soil_water_potentials, vapour_pressure_deficit, photosynthetically_active_radiation, temperature = self.get_plantFATE_input(
+        soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation, temperature = self.get_plantFATE_input(
             soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
             soil_moisture_layer_3,  # ratio [0-1]
@@ -186,7 +179,7 @@ class PlantFATECoupling:
             longwave_radiation)
 
         evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3 = self.run_plantFATE_step(
-            soil_water_potentials,
+            soil_water_potential,
             vapour_pressure_deficit,
             photosynthetically_active_radiation,
             temperature
