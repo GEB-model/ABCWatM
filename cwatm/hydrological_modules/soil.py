@@ -160,10 +160,10 @@ class soil(object):
         self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn='mean')
 
         if self.model.config['general']['couple_plantFATE']:
-            self.plantFATE = []
+            self.model.plantFATE = []
             self.plantFATE_forest_RUs = np.where(self.var.land_use_type == 0)[0]
             for forest_RU in self.plantFATE_forest_RUs:
-                self.plantFATE.append(plantFATE.PlantFATECoupling('input/plantFATE/params/p_daily.ini'))
+                self.model.plantFATE.append(plantFATE.PlantFATECoupling('input/plantFATE/params/p_daily.ini'))
 
     def dynamic(self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET):
         """
@@ -320,11 +320,10 @@ class soil(object):
                 }
 
                 if self.model.current_timestep == 1 and self.model.scenario == 'spinup':
-                    self.plantFATE[i].plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
+                    self.model.plantFATE[i].plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
                     transpiration_plantFATE[i], _, _, _ = (0, 0, 0, 0)  # first timestep, set all to 0. Just for initialization of spinup.
                 else:
-                    transpiration_plantFATE[i], _, _, _ = self.plantFATE[i].step(**plantFATE_data)
-
+                    transpiration_plantFATE[i], _, _, _ = self.model.plantFATE[i].step(**plantFATE_data)
             bioarea_forest = np.where(self.var.land_use_type[bioarea] == 0)[0].astype(np.int32)  # these are the forest cells within the bioarea
 
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)

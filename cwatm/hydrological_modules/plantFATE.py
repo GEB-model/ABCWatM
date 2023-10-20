@@ -5,23 +5,31 @@ class PlantFATECoupling:
     def __init__(self, param_file):
         self.plantFATE_model = pyplantFATE.PlantFATERunner(param_file)
 
+    @property
+    def n_individuals(self):
+        return sum(self.plantFATE_model.plantFATE_model.cwm.n_ind_vec)
+    
+    @property
+    def biomass(self):
+        return sum(self.plantFATE_model.plantFATE_model.cwm.biomass_vec)
+
     def plantFATE_init(self, tstart, soil_moisture_layer_1,  # ratio [0-1]
-                       soil_moisture_layer_2,  # ratio [0-1]
-                       soil_moisture_layer_3,  # ratio [0-1]
-                       soil_tickness_layer_1,  # m
-                       soil_tickness_layer_2,  # m
-                       soil_tickness_layer_3,  # m
-                       soil_moisture_wilting_point_1,  # ratio [0-1]
-                       soil_moisture_wilting_point_2,  # ratio [0-1]
-                       soil_moisture_wilting_point_3,  # ratio [0-1]
-                       soil_moisture_field_capacity_1,  # ratio [0-1]
-                       soil_moisture_field_capacity_2,  # ratio [0-1]
-                       soil_moisture_field_capacity_3,  # ratio [0-1]
-                       temperature,  # degrees Celcius, mean temperature
-                       relative_humidity,  # percentage [0-100]
-                       shortwave_radiation,  # W/m2, daily mean
-                       longwave_radiation  # W/m2, daily mean
-                       ):
+            soil_moisture_layer_2,  # ratio [0-1]
+            soil_moisture_layer_3,  # ratio [0-1]
+            soil_tickness_layer_1,  # m
+            soil_tickness_layer_2,  # m
+            soil_tickness_layer_3,  # m
+            soil_moisture_wilting_point_1,  # ratio [0-1]
+            soil_moisture_wilting_point_2,  # ratio [0-1]
+            soil_moisture_wilting_point_3,  # ratio [0-1]
+            soil_moisture_field_capacity_1,  # ratio [0-1]
+            soil_moisture_field_capacity_2,  # ratio [0-1]
+            soil_moisture_field_capacity_3,  # ratio [0-1]
+            temperature,  # degrees Celcius, mean temperature
+            relative_humidity,  # percentage [0-100]
+            shortwave_radiation,  # W/m2, daily mean
+            longwave_radiation  # W/m2, daily mean
+            ):
         soil_water_potential, vapour_pressure_deficit0, photosynthetically_active_radiation0, temperature0 = self.get_plantFATE_input(
             soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
