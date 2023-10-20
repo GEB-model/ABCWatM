@@ -50,10 +50,10 @@ class PlantFATECoupling:
     def close_simulation(self):
         self.plantFATE_model.plantFATE_model.close()
 
-    def run_plantFATE_step(self, soil_water_potentials, vapour_pressure_deficit, photosynthetically_active_radiation,
+    def run_plantFATE_step(self, soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation,
                            temperature):
         evapotranspiration, soil_specific_depletion_1, \
-            soil_specific_depletion_2, soil_specific_depletion_3 = self.plantFATE_model.runstep(soil_water_potentials,
+            soil_specific_depletion_2, soil_specific_depletion_3 = self.plantFATE_model.runstep(soil_water_potential,
                                                                                                 vapour_pressure_deficit,
                                                                                                 photosynthetically_active_radiation,
                                                                                                 temperature)
