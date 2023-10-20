@@ -11,7 +11,7 @@ class PlantFATECoupling:
     
     @property
     def biomass(self):
-        return sum(self.plantFATE_model.plantFATE_model.cwm.biomass_vec)
+        return sum(self.plantFATE_model.plantFATE_model.cwm.biomass_vec)  # kgC / m2
 
     def plantFATE_init(self, tstart, soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
