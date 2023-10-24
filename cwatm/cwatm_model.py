@@ -13,7 +13,7 @@ class CWATModel(CWATModel_ini, CWATModel_dyn):
     def n_individuals_per_m2(self):
         n_invidiuals_per_m2_per_HRU = np.array([
             model.n_individuals
-            for model in self.plantFATE
+            for model in self.plantFATE if model is not None
         ])
         land_use_ratios = self.data.HRU.land_use_ratio[self.soil_module.plantFATE_forest_RUs]
         return np.array((n_invidiuals_per_m2_per_HRU * land_use_ratios).sum() / land_use_ratios.sum())
@@ -22,7 +22,7 @@ class CWATModel(CWATModel_ini, CWATModel_dyn):
     def biomass_per_m2(self):
         biomass_per_m2_per_HRU = np.array([
             model.biomass
-            for model in self.plantFATE
+            for model in self.plantFATE if model is not None
         ])
         land_use_ratios = self.data.HRU.land_use_ratio[self.soil_module.plantFATE_forest_RUs]
         return np.array((biomass_per_m2_per_HRU * land_use_ratios).sum() / land_use_ratios.sum())

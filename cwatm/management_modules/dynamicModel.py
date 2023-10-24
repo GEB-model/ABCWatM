@@ -33,3 +33,8 @@ class ModelFrame:
         """
         # finalize modflow model
         self.model.groundwater_modflow_module.modflow.finalize()
+
+        if self.model.config['general']['couple_plantFATE']:
+            for plantFATE_model in self.model.plantFATE:
+                if plantFATE_model is not None:
+                    plantFATE_model.finalize()

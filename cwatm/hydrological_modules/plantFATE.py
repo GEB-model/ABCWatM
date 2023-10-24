@@ -6,35 +6,14 @@ import pandas as pd
 from plantFATE import Simulator as sim
 from plantFATE import Clim
 
-class PlantFATERunner:
-    saveOutputs = True
-    environment = pd.DataFrame(columns=['date', 'tair', 'ppfd_max', 'ppfd', 'vpd', 'elv', 'co2', 'swp', "type"])
-    emergentProps = pd.DataFrame()
-    speciesProps = pd.DataFrame()
-
+class Model:
     def __init__(self, param_file):
         self.plantFATE_model = sim(param_file)
-        # self.soil_file = pd.read_csv(soil_file)
+        self.environment = pd.DataFrame(columns=['date', 'tair', 'ppfd_max', 'ppfd', 'vpd', 'elv', 'co2', 'swp', "type"])
+        self.emergentProps = pd.DataFrame()
+        self.speciesProps = pd.DataFrame()
 
-    def init(self, tstart, tend):
-        self.plantFATE_model.init(tstart, tend)
-
-    def init(self, tstart, temp0, soil_water_potential, vpd_0, par_0):
-        photosynthetically_active_radiation = par_0 * 2.15
-        newclim = Clim()
-        newclim.tc = temp0
-        newclim.ppfd_max = photosynthetically_active_radiation * 4
-        newclim.ppfd = photosynthetically_active_radiation
-        newclim.vpd = vpd_0 * 1000
-        newclim.swp = soil_water_potential
-
-        datestart = tstart
-        datediff = datestart - datetime(datestart.year, 1, 1)
-        tstart = datestart.year + datediff.days / 365
-        self.plantFATE_model.init(tstart, newclim)
-
-    def runstep(self, soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation,
-                temperature):
+    def runstep(self, soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation, temperature):
         photosynthetically_active_radiation = photosynthetically_active_radiation * 2.15
         self.plantFATE_model.update_environment(
             temperature,
@@ -96,19 +75,10 @@ class PlantFATERunner:
     def exportSpeciesProps(self, out_file):
         self.speciesProps.to_csv(out_file, sep=',', index=False, encoding='utf-8')
 
-class PlantFATECoupling:
-    def __init__(self, param_file):
-        self.plantFATE_model = PlantFATERunner(param_file)
-
-    @property
-    def n_individuals(self):
-        return sum(self.plantFATE_model.plantFATE_model.cwm.n_ind_vec)
-    
-    @property
-    def biomass(self):
-        return sum(self.plantFATE_model.plantFATE_model.cwm.biomass_vec)  # kgC / m2
-
-    def plantFATE_init(self, tstart, soil_moisture_layer_1,  # ratio [0-1]
+    def first_step(
+            self,
+            tstart,
+            soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
             soil_moisture_layer_3,  # ratio [0-1]
             soil_tickness_layer_1,  # m
@@ -124,7 +94,7 @@ class PlantFATECoupling:
             relative_humidity,  # percentage [0-100]
             shortwave_radiation,  # W/m2, daily mean
             longwave_radiation  # W/m2, daily mean
-            ):
+        ):
         soil_water_potential, vapour_pressure_deficit0, photosynthetically_active_radiation0, temperature0 = self.get_plantFATE_input(
             soil_moisture_layer_1,  # ratio [0-1]
             soil_moisture_layer_2,  # ratio [0-1]
@@ -141,27 +111,21 @@ class PlantFATECoupling:
             temperature,  # degrees Celcius, mean temperature
             relative_humidity,  # percentage [0-100]
             shortwave_radiation,  # W/m2, daily mean
-            longwave_radiation)
-        self.plantFATE_model.init(
-            tstart,
-            temperature0,
-            soil_water_potential,
-            vapour_pressure_deficit0,
-            photosynthetically_active_radiation0
+            longwave_radiation
         )
+        
+        photosynthetically_active_radiation = photosynthetically_active_radiation0 * 2.15
+        newclim = Clim()
+        newclim.tc = temperature0
+        newclim.ppfd_max = photosynthetically_active_radiation * 4
+        newclim.ppfd = photosynthetically_active_radiation
+        newclim.vpd = vapour_pressure_deficit0 * 1000
+        newclim.swp = soil_water_potential
 
-    def close_simulation(self):
-        self.plantFATE_model.plantFATE_model.close()
-
-    def run_plantFATE_step(self, soil_water_potential, vapour_pressure_deficit, photosynthetically_active_radiation,
-                           temperature):
-        evapotranspiration, soil_specific_depletion_1, \
-            soil_specific_depletion_2, soil_specific_depletion_3 = self.plantFATE_model.runstep(soil_water_potential,
-                                                                                                vapour_pressure_deficit,
-                                                                                                photosynthetically_active_radiation,
-                                                                                                temperature)
-
-        return evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3
+        datestart = tstart
+        datediff = datestart - datetime(datestart.year, 1, 1)
+        tstart = datestart.year + datediff.days / 365
+        self.plantFATE_model.init(tstart, newclim)
 
     def calculate_soil_water_potential(
             self,
@@ -281,7 +245,7 @@ class PlantFATECoupling:
             shortwave_radiation,  # W/m2, daily mean
             longwave_radiation)
 
-        evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3 = self.run_plantFATE_step(
+        evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3 = self.runstep(
             soil_water_potential,
             vapour_pressure_deficit,
             photosynthetically_active_radiation,
@@ -295,3 +259,14 @@ class PlantFATECoupling:
         evapotranspiration = evapotranspiration / 1000  # kg H2O/m2/day to m/day
 
         return evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3
+    
+    def finalize(self):
+        self.plantFATE_model.close()
+    
+    @property
+    def n_individuals(self):
+        return sum(self.plantFATE_model.cwm.n_ind_vec)
+    
+    @property
+    def biomass(self):
+        return sum(self.plantFATE_model.cwm.biomass_vec)  # kgC / m2

@@ -161,9 +161,13 @@ class soil(object):
 
         if self.model.config['general']['couple_plantFATE']:
             self.model.plantFATE = []
-            self.plantFATE_forest_RUs = np.where(self.var.land_use_type == 0)[0]
-            for forest_RU in self.plantFATE_forest_RUs:
-                self.model.plantFATE.append(plantFATE.PlantFATECoupling('input/plantFATE/params/p_daily.ini'))
+            self.plantFATE_forest_RUs = np.zeros_like(self.var.land_use_type, dtype=bool)
+            for i, land_use_type_RU in enumerate(self.var.land_use_type):
+                if land_use_type_RU == 0:
+                    self.plantFATE_forest_RUs[i] = True
+                    self.model.plantFATE.append(plantFATE.Model('input/plantFATE/params/p_daily.ini'))
+                else:
+                    self.model.plantFATE.append(None)
 
     def dynamic(self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET):
         """
@@ -292,53 +296,54 @@ class soil(object):
         TaMax = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0., TaMax)
 
         if self.model.config['general']['couple_plantFATE']:
-            print('What happens when the soil is frozen? - Elisa is asking Jaideep')
             transpiration_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)  # transpiration in a hydrological model is transpiration from plants and evaporation from the plant's surface in plantFATE.
             # soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_3_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
-            for i, forest_RU in enumerate(self.plantFATE_forest_RUs):
-                forest_grid = self.var.HRU_to_grid[forest_RU]
-        
-                plantFATE_data = {
-                    "soil_moisture_layer_1": self.var.w1[forest_RU],  # this is not used for now
-                    "soil_moisture_layer_2": self.var.w2[forest_RU],
-                    "soil_moisture_layer_3": self.var.w3[forest_RU],  # this is not used for now
-                    "soil_tickness_layer_1": self.var.rootDepth1[forest_RU],  # this is not used for now
-                    "soil_tickness_layer_2": self.var.rootDepth2[forest_RU],
-                    "soil_tickness_layer_3": self.var.rootDepth3[forest_RU],  # this is not used for now
-                    "soil_moisture_wilting_point_1": self.var.wwp1[forest_RU],  # this is not used for now
-                    "soil_moisture_wilting_point_2": self.var.wwp2[forest_RU],
-                    "soil_moisture_wilting_point_3": self.var.wwp3[forest_RU],  # this is not used for now
-                    "soil_moisture_field_capacity_1": self.var.wfc1[forest_RU],  # this is not used for now
-                    "soil_moisture_field_capacity_2": self.var.wfc2[forest_RU],
-                    "soil_moisture_field_capacity_3": self.var.wfc3[forest_RU],  # this is not used for now
-                    "temperature": self.model.data.grid.tas[forest_grid] - 273.15,  # K to C
-                    "relative_humidity": self.model.data.grid.hurs[forest_grid],
-                    "shortwave_radiation": self.model.data.grid.rsds[forest_grid],
-                    "longwave_radiation": self.model.data.grid.rlds[forest_grid],
-                }
+            for forest_RU_idx, is_simulated_by_plantFATE in enumerate(self.plantFATE_forest_RUs):
+                if is_simulated_by_plantFATE:
+                    forest_grid = self.var.HRU_to_grid[forest_RU_idx]
+            
+                    plantFATE_data = {
+                        "soil_moisture_layer_1": self.var.w1[forest_RU_idx],  # this is not used for now
+                        "soil_moisture_layer_2": self.var.w2[forest_RU_idx],
+                        "soil_moisture_layer_3": self.var.w3[forest_RU_idx],  # this is not used for now
+                        "soil_tickness_layer_1": self.var.rootDepth1[forest_RU_idx],  # this is not used for now
+                        "soil_tickness_layer_2": self.var.rootDepth2[forest_RU_idx],
+                        "soil_tickness_layer_3": self.var.rootDepth3[forest_RU_idx],  # this is not used for now
+                        "soil_moisture_wilting_point_1": self.var.wwp1[forest_RU_idx],  # this is not used for now
+                        "soil_moisture_wilting_point_2": self.var.wwp2[forest_RU_idx],
+                        "soil_moisture_wilting_point_3": self.var.wwp3[forest_RU_idx],  # this is not used for now
+                        "soil_moisture_field_capacity_1": self.var.wfc1[forest_RU_idx],  # this is not used for now
+                        "soil_moisture_field_capacity_2": self.var.wfc2[forest_RU_idx],
+                        "soil_moisture_field_capacity_3": self.var.wfc3[forest_RU_idx],  # this is not used for now
+                        "temperature": self.model.data.grid.tas[forest_grid] - 273.15,  # K to C
+                        "relative_humidity": self.model.data.grid.hurs[forest_grid],
+                        "shortwave_radiation": self.model.data.grid.rsds[forest_grid],
+                        "longwave_radiation": self.model.data.grid.rlds[forest_grid],
+                    }
 
-                if self.model.current_timestep == 1 and self.model.scenario == 'spinup':
-                    self.model.plantFATE[i].plantFATE_init(tstart=self.model.current_time, **plantFATE_data)
-                    transpiration_plantFATE[i], _, _, _ = (0, 0, 0, 0)  # first timestep, set all to 0. Just for initialization of spinup.
-                else:
-                    transpiration_plantFATE[i], _, _, _ = self.model.plantFATE[i].step(**plantFATE_data)
-            bioarea_forest = np.where(self.var.land_use_type[bioarea] == 0)[0].astype(np.int32)  # these are the forest cells within the bioarea
-
+                    if self.model.current_timestep == 1 and self.model.scenario == 'spinup':
+                        self.model.plantFATE[forest_RU_idx].first_step(tstart=self.model.current_time, **plantFATE_data)
+                        transpiration_plantFATE[forest_RU_idx], _, _, _ = (0, 0, 0, 0)  # first timestep, set all to 0. Just for initialization of spinup.
+                    else:
+                        transpiration_plantFATE[forest_RU_idx], _, _, _ = self.model.plantFATE[forest_RU_idx].step(**plantFATE_data)
+            
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
             ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
             ta3 = np.maximum(np.minimum(TaMax * self.var.adjRoot[2][bioarea], self.var.w3[bioarea] - self.var.wwp3[bioarea]), 0.0)
 
             CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
-            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
-            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
-            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE
+            
+            bioarea_forest = self.plantFATE_forest_RUs[bioarea]
+            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
 
             assert self.model.waterbalance_module.waterBalanceCheck(
                 how='cellwise',
                 influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
-                outfluxes=[transpiration_plantFATE],
+                outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
                 tollerance=1e-7
             )
 
