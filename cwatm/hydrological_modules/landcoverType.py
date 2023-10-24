@@ -546,7 +546,8 @@ class landcoverType(object):
 
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
         
-        print('check whether this is correct with plantFATE implementation')
+        if self.model.config['general']['couple_plantFATE']:
+            print('check whether this is correct with plantFATE implementation')
         potTranspiration = self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the water intercepted water.
 
         # *********  WATER Demand   *************************
