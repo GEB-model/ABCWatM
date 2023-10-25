@@ -211,6 +211,7 @@ class groundwater_modflow:
             row_resolution=self.domain['row_resolution'],
             col_resolution=self.domain['col_resolution'],
             top=self.layer_boundaries[0],
+            topography = topography, 
             bottom=self.layer_boundaries[1],
             basin_mask=self.modflow_basin_mask,
             head=self.model.data.modflow.head,
@@ -226,6 +227,7 @@ class groundwater_modflow:
         self.var.capillar = self.var.full_compressed(0, dtype=np.float32)
 
         self.var.head = self.var.compress(self.modflow2CWATM(self.model.data.modflow.head))
+        self.var.groundwater_depth = self.var.compress(self.modflow2CWATM(self.modflow.groundwater_depth))
 
     def dynamic(self, groundwater_recharge, groundwater_abstraction):
         assert (groundwater_abstraction + 1e-7 >= 0).all()
@@ -247,6 +249,8 @@ class groundwater_modflow:
 
         self.model.data.modflow.head = self.modflow.decompress(self.modflow.head.astype(np.float32))
         self.var.head = self.var.compress(self.modflow2CWATM(self.model.data.modflow.head, correct_boundary=False))
+
+        self.var.groundwater_depth = self.var.compress(self.modflow2CWATM(self.modflow.groundwater_depth))
 
         assert self.permeability.ndim == 3
         groundwater_outflow = np.where(
