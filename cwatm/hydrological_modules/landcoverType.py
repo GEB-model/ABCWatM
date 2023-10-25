@@ -544,8 +544,8 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
-        if self.model.config['general']['couple_plantFATE']:
-            def couple_plantFATE(
+        if self.model.config['general']['simulate_forest']:
+            def simulate_forest(
                 date,
                 plant_fate_df,
                 land_use_type,  # int 0=forest, 1=grassland, 2=crop, 3=urban, 4=water, 5=sealed
@@ -591,7 +591,7 @@ class landcoverType(object):
             if not hasattr(self.var, 'plant_fate_df'):
                 self.var.plant_fate_df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'soildepth_1', 'soildepth_2', 'soildepth_3', 'wwp1', 'wwp2', 'wwp3', 'wfc1', 'wfc2', 'wfc3', 'Tavg', 'hurs', 'Rsds', 'Rsdl'])
             
-            self.var.plant_fate_df = couple_plantFATE(
+            self.var.plant_fate_df = simulate_forest(
                 self.model.current_time,
                 self.var.plant_fate_df,
                 self.var.land_use_type,
