@@ -159,7 +159,7 @@ class soil(object):
 
         self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn='mean')
 
-        if self.model.config['general']['couple_plantFATE']:
+        if self.model.config['general']['simulate_forest']:
             self.model.plantFATE = []
             self.plantFATE_forest_RUs = np.zeros_like(self.var.land_use_type, dtype=bool)
             for i, land_use_type_RU in enumerate(self.var.land_use_type):
@@ -295,7 +295,7 @@ class soil(object):
         # transpiration is 0 when soil is frozen
         TaMax = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0., TaMax)
 
-        if self.model.config['general']['couple_plantFATE']:
+        if self.model.config['general']['simulate_forest']:
             transpiration_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)  # transpiration in a hydrological model is transpiration from plants and evaporation from the plant's surface in plantFATE.
             # soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
@@ -333,19 +333,19 @@ class soil(object):
             ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
             ta3 = np.maximum(np.minimum(TaMax * self.var.adjRoot[2][bioarea], self.var.w3[bioarea] - self.var.wwp3[bioarea]), 0.0)
 
-            CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
+            # CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
             
-            bioarea_forest = self.plantFATE_forest_RUs[bioarea]
-            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # bioarea_forest = self.plantFATE_forest_RUs[bioarea]
+            # ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
 
-            assert self.model.waterbalance_module.waterBalanceCheck(
-                how='cellwise',
-                influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
-                outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
-                tollerance=1e-7
-            )
+            # assert self.model.waterbalance_module.waterBalanceCheck(
+            #     how='cellwise',
+            #     influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
+            #     outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
+            #     tollerance=1e-7
+            # )
 
         else:
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
