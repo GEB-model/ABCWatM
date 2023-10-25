@@ -34,6 +34,7 @@ class ModFlowSimulation:
         row_resolution,
         col_resolution,
         top,
+        topography,
         bottom,
         basin_mask,
         head,
@@ -49,6 +50,7 @@ class ModFlowSimulation:
         self.row_resolution = row_resolution
         self.col_resolution = col_resolution
         self.basin_mask = basin_mask
+        self.topography = topography
         assert self.basin_mask.dtype == bool
         self.n_active_cells = self.basin_mask.size - self.basin_mask.sum()
         self.working_directory = os.path.join(outDir['OUTPUT'], 'modflow_model')
@@ -230,6 +232,10 @@ class ModFlowSimulation:
     def head(self):
         head_tag = self.mf6.get_var_address("X", self.name)
         return self.mf6.get_value_ptr(head_tag)
+    
+    @property
+    def groundwater_depth(self):
+        return self.topography - self.decompress(self.head)
 
     @property
     def well_rate(self):
@@ -274,7 +280,7 @@ class ModFlowSimulation:
         o = np.full(self.basin_mask.shape, np.nan, dtype=a.dtype)
         o[~self.basin_mask] = a
         return o
-
+    
     def prepare_time_step(self):
         dt = self.mf6.get_time_step()
         self.mf6.prepare_time_step(dt)
