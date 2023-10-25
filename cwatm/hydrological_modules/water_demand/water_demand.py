@@ -259,6 +259,7 @@ class water_demand:
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,
                 groundwater_head=groundwater_head,
+                groundwater_depth = self.model.data.grid.groundwater_depth,
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
                 command_areas=self.var.reservoir_command_areas.get() if self.model.use_gpu else self.var.reservoir_command_areas,
             )
