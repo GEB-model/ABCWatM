@@ -10,7 +10,6 @@
 
 import numpy as np
 from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption
-from cwatm.hydrological_modules import plantFATE
 
 class soil(object):
 
@@ -160,14 +159,16 @@ class soil(object):
         self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn='mean')
 
         if self.model.config['general']['simulate_forest']:
+            from cwatm.hydrological_modules import plantFATE
             self.model.plantFATE = []
             self.plantFATE_forest_RUs = np.zeros_like(self.var.land_use_type, dtype=bool)
             for i, land_use_type_RU in enumerate(self.var.land_use_type):
-                if land_use_type_RU == 0:
+                if land_use_type_RU == 0 and self.var.land_use_ratio[i] > 0.5:
                     self.plantFATE_forest_RUs[i] = True
                     self.model.plantFATE.append(plantFATE.Model('input/plantFATE/params/p_daily.ini'))
                 else:
                     self.model.plantFATE.append(None)
+        return None
 
     def dynamic(self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET):
         """
