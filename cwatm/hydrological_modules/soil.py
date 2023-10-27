@@ -321,7 +321,6 @@ class soil(object):
                         "temperature": self.model.data.grid.tas[forest_grid] - 273.15,  # K to C
                         "relative_humidity": self.model.data.grid.hurs[forest_grid],
                         "shortwave_radiation": self.model.data.grid.rsds[forest_grid],
-                        "longwave_radiation": self.model.data.grid.rlds[forest_grid],
                     }
 
                     if self.model.current_timestep == 1 and self.model.scenario == 'spinup':
@@ -334,19 +333,19 @@ class soil(object):
             ta2 = np.maximum(np.minimum(TaMax * self.var.adjRoot[1][bioarea], self.var.w2[bioarea] - self.var.wwp2[bioarea]), 0.0)
             ta3 = np.maximum(np.minimum(TaMax * self.var.adjRoot[2][bioarea], self.var.w3[bioarea] - self.var.wwp3[bioarea]), 0.0)
 
-            # CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
+            CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
             
-            # bioarea_forest = self.plantFATE_forest_RUs[bioarea]
-            # ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            # ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            # ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            bioarea_forest = self.plantFATE_forest_RUs[bioarea]
+            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
 
-            # assert self.model.waterbalance_module.waterBalanceCheck(
-            #     how='cellwise',
-            #     influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
-            #     outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
-            #     tollerance=1e-7
-            # )
+            assert self.model.waterbalance_module.waterBalanceCheck(
+                how='cellwise',
+                influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
+                outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
+                tollerance=1e-7
+            )
 
         else:
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
