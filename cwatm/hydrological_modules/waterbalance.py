@@ -104,8 +104,10 @@ class waterbalance(object):
             for endStorage in poststorages: 
                 store -= endStorage
             balance = income + store - out
-            
-            if np.abs(balance).max() > tollerance:
+
+            if balance.size == 0:
+                return True
+            elif np.abs(balance).max() > tollerance:
                 text = f"{balance[np.abs(balance).argmax()]} is larger than tollerance {tollerance}"
                 if name:
                     print(name, text)
