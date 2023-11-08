@@ -16,7 +16,7 @@ from cwatm.management_modules.globals import *
 
 
 class lakes_reservoirs(object):
-    """
+    r"""
     LAKES AND RESERVOIRS
 
     Note:
@@ -214,7 +214,17 @@ class lakes_reservoirs(object):
         if checkOption('includeWaterBodies'):
 
             print('read this from reservoir operators perhaps')
-            water_body_data = pd.read_csv(self.model.model_structure['table']["routing/lakesreservoirs/basin_lakes_data"]).set_index('waterbody_id')
+            water_body_data = pd.read_csv(
+                self.model.model_structure['table']["routing/lakesreservoirs/basin_lakes_data"],
+                dtype={
+                    'waterbody_type': np.int32,
+                    'volume_total': np.float32,
+                    'average_discharge': np.float32,
+                    'average_area': np.float32,
+                    'volume_flood': np.float32,
+                    'relative_area_in_region': np.float32
+                }
+            ).set_index('waterbody_id')
 
             # load lakes/reservoirs map with a single ID for each lake/reservoir
             self.var.waterBodyID = loadmap('waterBodyID').astype(np.int64)
