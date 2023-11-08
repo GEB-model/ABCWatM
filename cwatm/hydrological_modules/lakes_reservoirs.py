@@ -218,11 +218,11 @@ class lakes_reservoirs(object):
                 self.model.model_structure['table']["routing/lakesreservoirs/basin_lakes_data"],
                 dtype={
                     'waterbody_type': np.int32,
-                    'volume_total': np.float32,
-                    'average_discharge': np.float32,
-                    'average_area': np.float32,
-                    'volume_flood': np.float32,
-                    'relative_area_in_region': np.float32
+                    'volume_total': np.float64,
+                    'average_discharge': np.float64,
+                    'average_area': np.float64,
+                    'volume_flood': np.float64,
+                    'relative_area_in_region': np.float64
                 }
             ).set_index('waterbody_id')
 
