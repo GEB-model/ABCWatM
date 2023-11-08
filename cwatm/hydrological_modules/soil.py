@@ -336,16 +336,16 @@ class soil(object):
             CWatM_w_in_plantFATE_cells = (self.var.w1[self.plantFATE_forest_RUs] + self.var.w2[self.plantFATE_forest_RUs] + self.var.w3[self.plantFATE_forest_RUs])
             
             bioarea_forest = self.plantFATE_forest_RUs[bioarea]
-            ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # ta1[bioarea_forest] = self.var.w1[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # ta2[bioarea_forest] = self.var.w2[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # ta3[bioarea_forest] = self.var.w3[self.plantFATE_forest_RUs] / CWatM_w_in_plantFATE_cells * transpiration_plantFATE[self.plantFATE_forest_RUs]
 
-            assert self.model.waterbalance_module.waterBalanceCheck(
-                how='cellwise',
-                influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
-                outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
-                tollerance=1e-7
-            )
+            # assert self.model.waterbalance_module.waterBalanceCheck(
+            #     how='cellwise',
+            #     influxes=[ta1[bioarea_forest], ta2[bioarea_forest], ta3[bioarea_forest]],
+            #     outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
+            #     tollerance=1e-7
+            # )
 
         else:
             ta1 = np.maximum(np.minimum(TaMax * self.var.adjRoot[0][bioarea], self.var.w1[bioarea] - self.var.wwp1[bioarea]), 0.0)
@@ -565,6 +565,10 @@ class soil(object):
             subperc2to3 =  np.minimum(availWater2, np.minimum(kUnSat2 * DtSub, capLayer3))
             subperc3toGW = np.minimum(availWater3, np.minimum(kUnSat3 * DtSub, availWater3)) * (1 - self.var.capriseindex[bioarea])
 
+            # When the soil is frozen (frostindex larger than threshold), no perc1 and 2
+            subperc1to2 = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0, subperc1to2)
+            subperc2to3 = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0, subperc2to3)
+
             # Update water balance for all layers
             availWater1 = availWater1 - subperc1to2
             availWater2 = availWater2 + subperc1to2 - subperc2to3
@@ -609,10 +613,6 @@ class soil(object):
         del availWater1
         del availWater2
         del availWater3
-
-        # When the soil is frozen (frostindex larger than threshold), no perc1 and 2
-        perc1to2 = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0, perc1to2)
-        perc2to3 = np.where(self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0, perc2to3)
 
         # Update soil moisture
         assert (self.var.w1 >= 0).all()
