@@ -391,12 +391,15 @@ class soil(object):
         satAreaFrac = 1 - (1 - relSat) ** self.var.arnoBeta[bioarea]
         # Fraction of pixel that is at saturation as a function of
         # the ratio Theta1/ThetaS1. Distribution function taken from
-        # Zhao,1977, as cited in Todini, 1996 (JoH 175, 339-382)
+        # Zhao,1977, as cited in Todini, 1996 (JoH 175, 339-382) Eq. A.4.
         satAreaFrac = np.maximum(np.minimum(satAreaFrac, 1.0), 0.0)
 
         store = soilWaterStorageCap / (self.var.arnoBeta[bioarea] + 1)
         potBeta = (self.var.arnoBeta[bioarea] + 1) / self.var.arnoBeta[bioarea]
         potInf = store - store * (1 - (1 - satAreaFrac) ** potBeta)
+
+        infiltration_multiplier = self.model.agents.farmers.infiltration_multiplier.by_field(self.model.data.HRU.land_owners, nofieldvalue=1)
+        potInf *= infiltration_multiplier[bioarea]
 
         del satAreaFrac
         del potBeta
