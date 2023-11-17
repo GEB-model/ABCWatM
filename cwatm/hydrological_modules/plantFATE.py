@@ -8,7 +8,7 @@ from plantFATE import Clim
 
 class Model:
     def __init__(self, param_file):
-        self.plantFATE_model = sim(param_file)
+        self.plantFATE_model = sim(str(param_file))
         self.environment = pd.DataFrame(columns=['date', 'tair', 'ppfd_max', 'ppfd', 'vpd', 'elv', 'co2', 'swp', "type"])
         self.emergentProps = pd.DataFrame()
         self.speciesProps = pd.DataFrame()

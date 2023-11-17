@@ -134,7 +134,12 @@ class evaporationPot(object):
         # Adjust wind speed for measurement height: wind speed measured at
         # 10 m, but needed at 2 m height
         # Shuttleworth, W.J. (1993) in Maidment, D.R. (1993), p. 4.36
-        wind_2m = self.model.data.to_HRU(data=self.model.data.grid.sfcWind, fn=None) * 0.749   
+        wind_2m = self.model.data.to_HRU(data=self.model.data.grid.sfcWind, fn=None) * 0.749
+
+        if self.model.scenario == 'cover-crops':
+            wind_2m[np.isin(self.var.land_use_type, np.array([2, 3]))] *= 0.8
+
+        # TODO: update this properly following PCR-GLOBWB (https://github.com/UU-Hydro/PCR-GLOBWB_model/blob/0511485ad3ac0a1367d9d4918d2f61ae0fa0e900/model/evaporation/ref_pot_et_penman_monteith.py#L227)
 
         denominator = slope_of_saturated_vapour_pressure_curve + psychrometric_constant * (1 + 0.34 * wind_2m)        
         

@@ -158,14 +158,35 @@ class soil(object):
 
         self.model.data.grid.soildepth_12 = self.model.data.to_grid(HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn='mean')
 
+        def create_ini(yaml, idx):
+            out_dir = self.model.simulation_root / 'plantFATE' / f'cell_{idx}'
+            yaml['> STRINGS']['outDir'] = out_dir
+            ini_file = out_dir / f'p_daily.ini'
+            with open(ini_file, 'w') as f:
+                for section, section_dict in yaml.items():
+                    f.write(section + '\n')
+                    if section_dict is None:
+                        continue
+                    for key, value in section_dict.items():
+                        if value is None:
+                            value = 'null'
+                        f.write(key + ' ' + str(value) + '\n')
+            return ini_file
+
         if self.model.config['general']['simulate_forest']:
+            already_has_plantFATE_cell = False
             from cwatm.hydrological_modules import plantFATE
             self.model.plantFATE = []
             self.plantFATE_forest_RUs = np.zeros_like(self.var.land_use_type, dtype=bool)
             for i, land_use_type_RU in enumerate(self.var.land_use_type):
                 if land_use_type_RU == 0 and self.var.land_use_ratio[i] > 0.5:
-                    self.plantFATE_forest_RUs[i] = True
-                    self.model.plantFATE.append(plantFATE.Model('input/plantFATE/params/p_daily.ini'))
+                    if already_has_plantFATE_cell:
+                        self.model.plantFATE.append(None)
+                    else:
+                        self.plantFATE_forest_RUs[i] = True
+                        ini_path = create_ini(self.model.config['plantFATE'], i)
+                        already_has_plantFATE_cell = True
+                        self.model.plantFATE.append(plantFATE.Model(ini_path))
                 else:
                     self.model.plantFATE.append(None)
         return None
