@@ -160,6 +160,7 @@ class soil(object):
 
         def create_ini(yaml, idx):
             out_dir = self.model.simulation_root / 'plantFATE' / f'cell_{idx}'
+            out_dir.mkdir(parents=True, exist_ok=True)
             yaml['> STRINGS']['outDir'] = out_dir
             ini_file = out_dir / f'p_daily.ini'
             with open(ini_file, 'w') as f:
