@@ -25,10 +25,10 @@ class Model:
         )
         self.plantFATE_model.simulate_step()
 
-        self.saveEnvironment()
-        self.saveEmergentProps()
+        # self.saveEnvironment()
+        # self.saveEmergentProps()
 
-        trans = self.plantFATE_model.props.trans
+        trans = self.plantFATE_model.props.trans / 365
         # return evapotranspiration, soil_specific_depletion_1, soil_specific_depletion_2, soil_specific_depletion_3
         return trans, 0, 0, 0
 
@@ -50,18 +50,18 @@ class Model:
     def saveEmergentProps(self):
         e = pd.DataFrame({
             'date': [self.plantFATE_model.tcurrent],
-            'trans': [self.plantFATE_model.props.trans],
+            'trans': [self.plantFATE_model.props.trans / 365],
             'gs': [self.plantFATE_model.props.gs],
-            'gpp': [self.plantFATE_model.props.gpp],
+            'gpp': [self.plantFATE_model.props.gpp *0.5/365*1000],
             'lai': [self.plantFATE_model.props.lai],
-            'npp': [self.plantFATE_model.props.npp],
+            'npp': [self.plantFATE_model.props.npp *0.5/365*1000],
             'cc_est': [self.plantFATE_model.props.cc_est],
-            'croot_mass': [self.plantFATE_model.props.croot_mass],
-            'froot_mass': [self.plantFATE_model.props.froot_mass],
+            'croot_mass': [self.plantFATE_model.props.croot_mass*1000*0.5],
+            'froot_mass': [self.plantFATE_model.props.froot_mass*1000*0.5],
             'lai_vert': [self.plantFATE_model.props.lai_vert],
-            'leaf_mass': [self.plantFATE_model.props.leaf_mass],
-            'resp_auto': [self.plantFATE_model.props.resp_auto],
-            'stem_mass': [self.plantFATE_model.props.stem_mass]
+            'leaf_mass': [self.plantFATE_model.props.leaf_mass*1000*0.5],
+            'resp_auto': [self.plantFATE_model.props.resp_auto *0.5/365*1000],
+            'stem_mass': [self.plantFATE_model.props.stem_mass*1000*0.5]
         })
         self.emergentProps = pd.concat([self.emergentProps, e])
 
