@@ -182,8 +182,8 @@ class soil(object):
                 yaml["> STRINGS"]["continueFromConfig"] = None
                 yaml["> STRINGS"]["saveState"] = "yes"
             else:
-                yaml["> STRINGS"]["continueFromState"] = "yes"
-                yaml["> STRINGS"]["continueFromConfig"] = "yes"
+                yaml["> STRINGS"]["continueFromState"] = out_dir / self.model.config["plantFATE"]["> STRINGS"]["exptName"] / self.model.config["plantFATE"]["> STRINGS"]["savedStateFile"]
+                yaml["> STRINGS"]["continueFromConfig"] = out_dir / self.model.config["plantFATE"]["> STRINGS"]["exptName"] / self.model.config["plantFATE"]["> STRINGS"]["savedConfigFile"]
                 yaml["> STRINGS"]["saveState"] = "no"
             # yaml["> STRINGS"]["exptName"] = out_dir
             ini_file = out_dir / f"p_daily.ini"
@@ -467,7 +467,7 @@ class soil(object):
 
                     if (
                         self.model.current_timestep == 1
-                        and self.model.scenario == "spinup"
+                        # and self.model.scenario == "spinup"
                     ):
                         self.model.plantFATE[forest_RU_idx].first_step(
                             tstart=self.model.current_time, **plantFATE_data
