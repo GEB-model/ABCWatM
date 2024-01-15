@@ -182,8 +182,16 @@ class soil(object):
                 yaml["> STRINGS"]["continueFromConfig"] = None
                 yaml["> STRINGS"]["saveState"] = "yes"
             else:
-                yaml["> STRINGS"]["continueFromState"] = out_dir / self.model.config["plantFATE"]["> STRINGS"]["exptName"] / self.model.config["plantFATE"]["> STRINGS"]["savedStateFile"]
-                yaml["> STRINGS"]["continueFromConfig"] = out_dir / self.model.config["plantFATE"]["> STRINGS"]["exptName"] / self.model.config["plantFATE"]["> STRINGS"]["savedConfigFile"]
+                yaml["> STRINGS"]["continueFromState"] = (
+                    out_dir
+                    / self.model.config["plantFATE"]["> STRINGS"]["exptName"]
+                    / self.model.config["plantFATE"]["> STRINGS"]["savedStateFile"]
+                )
+                yaml["> STRINGS"]["continueFromConfig"] = (
+                    out_dir
+                    / self.model.config["plantFATE"]["> STRINGS"]["exptName"]
+                    / self.model.config["plantFATE"]["> STRINGS"]["savedConfigFile"]
+                )
                 yaml["> STRINGS"]["saveState"] = "no"
             # yaml["> STRINGS"]["exptName"] = out_dir
             ini_file = out_dir / f"p_daily.ini"
@@ -217,11 +225,86 @@ class soil(object):
                     else:
                         self.plantFATE_forest_RUs[i] = True
                         ini_path = create_ini(self.model.config["plantFATE"], i)
-                        already_has_plantFATE_cell = True
+                        # already_has_plantFATE_cell = True
                         self.model.plantFATE.append(plantFATE.Model(ini_path))
                 else:
                     self.model.plantFATE.append(None)
         return None
+
+    def calculate_soil_water_potential_MPa(
+        self,
+        soil_moisture,  # [m]
+        soil_moisture_wilting_point,  # [m]
+        soil_moisture_field_capacity,  # [m]
+        soil_tickness,  # [m]
+        wilting_point=-1500,  # kPa
+        field_capacity=-33,  # kPa
+    ):
+        # https://doi.org/10.1016/B978-0-12-374460-9.00007-X (eq. 7.16)
+        soil_moisture_fraction = soil_moisture / soil_tickness
+        # assert (soil_moisture_fraction >= 0).all() and (soil_moisture_fraction <= 1).all()
+        del soil_moisture
+        soil_moisture_wilting_point_fraction = (
+            soil_moisture_wilting_point / soil_tickness
+        )
+        # assert (soil_moisture_wilting_point_fraction).all() >= 0 and (
+        #     soil_moisture_wilting_point_fraction
+        # ).all() <= 1
+        del soil_moisture_wilting_point
+        soil_moisture_field_capacity_fraction = (
+            soil_moisture_field_capacity / soil_tickness
+        )
+        # assert (soil_moisture_field_capacity_fraction >= 0).all() and (
+        #     soil_moisture_field_capacity_fraction <= 1
+        # ).all()
+        del soil_moisture_field_capacity
+
+        n_potential = -(
+            np.log(wilting_point / field_capacity)
+            / np.log(
+                soil_moisture_wilting_point_fraction
+                / soil_moisture_field_capacity_fraction
+            )
+        )
+        # assert (n_potential >= 0).all()
+        a_potential = (
+            1.5 * 10**6 * soil_moisture_wilting_point_fraction**n_potential
+        )
+        # assert (a_potential >= 0).all()
+        soil_water_potential = -a_potential * soil_moisture_fraction ** (-n_potential)
+        return soil_water_potential / 1_000_000  # Pa to MPa
+
+    def calculate_vapour_pressure_deficit_kPa(self, temperature_K, relative_humidity):
+        temperature_C = temperature_K - 273.15
+        assert (
+            temperature_C < 100
+        ).all()  # temperature is in Celsius. So on earth should be well below 100.
+        assert (
+            temperature_C > -100
+        ).all()  # temperature is in Celsius. So on earth should be well above -100.
+        assert (
+            relative_humidity >= 1
+        ).all()  # below 1 is so rare that it shouldn't be there at the resolutions of current climate models, and this catches errors with relative_humidity as a ratio [0-1].
+        assert (
+            relative_humidity <= 100
+        ).all()  # below 1 is so rare that it shouldn't be there at the resolutions of current climate models, and this catches errors with relative_humidity as a ratio [0-1].
+        # https://soilwater.github.io/pynotes-agriscience/notebooks/vapor_pressure_deficit.html
+        saturated_vapour_pressure = 0.611 * np.exp(
+            (17.502 * temperature_C) / (temperature_C + 240.97)
+        )  # kPa
+        actual_vapour_pressure = (
+            saturated_vapour_pressure * relative_humidity / 100
+        )  # kPa
+        vapour_pressure_deficit = saturated_vapour_pressure - actual_vapour_pressure
+        return vapour_pressure_deficit
+
+    def calculate_photosynthetic_photon_flux_density(self, shortwave_radiation, xi=0.5):
+        # https://search.r-project.org/CRAN/refmans/bigleaf/html/Rg.to.PPFD.html
+        photosynthetically_active_radiation = shortwave_radiation * xi
+        photosynthetic_photon_flux_density = (
+            photosynthetically_active_radiation * 4.6
+        )  #  W/m2 -> umol/m2/s
+        return photosynthetic_photon_flux_density
 
     def dynamic(
         self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET
@@ -424,6 +507,27 @@ class soil(object):
             # soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_3_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
+
+            self.var.soil_water_potential = self.calculate_soil_water_potential_MPa(
+                self.var.w1 + self.var.w2 + self.var.w3,  # [m]
+                self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
+                self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
+                self.var.rootDepth1 + self.var.rootDepth2 + self.var.rootDepth3,  # [m]
+                wilting_point=-1500,  # kPa
+                field_capacity=-33,  # kPa
+            )
+            self.model.data.grid.vapour_pressure_deficit = (
+                self.calculate_vapour_pressure_deficit_kPa(
+                    self.model.data.grid.tas, self.model.data.grid.hurs
+                )
+            )
+
+            self.model.data.grid.photosynthetic_photon_flux_density = (
+                self.calculate_photosynthetic_photon_flux_density(
+                    self.model.data.grid.rsds
+                )
+            )
+
             for forest_RU_idx, is_simulated_by_plantFATE in enumerate(
                 self.plantFATE_forest_RUs
             ):
@@ -431,42 +535,21 @@ class soil(object):
                     forest_grid = self.var.HRU_to_grid[forest_RU_idx]
 
                     plantFATE_data = {
-                        "soil_moisture_layer_1": self.var.w1[
+                        "vapour_pressure_deficit": self.model.data.grid.vapour_pressure_deficit[
+                            forest_grid
+                        ],
+                        "soil_water_potential": self.var.soil_water_potential[
                             forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_moisture_layer_2": self.var.w2[forest_RU_idx],
-                        "soil_moisture_layer_3": self.var.w3[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_tickness_layer_1": self.var.rootDepth1[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_tickness_layer_2": self.var.rootDepth2[forest_RU_idx],
-                        "soil_tickness_layer_3": self.var.rootDepth3[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_moisture_wilting_point_1": self.var.wwp1[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_moisture_wilting_point_2": self.var.wwp2[forest_RU_idx],
-                        "soil_moisture_wilting_point_3": self.var.wwp3[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_moisture_field_capacity_1": self.var.wfc1[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "soil_moisture_field_capacity_2": self.var.wfc2[forest_RU_idx],
-                        "soil_moisture_field_capacity_3": self.var.wfc3[
-                            forest_RU_idx
-                        ],  # this is not used for now
-                        "temperature": self.model.data.grid.tas[forest_grid]
-                        - 273.15,  # K to C
-                        "relative_humidity": self.model.data.grid.hurs[forest_grid],
-                        "shortwave_radiation": self.model.data.grid.rsds[forest_grid],
+                        ],
+                        "photosynthetic_photon_flux_density": self.model.data.grid.photosynthetic_photon_flux_density[
+                            forest_grid
+                        ],
+                        "temperature": self.model.data.grid.tas[forest_grid],
                     }
 
                     if (
-                        self.model.current_timestep == 1
+                        self.model.current_timestep
+                        == 1
                         # and self.model.scenario == "spinup"
                     ):
                         self.model.plantFATE[forest_RU_idx].first_step(

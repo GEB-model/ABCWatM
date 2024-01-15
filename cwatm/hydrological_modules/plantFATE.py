@@ -34,7 +34,7 @@ class Model:
         temperature,
     ):
         self.plantFATE_model.update_environment(
-            temperature,
+            temperature - 273.15,
             photosynthetic_photon_flux_density * 4,
             photosynthetic_photon_flux_density,
             vapour_pressure_deficit * 1000,
@@ -124,50 +124,16 @@ class Model:
     def first_step(
         self,
         tstart,
-        soil_moisture_layer_1,  # ratio [0-1]
-        soil_moisture_layer_2,  # ratio [0-1]
-        soil_moisture_layer_3,  # ratio [0-1]
-        soil_tickness_layer_1,  # m
-        soil_tickness_layer_2,  # m
-        soil_tickness_layer_3,  # m
-        soil_moisture_wilting_point_1,  # ratio [0-1]
-        soil_moisture_wilting_point_2,  # ratio [0-1]
-        soil_moisture_wilting_point_3,  # ratio [0-1]
-        soil_moisture_field_capacity_1,  # ratio [0-1]
-        soil_moisture_field_capacity_2,  # ratio [0-1]
-        soil_moisture_field_capacity_3,  # ratio [0-1]
-        temperature,  # degrees Celcius, mean temperature
-        relative_humidity,  # percentage [0-100]
-        shortwave_radiation,  # W/m2, daily mean
+        vapour_pressure_deficit,
+        soil_water_potential,
+        photosynthetic_photon_flux_density,
+        temperature,
     ):
-        (
-            soil_water_potential,
-            vapour_pressure_deficit0,
-            photosynthetic_photon_flux_density0,
-            temperature0,
-        ) = self.get_plantFATE_input(
-            soil_moisture_layer_1,  # ratio [0-1]
-            soil_moisture_layer_2,  # ratio [0-1]
-            soil_moisture_layer_3,  # ratio [0-1]
-            soil_tickness_layer_1,  # m
-            soil_tickness_layer_2,  # m
-            soil_tickness_layer_3,  # m
-            soil_moisture_wilting_point_1,  # ratio [0-1]
-            soil_moisture_wilting_point_2,  # ratio [0-1]
-            soil_moisture_wilting_point_3,  # ratio [0-1]
-            soil_moisture_field_capacity_1,  # ratio [0-1]
-            soil_moisture_field_capacity_2,  # ratio [0-1]
-            soil_moisture_field_capacity_3,  # ratio [0-1]
-            temperature,  # degrees Celcius, mean temperature
-            relative_humidity,  # percentage [0-100]
-            shortwave_radiation,  # W/m2, daily mean
-        )
-
         newclim = Clim()
-        newclim.tc = temperature0  # C
-        newclim.ppfd_max = photosynthetic_photon_flux_density0 * 4
-        newclim.ppfd = photosynthetic_photon_flux_density0
-        newclim.vpd = vapour_pressure_deficit0 * 1000  # kPa -> Pa
+        newclim.tc = temperature - 273.15  # C
+        newclim.ppfd_max = photosynthetic_photon_flux_density * 4
+        newclim.ppfd = photosynthetic_photon_flux_density
+        newclim.vpd = vapour_pressure_deficit * 1000  # kPa -> Pa
         newclim.swp = soil_water_potential  # MPa
 
         datestart = tstart
@@ -175,169 +141,13 @@ class Model:
         tstart = datestart.year + datediff.days / 365
         self.plantFATE_model.init(tstart, newclim)
 
-    def calculate_soil_water_potential_MPa(
-        self,
-        soil_moisture,  # [m]
-        soil_moisture_wilting_point,  # [m]
-        soil_moisture_field_capacity,  # [m]
-        soil_tickness,  # [m]
-        wilting_point=-1500,  # kPa
-        field_capacity=-33,  # kPa
-    ):
-        # https://doi.org/10.1016/B978-0-12-374460-9.00007-X (eq. 7.16)
-        soil_moisture_fraction = soil_moisture / soil_tickness
-        assert soil_moisture_fraction >= 0 and soil_moisture_fraction <= 1
-        del soil_moisture
-        soil_moisture_wilting_point_fraction = (
-            soil_moisture_wilting_point / soil_tickness
-        )
-        assert (
-            soil_moisture_wilting_point_fraction >= 0
-            and soil_moisture_wilting_point_fraction <= 1
-        )
-        del soil_moisture_wilting_point
-        soil_moisture_field_capacity_fraction = (
-            soil_moisture_field_capacity / soil_tickness
-        )
-        assert (
-            soil_moisture_field_capacity_fraction >= 0
-            and soil_moisture_field_capacity_fraction <= 1
-        )
-        del soil_moisture_field_capacity
-
-        n_potential = -(
-            np.log(wilting_point / field_capacity)
-            / np.log(
-                soil_moisture_wilting_point_fraction
-                / soil_moisture_field_capacity_fraction
-            )
-        )
-        assert n_potential >= 0
-        a_potential = (
-            1.5 * 10**6 * soil_moisture_wilting_point_fraction**n_potential
-        )
-        assert a_potential >= 0
-        soil_water_potential = -a_potential * soil_moisture_fraction ** (-n_potential)
-        return soil_water_potential / 1_000_000  # Pa to MPa
-
-    def calculate_vapour_pressure_deficit_kPa(self, temperature, relative_humidity):
-        assert (
-            temperature < 100
-        )  # temperature is in Celsius. So on earth should be well below 100.
-        assert (
-            temperature > -100
-        )  # temperature is in Celsius. So on earth should be well above -100.
-        assert (
-            relative_humidity >= 1 and relative_humidity <= 100
-        )  # below 1 is so rare that it shouldn't be there at the resolutions of current climate models, and this catches errors with relative_humidity as a ratio [0-1].
-        # https://soilwater.github.io/pynotes-agriscience/notebooks/vapor_pressure_deficit.html
-        saturated_vapour_pressure = 0.611 * np.exp(
-            (17.502 * temperature) / (temperature + 240.97)
-        )  # kPa
-        actual_vapour_pressure = (
-            saturated_vapour_pressure * relative_humidity / 100
-        )  # kPa
-        vapour_pressure_deficit = saturated_vapour_pressure - actual_vapour_pressure
-        return vapour_pressure_deficit
-
-    def calculate_photosynthetic_photon_flux_density(self, shortwave_radiation, xi=0.5):
-        # https://search.r-project.org/CRAN/refmans/bigleaf/html/Rg.to.PPFD.html
-        photosynthetically_active_radiation = shortwave_radiation * xi
-        photosynthetic_photon_flux_density = (
-            photosynthetically_active_radiation * 4.6
-        )  #  W/m2 -> umol/m2/s
-        return photosynthetic_photon_flux_density
-
-    def get_plantFATE_input(
-        self,
-        soil_moisture_layer_1,  # m
-        soil_moisture_layer_2,  # m
-        soil_moisture_layer_3,  # m
-        soil_tickness_layer_1,  # m
-        soil_tickness_layer_2,  # m
-        soil_tickness_layer_3,  # m
-        soil_moisture_wilting_point_1,  # m
-        soil_moisture_wilting_point_2,  # m
-        soil_moisture_wilting_point_3,  # m
-        soil_moisture_field_capacity_1,  # m
-        soil_moisture_field_capacity_2,  # m
-        soil_moisture_field_capacity_3,  # m
-        temperature,  # degrees Celcius, mean temperature
-        relative_humidity,  # percentage [0-100]
-        shortwave_radiation,  # W/m2, daily mean
-    ):
-        assert (
-            temperature < 100
-        )  # temperature is in Celsius. So on earth should be well below 100.
-        assert relative_humidity >= 0 and relative_humidity <= 100
-
-        soil_water_potential = self.calculate_soil_water_potential_MPa(
-            soil_moisture_layer_1 + soil_moisture_layer_2 + soil_moisture_layer_3,
-            soil_moisture_wilting_point_1
-            + soil_moisture_wilting_point_2
-            + soil_moisture_wilting_point_3,
-            soil_moisture_field_capacity_1
-            + soil_moisture_field_capacity_2
-            + soil_moisture_field_capacity_3,
-            soil_tickness_layer_1 + soil_tickness_layer_2 + soil_tickness_layer_3,
-        )
-
-        vapour_pressure_deficit = self.calculate_vapour_pressure_deficit_kPa(
-            temperature, relative_humidity
-        )
-
-        photosynthetic_photon_flux_density = (
-            self.calculate_photosynthetic_photon_flux_density(shortwave_radiation)
-        )
-
-        return (
-            soil_water_potential,
-            vapour_pressure_deficit,
-            photosynthetic_photon_flux_density,
-            temperature,
-        )
-
     def step(
         self,
-        soil_moisture_layer_1,  # ratio [0-1]
-        soil_moisture_layer_2,  # ratio [0-1]
-        soil_moisture_layer_3,  # ratio [0-1]
-        soil_tickness_layer_1,  # m
-        soil_tickness_layer_2,  # m
-        soil_tickness_layer_3,  # m
-        soil_moisture_wilting_point_1,  # ratio [0-1]
-        soil_moisture_wilting_point_2,  # ratio [0-1]
-        soil_moisture_wilting_point_3,  # ratio [0-1]
-        soil_moisture_field_capacity_1,  # ratio [0-1]
-        soil_moisture_field_capacity_2,  # ratio [0-1]
-        soil_moisture_field_capacity_3,  # ratio [0-1]
-        temperature,  # degrees Celcius, mean temperature
-        relative_humidity,  # percentage [0-100]
-        shortwave_radiation,  # W/m2, daily mean
+        soil_water_potential,
+        vapour_pressure_deficit,
+        photosynthetic_photon_flux_density,
+        temperature,
     ):
-        (
-            soil_water_potential,
-            vapour_pressure_deficit,
-            photosynthetic_photon_flux_density,
-            temperature,
-        ) = self.get_plantFATE_input(
-            soil_moisture_layer_1,  # ratio [0-1]
-            soil_moisture_layer_2,  # ratio [0-1]
-            soil_moisture_layer_3,  # ratio [0-1]
-            soil_tickness_layer_1,  # m
-            soil_tickness_layer_2,  # m
-            soil_tickness_layer_3,  # m
-            soil_moisture_wilting_point_1,  # ratio [0-1]
-            soil_moisture_wilting_point_2,  # ratio [0-1]
-            soil_moisture_wilting_point_3,  # ratio [0-1]
-            soil_moisture_field_capacity_1,  # ratio [0-1]
-            soil_moisture_field_capacity_2,  # ratio [0-1]
-            soil_moisture_field_capacity_3,  # ratio [0-1]
-            temperature,  # degrees Celcius, mean temperature
-            relative_humidity,  # percentage [0-100]
-            shortwave_radiation,  # W/m2, daily mean
-        )
-
         (
             evapotranspiration,
             soil_specific_depletion_1,
