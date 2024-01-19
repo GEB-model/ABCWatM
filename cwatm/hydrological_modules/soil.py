@@ -500,6 +500,33 @@ class soil(object):
             self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0.0, TaMax
         )
 
+        self.model.data.grid.vapour_pressure_deficit = (
+            self.calculate_vapour_pressure_deficit_kPa(
+                self.model.data.grid.tas, self.model.data.grid.hurs
+            )
+        )
+
+        self.model.data.grid.photosynthetic_photon_flux_density = (
+            self.calculate_photosynthetic_photon_flux_density(self.model.data.grid.rsds)
+        )
+
+        soil_water_potential = self.calculate_soil_water_potential_MPa(
+            self.var.w1 + self.var.w2 + self.var.w3,  # [m]
+            self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
+            self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
+            self.var.rootDepth1 + self.var.rootDepth2 + self.var.rootDepth3,  # [m]
+            wilting_point=-1500,  # kPa
+            field_capacity=-33,  # kPa
+        )
+        soil_water_potential_plantFATE_HRUs = np.where(
+            self.var.land_use_type == 0,
+            soil_water_potential,
+            np.nan,
+        )
+        self.model.data.grid.soil_water_potential = self.model.data.to_grid(
+            HRU_data=soil_water_potential_plantFATE_HRUs, fn="nanmean"
+        )
+
         if self.model.config["general"]["simulate_forest"]:
             transpiration_plantFATE = np.zeros_like(
                 self.plantFATE_forest_RUs, dtype=np.float32
@@ -507,26 +534,6 @@ class soil(object):
             # soil_specific_depletion_1_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_2_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
             # soil_specific_depletion_3_plantFATE = np.zeros_like(self.plantFATE_forest_RUs, dtype=np.float32)
-
-            self.var.soil_water_potential = self.calculate_soil_water_potential_MPa(
-                self.var.w1 + self.var.w2 + self.var.w3,  # [m]
-                self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
-                self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
-                self.var.rootDepth1 + self.var.rootDepth2 + self.var.rootDepth3,  # [m]
-                wilting_point=-1500,  # kPa
-                field_capacity=-33,  # kPa
-            )
-            self.model.data.grid.vapour_pressure_deficit = (
-                self.calculate_vapour_pressure_deficit_kPa(
-                    self.model.data.grid.tas, self.model.data.grid.hurs
-                )
-            )
-
-            self.model.data.grid.photosynthetic_photon_flux_density = (
-                self.calculate_photosynthetic_photon_flux_density(
-                    self.model.data.grid.rsds
-                )
-            )
 
             for forest_RU_idx, is_simulated_by_plantFATE in enumerate(
                 self.plantFATE_forest_RUs
@@ -538,8 +545,8 @@ class soil(object):
                         "vapour_pressure_deficit": self.model.data.grid.vapour_pressure_deficit[
                             forest_grid
                         ],
-                        "soil_water_potential": self.var.soil_water_potential[
-                            forest_RU_idx
+                        "soil_water_potential": self.model.data.grid.soil_water_potential[
+                            forest_grid
                         ],
                         "photosynthetic_photon_flux_density": self.model.data.grid.photosynthetic_photon_flux_density[
                             forest_grid
