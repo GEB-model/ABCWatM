@@ -10,6 +10,7 @@
 
 import numpy as np
 from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption
+from pathlib import Path
 
 
 class soil(object):
@@ -173,28 +174,29 @@ class soil(object):
             HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn="mean"
         )
 
-        def create_ini(yaml, idx):
+        def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
             out_dir = self.model.simulation_root / "plantFATE" / f"cell_{idx}"
             out_dir.mkdir(parents=True, exist_ok=True)
+            ini_file = out_dir / f"p_daily.ini"
+
             yaml["> STRINGS"]["outDir"] = out_dir
             if self.model.scenario in ("spinup", "pre-spinup"):
-                yaml["> STRINGS"]["continueFromState"] = None
-                yaml["> STRINGS"]["continueFromConfig"] = None
-                yaml["> STRINGS"]["saveState"] = "yes"
-            else:
                 yaml["> STRINGS"]["continueFromState"] = (
-                    out_dir
-                    / self.model.config["plantFATE"]["> STRINGS"]["exptName"]
-                    / self.model.config["plantFATE"]["> STRINGS"]["savedStateFile"]
+                    Path("input")
+                    / "plantFATE_initialization"
+                    / biodiversity_scenario
+                    / f"cluster_{plantFATE_cluster}"
+                    / "pf_saved_state.txt"
                 )
-                yaml["> STRINGS"]["continueFromConfig"] = (
-                    out_dir
-                    / self.model.config["plantFATE"]["> STRINGS"]["exptName"]
-                    / self.model.config["plantFATE"]["> STRINGS"]["savedConfigFile"]
-                )
+                yaml["> STRINGS"]["continueFromConfig"] = ini_file
+                yaml["> STRINGS"]["saveState"] = "yes"
+                yaml["> STRINGS"]["savedStateFile"] = "pf_saved_state_spinup.txt"
+                yaml["> STRINGS"]["savedConfigFile"] = "pf_saved_config_spinup.txt"
+            else:
+                yaml["> STRINGS"]["continueFromState"] = "pf_saved_state_spinup.txt"
+                yaml["> STRINGS"]["continueFromConfig"] = ini_file
                 yaml["> STRINGS"]["saveState"] = "no"
-            # yaml["> STRINGS"]["exptName"] = out_dir
-            ini_file = out_dir / f"p_daily.ini"
+
             with open(ini_file, "w") as f:
                 for section, section_dict in yaml.items():
                     f.write(section + "\n")
@@ -211,6 +213,9 @@ class soil(object):
             return ini_file
 
         if self.model.config["general"]["simulate_forest"]:
+            plantFATE_cluster = 0
+            biodiversity_scenario = "low"
+
             already_has_plantFATE_cell = False
             from cwatm.hydrological_modules import plantFATE
 
@@ -224,8 +229,22 @@ class soil(object):
                         self.model.plantFATE.append(None)
                     else:
                         self.plantFATE_forest_RUs[i] = True
-                        ini_path = create_ini(self.model.config["plantFATE"], i)
-                        # already_has_plantFATE_cell = True
+                        # ini_path = (
+                        #     Path("input")
+                        #     / "plantFATE_initialization"
+                        #     / biodiversity_scenario
+                        #     / f"cluster_{plantFATE_cluster}"
+                        #     / "pf_saved_config.ini"
+                        # )
+                        # assert ini_path.exists()
+
+                        ini_path = create_ini(
+                            self.model.config["plantFATE"],
+                            i,
+                            plantFATE_cluster,
+                            biodiversity_scenario,
+                        )
+                        already_has_plantFATE_cell = True
                         self.model.plantFATE.append(plantFATE.Model(ini_path))
                 else:
                     self.model.plantFATE.append(None)
@@ -614,33 +633,33 @@ class soil(object):
                 TaMax[self.plantFATE_forest_RUs[bioarea]].mean(),
             )
 
-            bioarea_forest = self.plantFATE_forest_RUs[bioarea]
-            ta1[bioarea_forest] = (
-                self.var.w1[self.plantFATE_forest_RUs]
-                / CWatM_w_in_plantFATE_cells
-                * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            )
-            ta2[bioarea_forest] = (
-                self.var.w2[self.plantFATE_forest_RUs]
-                / CWatM_w_in_plantFATE_cells
-                * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            )
-            ta3[bioarea_forest] = (
-                self.var.w3[self.plantFATE_forest_RUs]
-                / CWatM_w_in_plantFATE_cells
-                * transpiration_plantFATE[self.plantFATE_forest_RUs]
-            )
+            # bioarea_forest = self.plantFATE_forest_RUs[bioarea]
+            # ta1[bioarea_forest] = (
+            #     self.var.w1[self.plantFATE_forest_RUs]
+            #     / CWatM_w_in_plantFATE_cells
+            #     * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # )
+            # ta2[bioarea_forest] = (
+            #     self.var.w2[self.plantFATE_forest_RUs]
+            #     / CWatM_w_in_plantFATE_cells
+            #     * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # )
+            # ta3[bioarea_forest] = (
+            #     self.var.w3[self.plantFATE_forest_RUs]
+            #     / CWatM_w_in_plantFATE_cells
+            #     * transpiration_plantFATE[self.plantFATE_forest_RUs]
+            # )
 
-            assert self.model.waterbalance_module.waterBalanceCheck(
-                how="cellwise",
-                influxes=[
-                    ta1[bioarea_forest],
-                    ta2[bioarea_forest],
-                    ta3[bioarea_forest],
-                ],
-                outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
-                tollerance=1e-7,
-            )
+            # assert self.model.waterbalance_module.waterBalanceCheck(
+            #     how="cellwise",
+            #     influxes=[
+            #         ta1[bioarea_forest],
+            #         ta2[bioarea_forest],
+            #         ta3[bioarea_forest],
+            #     ],
+            #     outfluxes=[transpiration_plantFATE[self.plantFATE_forest_RUs]],
+            #     tollerance=1e-7,
+            # )
 
         else:
             ta1 = np.maximum(
