@@ -181,13 +181,28 @@ class soil(object):
 
             yaml["> STRINGS"]["outDir"] = out_dir
             if self.model.scenario in ("spinup", "pre-spinup"):
-                yaml["> STRINGS"]["continueFromState"] = (
+                original_state_file = (
                     Path("input")
                     / "plantFATE_initialization"
                     / biodiversity_scenario
                     / f"cluster_{plantFATE_cluster}"
                     / "pf_saved_state.txt"
                 )
+                assert original_state_file.exists()
+                new_state_file = out_dir / "pf_saved_state_initialization.txt"
+                with open(original_state_file, "r") as original_f:
+                    state = original_f.read()
+                    timetuple = self.model.current_time.timetuple()
+                    year = timetuple.tm_year
+                    day_of_year = timetuple.tm_yday
+                    state = state.replace(
+                        "6 2 0 2000 1 0 0",
+                        f"6 2 0 {year + (day_of_year - 1) / 365} 1 0 0",
+                    )
+                    with open(new_state_file, "w") as new_f:
+                        new_f.write(state)
+
+                yaml["> STRINGS"]["continueFromState"] = new_state_file
                 yaml["> STRINGS"]["continueFromConfig"] = ini_file
                 yaml["> STRINGS"]["saveState"] = "yes"
                 yaml["> STRINGS"]["savedStateFile"] = "pf_saved_state_spinup.txt"
