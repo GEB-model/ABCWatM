@@ -204,13 +204,19 @@ class soil(object):
 
                 yaml["> STRINGS"]["continueFromState"] = new_state_file
                 yaml["> STRINGS"]["continueFromConfig"] = ini_file
-                yaml["> STRINGS"]["saveState"] = "yes"
+                yaml["> STRINGS"]["saveState"] = True
                 yaml["> STRINGS"]["savedStateFile"] = "pf_saved_state_spinup.txt"
                 yaml["> STRINGS"]["savedConfigFile"] = "pf_saved_config_spinup.txt"
             else:
-                yaml["> STRINGS"]["continueFromState"] = "pf_saved_state_spinup.txt"
+                yaml["> STRINGS"]["continueFromState"] = (
+                    out_dir
+                    / self.model.config["plantFATE"]["> STRINGS"]["exptName"]
+                    / "pf_saved_state_spinup.txt"
+                )
                 yaml["> STRINGS"]["continueFromConfig"] = ini_file
-                yaml["> STRINGS"]["saveState"] = "no"
+                yaml["> STRINGS"]["savedStateFile"] = None
+                yaml["> STRINGS"]["saveState"] = False
+                yaml["> STRINGS"]["savedConfigFile"] = None
 
             with open(ini_file, "w") as f:
                 for section, section_dict in yaml.items():
@@ -228,8 +234,18 @@ class soil(object):
             return ini_file
 
         if self.model.config["general"]["simulate_forest"]:
-            plantFATE_cluster = 0
+            plantFATE_cluster = 7
             biodiversity_scenario = "low"
+
+            lon, lat = 73.5975501619, 19.1444726274
+
+            from honeybees.library.raster import coord_to_pixel
+
+            px, py = coord_to_pixel(np.array([lon, lat]), gt=self.model.data.grid.gt)
+
+            cell_ids = np.arange(self.model.data.grid.compressed_size)
+            cell_ids_map = self.model.data.grid.decompress(cell_ids, fillvalue=-1)
+            cell_id = cell_ids_map[py, px]
 
             already_has_plantFATE_cell = False
             from cwatm.hydrological_modules import plantFATE
@@ -239,19 +255,13 @@ class soil(object):
                 self.var.land_use_type, dtype=bool
             )
             for i, land_use_type_RU in enumerate(self.var.land_use_type):
-                if land_use_type_RU == 0 and self.var.land_use_ratio[i] > 0.5:
+                grid_cell = self.var.HRU_to_grid[i]
+                # if land_use_type_RU == 0 and self.var.land_use_ratio[i] > 0.5:
+                if land_use_type_RU == 0 and grid_cell == cell_id:
                     if already_has_plantFATE_cell:
                         self.model.plantFATE.append(None)
                     else:
                         self.plantFATE_forest_RUs[i] = True
-                        # ini_path = (
-                        #     Path("input")
-                        #     / "plantFATE_initialization"
-                        #     / biodiversity_scenario
-                        #     / f"cluster_{plantFATE_cluster}"
-                        #     / "pf_saved_config.ini"
-                        # )
-                        # assert ini_path.exists()
 
                         ini_path = create_ini(
                             self.model.config["plantFATE"],
