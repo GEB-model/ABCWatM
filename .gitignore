@@ -2,6 +2,7 @@
 .vscode
 settings*_[0-9][0-9].ini
 ~$*
+.DS_Store
 pytesting/init
 !pytesting/init/init.txt
 pytesting/output
