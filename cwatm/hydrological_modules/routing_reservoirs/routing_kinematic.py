@@ -8,13 +8,21 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.data_handling import *
-from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
-from cwatm.hydrological_modules.lakes_reservoirs import *
-from datetime import datetime, timedelta
+from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
+    defLdd2,
+    lddshort,
+    dirUpstream,
+    catchment1,
+    upstreamArea,
+    kinematic,
+)
+
+import numpy as np
+from cwatm.management_modules.data_handling import loadmap, decompress, checkOption
+from cwatm.management_modules.globals import maskinfo
+
 
 class routing_kinematic(object):
-
     """
     ROUTING
 
@@ -24,76 +32,76 @@ class routing_kinematic(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    EWRef                 potential evaporation rate from water surface                                     m        
-    load_initial                                                                                                     
-    waterbalance_module                                                                                              
-    QInM3Old              Inflow from previous day                                                          m3       
-    inflowM3              inflow to basin                                                                   m3       
-    DtSec                 number of seconds per timestep (default = 86400)                                  s        
-    waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --       
-    UpArea1               upstream area of a grid cell                                                      m2       
-    dirUp                 river network in upstream direction                                               --       
-    lddCompress           compressed river network (without missing values)                                 --       
-    dirupLen_LR           number of bifurcation upstream lake/reservoir                                     --       
-    dirupID_LR            index river upstream lake/reservoir                                               --       
-    dirDown_LR            river network direktion downstream lake/reservoir                                 --       
-    lendirDown_LR         number of river network connections lake/reservoir                                --       
-    compress_LR           boolean map as mask map for compressing lake/reservoir                            --       
-    lakeArea              area of each lake/reservoir                                                       m2       
-    lakeEvaFactor         a factor which increases evaporation from lake because of wind                    --       
-    lakeEvaFactorC        compressed map of a factor which increases evaporation from lake because of wind  --       
-    EvapWaterBodyM                                                                                                   
-    lakeResInflowM                                                                                                   
-    lakeResOutflowM                                                                                                  
-    dtRouting             number of seconds per routing timestep                                            s        
-    lakeResStorage                                                                                                   
-    evapWaterBodyC                                                                                                   
-    sumLakeEvapWaterBody                                                                                             
-    noRoutingSteps                                                                                                   
-    sumResEvapWaterBodyC                                                                                             
-    discharge             discharge                                                                         m3/s     
-    runoff                                                                                                           
-    cellArea              Cell area [m²] of each simulated mesh                                                      
-    downstruct                                                                                                       
-    prelakeResStorage                                                                                                
-    act_SurfaceWaterAbst                                                                                             
-    fracVegCover          Fraction of area covered by the corresponding landcover type                               
-    openWaterEvap         Simulated evaporation from open areas                                             m        
-    catchmentAll                                                                                                     
-    chanLength                                                                                                       
-    totalCrossSectionAre                                                                                             
-    dirupLen                                                                                                         
-    dirupID                                                                                                          
-    catchment                                                                                                        
-    dirDown                                                                                                          
-    lendirDown                                                                                                       
-    UpArea                                                                                                           
-    beta                                                                                                             
-    chanMan                                                                                                          
-    chanGrad                                                                                                         
-    chanWidth                                                                                                        
-    chanDepth                                                                                                        
-    invbeta                                                                                                          
-    invchanLength                                                                                                    
-    invdtRouting                                                                                                     
-    totalCrossSectionAre                                                                                             
-    chanWettedPerimeterA                                                                                             
-    alpPower                                                                                                         
-    channelAlpha                                                                                                     
-    invchannelAlpha                                                                                                  
-    channelStorageM3                                                                                                   
-    riverbedExchange                                                                                                 
-    sumbalance                                                                                                       
-    prechannelStorageM3                                                                                                
-    EvapoChannel                                                                                                     
-    QDelta                                                                                                           
-    act_bigLakeResAbst                                                                                               
-    act_smallLakeResAbst                                                                                             
-    returnFlow                                                                                                       
-    sumsideflow                                                                                                      
-    inflowDt                                                                                                         
+    EWRef                 potential evaporation rate from water surface                                     m
+    load_initial
+    waterbalance_module
+    QInM3Old              Inflow from previous day                                                          m3
+    inflowM3              inflow to basin                                                                   m3
+    DtSec                 number of seconds per timestep (default = 86400)                                  s
+    waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --
+    UpArea1               upstream area of a grid cell                                                      m2
+    dirUp                 river network in upstream direction                                               --
+    lddCompress           compressed river network (without missing values)                                 --
+    dirupLen_LR           number of bifurcation upstream lake/reservoir                                     --
+    dirupID_LR            index river upstream lake/reservoir                                               --
+    dirDown_LR            river network direktion downstream lake/reservoir                                 --
+    lendirDown_LR         number of river network connections lake/reservoir                                --
+    compress_LR           boolean map as mask map for compressing lake/reservoir                            --
+    lakeArea              area of each lake/reservoir                                                       m2
+    lakeEvaFactor         a factor which increases evaporation from lake because of wind                    --
+    lakeEvaFactorC        compressed map of a factor which increases evaporation from lake because of wind  --
+    EvapWaterBodyM
+    lakeResInflowM
+    lakeResOutflowM
+    dtRouting             number of seconds per routing timestep                                            s
+    lakeResStorage
+    evapWaterBodyC
+    sumLakeEvapWaterBody
+    noRoutingSteps
+    sumResEvapWaterBodyC
+    discharge             discharge                                                                         m3/s
+    runoff
+    cellArea              Cell area [m²] of each simulated mesh
+    downstruct
+    prelakeResStorage
+    act_SurfaceWaterAbst
+    fracVegCover          Fraction of area covered by the corresponding landcover type
+    openWaterEvap         Simulated evaporation from open areas                                             m
+    catchmentAll
+    chanLength
+    totalCrossSectionAre
+    dirupLen
+    dirupID
+    catchment
+    dirDown
+    lendirDown
+    UpArea
+    beta
+    chanMan
+    chanGrad
+    chanWidth
+    chanDepth
+    invbeta
+    invchanLength
+    invdtRouting
+    totalCrossSectionAre
+    chanWettedPerimeterA
+    alpPower
+    channelAlpha
+    invchannelAlpha
+    channelStorageM3
+    riverbedExchange
+    sumbalance
+    prechannelStorageM3
+    EvapoChannel
+    QDelta
+    act_bigLakeResAbst
+    act_smallLakeResAbst
+    returnFlow
+    sumsideflow
+    inflowDt
     ====================  ================================================================================  =========
 
     **Functions**
@@ -111,49 +119,46 @@ class routing_kinematic(object):
         * calculate catchment upstream of point
         """
 
-        ldd = loadmap('Ldd')
-        #self.var.lddCompress, dirshort, self.var.dirUp, self.var.dirupLen, self.var.dirupID, self.var.downstruct, self.var.catchment, self.var.dirDown, self.var.lendirDown = defLdd2(ldd)
+        ldd = loadmap("Ldd")
+        # self.var.lddCompress, dirshort, self.var.dirUp, self.var.dirupLen, self.var.dirupID, self.var.downstruct, self.var.catchment, self.var.dirDown, self.var.lendirDown = defLdd2(ldd)
 
         # decompressing ldd from 1D -> 2D
-        dmap = maskinfo['maskall'].copy()
-        dmap[~maskinfo['maskflat']] = ldd[:]
-        ldd2D = dmap.reshape(maskinfo['shape']).astype(np.int64)
+        dmap = maskinfo["maskall"].copy()
+        dmap[~maskinfo["maskflat"]] = ldd[:]
+        ldd2D = dmap.reshape(maskinfo["shape"]).astype(np.int64)
         ldd2D[ldd2D.mask] = 0
 
         # every cell gets an order starting from 0 ...
-        lddshortOrder = np.arange(maskinfo['mapC'][0])
+        lddshortOrder = np.arange(maskinfo["mapC"][0])
         # decompress this map to 2D
         lddOrder = decompress(lddshortOrder)
-        lddOrder[maskinfo['mask']] = -1
+        lddOrder[maskinfo["mask"]] = -1
         lddOrder = np.array(lddOrder.data, dtype=np.int64)
 
         dirshort = lddshort(ldd2D, lddOrder)
         dirUp, dirupLen, dirupID = dirUpstream(dirshort)
 
-
-
         c1 = catchment1(dirUp, point)
 
         # decompressing catchment from 1D -> 2D
-        dmap = maskinfo['maskall'].copy()
-        dmap[~maskinfo['maskflat']] = c1[:]
-        c2 = dmap.reshape(maskinfo['shape']).astype(np.int64)
+        dmap = maskinfo["maskall"].copy()
+        dmap[~maskinfo["maskflat"]] = c1[:]
+        c2 = dmap.reshape(maskinfo["shape"]).astype(np.int64)
 
         if np.max(c2) == 0:
-            return -1,-1,-1
+            return -1, -1, -1
 
         c3 = np.where(c2 == 1)
 
-        d1, d2 = min(c3[0]), max(c3[0]+1)
-        d3, d4 = min(c3[1]), max(c3[1]+1)
+        d1, d2 = min(c3[0]), max(c3[0] + 1)
+        d3, d4 = min(c3[1]), max(c3[1] + 1)
 
-        c4 = c2[d1: d2, d3: d4]
+        c4 = c2[d1:d2, d3:d4]
 
-        return c4,d3,d1
+        return c4, d3, d1
 
-
-# --------------------------------------------------------------------------
-# --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
 
     def initial(self):
         """
@@ -165,44 +170,51 @@ class routing_kinematic(object):
         * calculate manning's roughness coefficient
         """
 
-        ldd = loadmap('Ldd')
+        ldd = loadmap("Ldd")
         # l1 = decompress(ldd)
 
-        self.var.lddCompress, dirshort, self.var.dirUp, self.var.dirupLen, self.var.dirupID, self.var.downstruct, self.var.catchment, self.var.dirDown, self.var.lendirDown = defLdd2(ldd)
+        (
+            self.var.lddCompress,
+            dirshort,
+            self.var.dirUp,
+            self.var.dirupLen,
+            self.var.dirupID,
+            self.var.downstruct,
+            self.var.catchment,
+            self.var.dirDown,
+            self.var.lendirDown,
+        ) = defLdd2(ldd)
 
-        #self.var.ups = upstreamArea(dirDown, dirshort, self.var.cellArea)
-        self.var.UpArea1 = upstreamArea(self.var.dirDown, dirshort, self.var.full_compressed(1, dtype=np.float64))
-        self.var.UpArea = upstreamArea(self.var.dirDown, dirshort, self.var.cellArea.astype(np.float64))
-        #d1 =downstream1(self.var.dirUp, self.var.UpArea1)
-        #up1 = upstream1( self.var.downstruct,self.var.UpArea1)
+        # self.var.ups = upstreamArea(dirDown, dirshort, self.var.cellArea)
+        self.var.UpArea1 = upstreamArea(
+            self.var.dirDown, dirshort, self.var.full_compressed(1, dtype=np.float64)
+        )
+        self.var.UpArea = upstreamArea(
+            self.var.dirDown, dirshort, self.var.cellArea.astype(np.float64)
+        )
 
-
-        #lib2.kinematic(Qold, q, dd, dl, di, Qnew, alpha, 0.6, deltaT, deltaX, len(dirDown))
-        #lib2.kinematic(Qold, q, self.var.dirDown, self.var.dirupLen, self.var.dirupID, Qnew, alpha, 0.6, deltaT, deltaX, self.var.lendirDown)
-
-        #---------------------------------------------------------------
-        #Calibration
+        # ---------------------------------------------------------------
+        # Calibration
         # mannings roughness factor 0.1 - 10.0
-        manningsFactor = loadmap('manningsN')
-
+        manningsFactor = loadmap("manningsN")
 
         # number of substep per day
-        self.var.noRoutingSteps = int(loadmap('NoRoutingSteps'))
+        self.var.noRoutingSteps = int(loadmap("NoRoutingSteps"))
         # kinematic wave parameter: 0.6 is for broad sheet flow
-        self.var.beta = loadmap('chanBeta')
+        self.var.beta = loadmap("chanBeta")
         # Channel Manning's n
-        self.var.chanMan = loadmap('chanMan') * manningsFactor
+        self.var.chanMan = loadmap("chanMan") * manningsFactor
         # Channel gradient (fraction, dy/dx)
-        self.var.chanGrad = np.maximum(loadmap('chanGrad'), loadmap('chanGradMin'))
+        self.var.chanGrad = np.maximum(loadmap("chanGrad"), loadmap("chanGradMin"))
         # Channel length [meters]
-        self.var.chanLength = loadmap('chanLength')
+        self.var.chanLength = loadmap("chanLength")
         # Channel bottom width [meters]
-        self.var.chanWidth = loadmap('chanWidth')
+        self.var.chanWidth = loadmap("chanWidth")
 
         # Bankfull channel depth [meters]
-        self.var.chanDepth = loadmap('chanDepth')
+        self.var.chanDepth = loadmap("chanDepth")
 
-        #-----------------------------------------------
+        # -----------------------------------------------
         # Inverse of beta for kinematic wave
         self.var.invbeta = 1 / self.var.beta
         # Inverse of channel length [1/m]
@@ -219,9 +231,9 @@ class routing_kinematic(object):
         self.var.totalCrossSectionAreaBankFull = self.var.chanDepth * self.var.chanWidth
         # Cross-sectional area at half bankfull [m2]
         # This can be used to initialise channel flow (see below)
-        #TotalCrossSectionAreaHalfBankFull = 0.5 * self.var.TotalCrossSectionAreaBankFull
+        # TotalCrossSectionAreaHalfBankFull = 0.5 * self.var.TotalCrossSectionAreaBankFull
         # TotalCrossSectionAreaInitValue = loadmap('TotalCrossSectionAreaInitValue')
-        self.var.totalCrossSectionArea =  0.5 * self.var.totalCrossSectionAreaBankFull
+        self.var.totalCrossSectionArea = 0.5 * self.var.totalCrossSectionAreaBankFull
         # Total cross-sectional area [m2]: if initial value in binding equals -9999 the value at half bankfull is used,
 
         # -----------------------------------------------
@@ -231,15 +243,19 @@ class routing_kinematic(object):
         # wave. Alpha currently fixed at half of bankful depth
 
         # Reference water depth for calculation of Alpha: half of bankfull
-        #chanDepthAlpha = 0.5 * self.var.chanDepth
+        # chanDepthAlpha = 0.5 * self.var.chanDepth
         # Channel wetted perimeter [m]
-        self.var.chanWettedPerimeterAlpha = self.var.chanWidth + 2 * 0.5 * self.var.chanDepth
+        self.var.chanWettedPerimeterAlpha = (
+            self.var.chanWidth + 2 * 0.5 * self.var.chanDepth
+        )
 
         # ChannelAlpha for kinematic wave
         alpTermChan = (self.var.chanMan / (np.sqrt(self.var.chanGrad))) ** self.var.beta
         self.var.alpPower = self.var.beta / 1.5
-        self.var.channelAlpha = alpTermChan * (self.var.chanWettedPerimeterAlpha ** self.var.alpPower) *2.5
-        self.var.invchannelAlpha = 1. / self.var.channelAlpha
+        self.var.channelAlpha = (
+            alpTermChan * (self.var.chanWettedPerimeterAlpha**self.var.alpPower) * 2.5
+        )
+        self.var.invchannelAlpha = 1.0 / self.var.channelAlpha
 
         # -----------------------------------------------
         # ***** CHANNEL INITIAL DISCHARGE ****************************
@@ -247,32 +263,47 @@ class routing_kinematic(object):
         # channel water volume [m3]
         # Initialise water volume in kinematic wave channels [m3]
         channelStorageM3Ini = self.var.totalCrossSectionArea * self.var.chanLength * 0.1
-        self.var.channelStorageM3 = self.var.load_initial("channelStorageM3", default = channelStorageM3Ini)
+        self.var.channelStorageM3 = self.var.load_initial(
+            "channelStorageM3", default=channelStorageM3Ini
+        )
         self.var.prechannelStorageM3 = self.var.channelStorageM3.copy()
 
         # Initialise discharge at kinematic wave pixels (note that InvBeta is
         # simply 1/beta, computational efficiency!)
-        #self.var.chanQKin = np.where(self.var.channelAlpha > 0, (self.var.totalCrossSectionArea / self.var.channelAlpha) ** self.var.invbeta, 0.)
-        dischargeIni = (self.var.channelStorageM3 * self.var.invchanLength * self.var.invchannelAlpha) ** self.var.invbeta
+        # self.var.chanQKin = np.where(self.var.channelAlpha > 0, (self.var.totalCrossSectionArea / self.var.channelAlpha) ** self.var.invbeta, 0.)
+        dischargeIni = (
+            self.var.channelStorageM3
+            * self.var.invchanLength
+            * self.var.invchannelAlpha
+        ) ** self.var.invbeta
         self.var.discharge = self.var.load_initial("discharge", default=dischargeIni)
-        self.var.discharge_substep = self.var.load_initial("discharge_substep", default=np.full((self.var.noRoutingSteps, self.var.discharge.size), 0, dtype=self.var.discharge.dtype))
-        #self.var.chanQKin = chanQKinIni
+        self.var.discharge_substep = self.var.load_initial(
+            "discharge_substep",
+            default=np.full(
+                (self.var.noRoutingSteps, self.var.discharge.size),
+                0,
+                dtype=self.var.discharge.dtype,
+            ),
+        )
+        # self.var.chanQKin = chanQKinIni
 
-        #self.var.riverbedExchangeM = globals.inZero.copy()
-        #self.var.riverbedExchangeM = self.var.load_initial("riverbedExchange", default = globals.inZero.copy())
-        #self.var.discharge = self.var.chanQKin.copy()
+        # self.var.riverbedExchangeM = globals.inZero.copy()
+        # self.var.riverbedExchangeM = self.var.load_initial("riverbedExchange", default = globals.inZero.copy())
+        # self.var.discharge = self.var.chanQKin.copy()
 
-        #if checkOption('includeWaterDemand'):
+        # if checkOption('includeWaterDemand'):
         #    self.var.readAvlChannelStorage = 0.95 * self.var.channelStorage
         #    # to avoid small values and to avoid surface water abstractions from dry channels (>= 0.5mm)
         #    self.var.readAvlChannelStorage = np.where(self.var.readAvlChannelStorage < (0.0005 * self.var.cellArea),0.,self.var.readAvlChannelStorage)
 
         # factor for evaporation from lakes, reservoirs and open channels
-        self.var.lakeEvaFactor = globals.inZero + loadmap('lakeEvaFactor')
+        self.var.lakeEvaFactor = self.var.full_compressed(
+            0, dtype=np.float32
+        ) + loadmap("lakeEvaFactor")
 
-        if checkOption('calcWaterBalance'):
-            self.var.catchmentAll = (loadmap('MaskMap')*0.).astype(int)
-            #self.var.catchmentNo = int(loadmap('CatchmentNo'))
+        if checkOption("calcWaterBalance"):
+            self.var.catchmentAll = (loadmap("MaskMap") * 0.0).astype(int)
+            # self.var.catchmentNo = int(loadmap('CatchmentNo'))
             self.var.sumbalance = 0
 
     def dynamic(self, openWaterEvap, channel_abstraction_m, returnFlow):
@@ -287,29 +318,37 @@ class routing_kinematic(object):
         """
 
         # if routing is not needed return
-        if not(checkOption('includeRouting')):
+        if not (checkOption("includeRouting")):
             return
 
-        if checkOption('calcWaterBalance'):
+        if checkOption("calcWaterBalance"):
             self.var.prechannelStorageM3 = self.var.channelStorageM3.copy()
-            if checkOption('includeWaterBodies'):
+            if checkOption("includeWaterBodies"):
                 self.var.prelakeResStorage = self.var.lakeResStorage.copy()
-
-        Qnew = self.var.full_compressed(0, dtype=np.float64)
 
         # Evaporation from open channel
         # from big lakes/res and small lakes/res is calculated separately
-        channelFraction = np.minimum(1.0, self.var.chanWidth * self.var.chanLength / self.var.cellArea)
+        channelFraction = np.minimum(
+            1.0, self.var.chanWidth * self.var.chanLength / self.var.cellArea
+        )
         # put all the water area in which is not reflected in the lakes ,res
-        #channelFraction = np.maximum(self.var.fracVegCover[5], channelFraction)
+        # channelFraction = np.maximum(self.var.fracVegCover[5], channelFraction)
 
-        EWRefact = self.var.lakeEvaFactor * self.model.data.to_grid(HRU_data=self.model.data.HRU.EWRef, fn='mean') - self.model.data.to_grid(HRU_data=openWaterEvap, fn='mean')  # checked
+        EWRefact = self.var.lakeEvaFactor * self.model.data.to_grid(
+            HRU_data=self.model.data.HRU.EWRef, fn="mean"
+        ) - self.model.data.to_grid(
+            HRU_data=openWaterEvap, fn="mean"
+        )  # checked
         # evaporation from channel minus the calculated evaporation from rainfall
         EvapoChannel = EWRefact * channelFraction * self.var.cellArea
-        #EvapoChannel = self.var.EWRef * channelFraction * self.var.cellArea
+        # EvapoChannel = self.var.EWRef * channelFraction * self.var.cellArea
 
         # restrict to 95% of channel storage -> something should stay in the river
-        EvapoChannel = np.where((0.95 * self.var.channelStorageM3 - EvapoChannel) > 0.0, EvapoChannel, 0.95 * self.var.channelStorageM3)
+        EvapoChannel = np.where(
+            (0.95 * self.var.channelStorageM3 - EvapoChannel) > 0.0,
+            EvapoChannel,
+            0.95 * self.var.channelStorageM3,
+        )
 
         # riverbed infiltration (m3):
         # - current implementation based on Inge's principle (later, will be based on groundater head (MODFLOW) and can be negative)
@@ -335,7 +374,7 @@ class routing_kinematic(object):
             self.var.interflow[No] = self.var.percolationImp * toGWorInterflow
         """
 
-        if checkOption('includeWaterBodies'):
+        if checkOption("includeWaterBodies"):
             # add reservoirs depending on year
 
             # ------------------------------------------------------------
@@ -343,49 +382,61 @@ class routing_kinematic(object):
             # calculate outflow from lakes and reservoirs
 
             # average evaporation overeach lake
-            EWRefavg = (np.bincount(self.var.waterBodyID, weights=EWRefact)/ np.bincount(self.var.waterBodyID))[self.var.waterBodyIDC]
-            self.var.evapWaterBodyC = EWRefavg * self.var.lakeAreaC / self.var.noRoutingSteps
-            assert np.all(self.var.evapWaterBodyC >= 0.0), 'evapWaterBodyC < 0.0'
+            EWRefavg = (
+                np.bincount(self.var.waterBodyID, weights=EWRefact)
+                / np.bincount(self.var.waterBodyID)
+            )[self.var.waterBodyIDC]
+            self.var.evapWaterBodyC = (
+                EWRefavg * self.var.lakeAreaC / self.var.noRoutingSteps
+            )
+            assert np.all(self.var.evapWaterBodyC >= 0.0), "evapWaterBodyC < 0.0"
 
             if self.model.use_gpu:
                 fraction_water = cp.array(self.model.data.HRU.land_use_ratio)
             else:
                 fraction_water = np.array(self.model.data.HRU.land_use_ratio)
             fraction_water[self.model.data.HRU.land_use_type != 5] = 0
-            fraction_water = self.model.data.to_grid(HRU_data=fraction_water, fn='sum')
+            fraction_water = self.model.data.to_grid(HRU_data=fraction_water, fn="sum")
 
-            EvapoChannel = np.where(self.var.waterBodyID > 0, (1 - fraction_water) * EvapoChannel, EvapoChannel)
-            #self.var.riverbedExchange = np.where(self.var.waterBodyID > 0, 0., self.var.riverbedExchange)
+            EvapoChannel = np.where(
+                self.var.waterBodyID > 0,
+                (1 - fraction_water) * EvapoChannel,
+                EvapoChannel,
+            )
+            # self.var.riverbedExchange = np.where(self.var.waterBodyID > 0, 0., self.var.riverbedExchange)
 
             # sum of all routingsteps of evaporation from lakes and reservoirs   - set to 0 each time step
-            self.var.sumResEvapWaterBodyC = self.var.evapWaterBodyC * 0.
-            self.var.sumLakeEvapWaterBodyC = self.var.evapWaterBodyC * 0.
+            self.var.sumResEvapWaterBodyC = self.var.evapWaterBodyC * 0.0
+            self.var.sumLakeEvapWaterBodyC = self.var.evapWaterBodyC * 0.0
 
         EvapoChannelM3Dt = EvapoChannel / self.var.noRoutingSteps
         riverbedExchangeDt = self.var.riverbedExchangeM3 / self.var.noRoutingSteps
         del self.var.riverbedExchangeM3
 
-        if checkOption('inflow'):
-            self.var.QDelta = (self.var.inflowM3 - self.var.QInM3Old) / self.var.noRoutingSteps
+        if checkOption("inflow"):
+            self.var.QDelta = (
+                self.var.inflowM3 - self.var.QInM3Old
+            ) / self.var.noRoutingSteps
             # difference between old and new inlet flow  per sub step
             # in order to calculate the amount of inlet flow in the routing loop
 
         WDAddM3Dt = 0
-        if checkOption('includeWaterDemand'):
-             #WDAddM3Dt = self.var.act_SurfaceWaterAbstract.copy() #MS CWatM edit Shouldn't this only be from the river abstractions? Currently includes the larger reservoir...
-             WDAddMDt = channel_abstraction_m
-             #return flow from (m) non irrigation water demand
-             #WDAddM3Dt = WDAddM3Dt - self.var.nonIrrReturnFlowFraction * self.var.act_nonIrrDemand
-             WDAddMDt = WDAddMDt - returnFlow #Couldn't this be negative? If return flow is mainly coming from gw? Fine, then more water going in.
-             #print('min(WDAddM3Dt)', (min(WDAddM3Dt*9999999)))
-             WDAddM3Dt = WDAddMDt * self.var.cellArea / self.var.noRoutingSteps
-
-            #sideflowChanM3 -= self.var.sum_act_SurfaceWaterAbstract * self.var.cellArea
+        if checkOption("includeWaterDemand"):
+            # WDAddM3Dt = self.var.act_SurfaceWaterAbstract.copy() #MS CWatM edit Shouldn't this only be from the river abstractions? Currently includes the larger reservoir...
+            WDAddMDt = channel_abstraction_m
             # return flow from (m) non irrigation water demand
-            #self.var.nonIrrReturnFlow = self.var.nonIrrReturnFlowFraction * self.var.nonIrrDemand
-            #sideflowChanM3 +=  self.var.nonIrrReturnFlow * self.var.cellArea
-            #sideflowChan = sideflowChanM3 * self.var.invchanLength * self.var.invdtRouting
+            # WDAddM3Dt = WDAddM3Dt - self.var.nonIrrReturnFlowFraction * self.var.act_nonIrrDemand
+            WDAddMDt = (
+                WDAddMDt - returnFlow
+            )  # Couldn't this be negative? If return flow is mainly coming from gw? Fine, then more water going in.
+            # print('min(WDAddM3Dt)', (min(WDAddM3Dt*9999999)))
+            WDAddM3Dt = WDAddMDt * self.var.cellArea / self.var.noRoutingSteps
 
+        # sideflowChanM3 -= self.var.sum_act_SurfaceWaterAbstract * self.var.cellArea
+        # return flow from (m) non irrigation water demand
+        # self.var.nonIrrReturnFlow = self.var.nonIrrReturnFlowFraction * self.var.nonIrrDemand
+        # sideflowChanM3 +=  self.var.nonIrrReturnFlow * self.var.cellArea
+        # sideflowChan = sideflowChanM3 * self.var.invchanLength * self.var.invdtRouting
 
         # ------------------------------------------------------
         # ***** SIDEFLOW **************************************
@@ -398,9 +449,14 @@ class routing_kinematic(object):
 
         self.var.sumsideflow = 0
         # Question: Is this fine?? It is already used above differently
-        #self.var.prechannelStorageM3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
+        # self.var.prechannelStorageM3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
 
-        self.var.discharge_substep = np.full((self.var.noRoutingSteps, self.var.discharge.size), np.nan, dtype=self.var.discharge.dtype)
+        self.var.discharge_substep = np.full(
+            (self.var.noRoutingSteps, self.var.discharge.size),
+            np.nan,
+            dtype=self.var.discharge.dtype,
+        )
+        pre_channelStorageM3 = self.var.channelStorageM3.copy()
         for subrouting in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
             sideflowChanM3 = runoffM3.copy()
@@ -409,85 +465,90 @@ class routing_kinematic(object):
             # minus riverbed exchange
             sideflowChanM3 -= riverbedExchangeDt
 
-
-            if checkOption('includeWaterDemand'):
+            if checkOption("includeWaterDemand"):
                 sideflowChanM3 -= WDAddM3Dt
                 # minus waterdemand + returnflow
 
-            if checkOption('inflow'):
-                self.var.inflowDt = (self.var.QInM3Old + (subrouting + 1) * self.var.QDelta) / self.var.noRoutingSteps
+            if checkOption("inflow"):
+                self.var.inflowDt = (
+                    self.var.QInM3Old + (subrouting + 1) * self.var.QDelta
+                ) / self.var.noRoutingSteps
                 # flow from inlets per sub step
                 sideflowChanM3 += self.var.inflowDt
 
-            if checkOption('includeWaterBodies'):
-                lakesResOut, lakeOutflowDis = self.model.lakes_reservoirs_module.dynamic_inloop(subrouting)
+            if checkOption("includeWaterBodies"):
+                lakesResOut, lakeOutflowDis = (
+                    self.model.lakes_reservoirs_module.dynamic_inloop(subrouting)
+                )
                 sideflowChanM3 += lakesResOut
 
             else:
                 lakesResOut = 0
 
-            # self.var.adjusted_channelFlow = np.minimum(sideflowChanM3*self.var.cellArea, globals.inZero.copy())*-1
-            #sideflowChanM3 = np.maximum(sideflowChanM3, globals.inZero.copy())
-            self.var.sideflowChanM3 = sideflowChanM3.copy() #for output TODO get this output -- is it negative?
+            sideflowChan = sideflowChanM3 * self.var.invchanLength / self.var.dtRouting
 
-            #sideflowChan = sideflowChanM3 * self.var.invchanLength * self.model.InvDtSec
-            sideflowChan = sideflowChanM3 * self.var.invchanLength * 1/ self.var.dtRouting
-
-            if checkOption('includeWaterBodies'):
-               lib2.kinematic(
-                   self.var.discharge.astype(np.float64),
-                   sideflowChan.astype(np.float64),
-                   self.var.dirDown_LR,
-                   self.var.dirupLen_LR,
-                   self.var.dirupID_LR,
-                   Qnew,
-                   self.var.channelAlpha.astype(np.float64),
-                   self.var.beta,
-                   self.var.dtRouting,
-                   self.var.chanLength.astype(np.float64),
-                   self.var.lendirDown_LR
+            if checkOption("includeWaterBodies"):
+                self.var.discharge = kinematic(
+                    self.var.discharge.astype(np.float64),
+                    sideflowChan.astype(np.float64),
+                    self.var.dirDown_LR,
+                    self.var.dirupLen_LR,
+                    self.var.dirupID_LR,
+                    self.var.channelAlpha.astype(np.float64),
+                    self.var.beta,
+                    self.var.dtRouting,
+                    self.var.chanLength.astype(np.float64),
                 )
 
             else:
-               lib2.kinematic(
-                   self.var.discharge.astype(np.float64),
-                   sideflowChan.astype(np.float64),
-                   self.var.dirDown,
-                   self.var.dirupLen,
-                   self.var.dirupID,
-                   Qnew,
-                   self.var.channelAlpha.astype(np.float64),
-                   self.var.beta,
-                   self.var.dtRouting,
-                   self.var.chanLength.astype(np.float64),
-                   self.var.lendirDown
+                self.var.discharge = kinematic(
+                    self.var.discharge.astype(np.float64),
+                    sideflowChan.astype(np.float64),
+                    self.var.dirDown,
+                    self.var.dirupLen,
+                    self.var.dirupID,
+                    self.var.channelAlpha.astype(np.float64),
+                    self.var.beta,
+                    self.var.dtRouting,
+                    self.var.chanLength.astype(np.float64),
+                    self.var.lendirDown,
                 )
-            self.var.discharge = Qnew.copy()
             self.var.discharge_substep[subrouting, :] = self.var.discharge.copy()
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
 
         # -- end substeping ---------------------
-        if checkOption('includeWaterBodies'):
+        if checkOption("includeWaterBodies"):
             # if there is a lake no discharge is calculated in the routing routine.
             # therefore this is filled up with the discharge which goes outof the lake
             # these outflow is used for the whole lake
-            self.var.discharge = np.where(self.var.waterBodyID > 0, lakeOutflowDis, self.var.discharge)
+            self.var.discharge = np.where(
+                self.var.waterBodyID > 0, lakeOutflowDis, self.var.discharge
+            )
 
         assert not np.isnan(self.var.discharge).any()
 
-        self.var.channelStorageM3 = self.var.channelAlpha * self.var.chanLength * Qnew ** self.var.beta
+        self.var.channelStorageM3 = (
+            self.var.channelAlpha
+            * self.var.chanLength
+            * self.var.discharge**self.var.beta
+        )
 
-        if checkOption('inflow'):
-             self.var.QInM3Old = self.var.inflowM3.copy()
+        if checkOption("inflow"):
+            self.var.QInM3Old = self.var.inflowM3.copy()
 
-        if checkOption('includeWaterBodies'):
-            if checkOption('calcWaterBalance'):
+        if checkOption("includeWaterBodies"):
+            if checkOption("calcWaterBalance"):
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[self.var.lakeResInflowM],  # In
-                    outfluxes=[self.var.lakeResOutflowM , self.var.EvapWaterBodyM]  ,  # Out  self.var.evapWaterBodyC
-                    prestorages=[self.var.prelakeResStorage / self.var.cellArea] ,  # prev storage
+                    outfluxes=[
+                        self.var.lakeResOutflowM,
+                        self.var.EvapWaterBodyM,
+                    ],  # Out  self.var.evapWaterBodyC
+                    prestorages=[
+                        self.var.prelakeResStorage / self.var.cellArea
+                    ],  # prev storage
                     poststorages=[self.var.lakeResStorage / self.var.cellArea],
                     name="lake_res",
-                    tollerance=1e-3
+                    tollerance=1e-3,
                 )
