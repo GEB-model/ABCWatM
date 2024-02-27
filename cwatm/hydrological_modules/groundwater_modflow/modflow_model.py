@@ -255,6 +255,7 @@ class ModFlowSimulation:
         """Load the Basic Model Interface"""
         success = False
 
+        # Current model version 6.4.2 from https://github.com/MODFLOW-USGS/modflow6/releases/tag/6.4.2
         if platform.system() == "Windows":
             libary_name = "windows/libmf6.dll"
         elif platform.system() == "Linux":
