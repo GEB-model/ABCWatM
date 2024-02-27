@@ -10,6 +10,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import rioxarray
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
