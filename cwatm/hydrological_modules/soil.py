@@ -14,7 +14,6 @@ from pathlib import Path
 
 
 class soil(object):
-
     """
     **SOIL**
 
@@ -311,9 +310,7 @@ class soil(object):
             )
         )
         # assert (n_potential >= 0).all()
-        a_potential = (
-            1.5 * 10**6 * soil_moisture_wilting_point_fraction**n_potential
-        )
+        a_potential = 1.5 * 10**6 * soil_moisture_wilting_point_fraction**n_potential
         # assert (a_potential >= 0).all()
         soil_water_potential = -a_potential * soil_moisture_fraction ** (-n_potential)
         return soil_water_potential / 1_000_000  # Pa to MPa
@@ -781,9 +778,7 @@ class soil(object):
         # ------------------------------------------------------------------
         # calculate preferential flow
         prefFlow = self.var.full_compressed(0, dtype=np.float32)
-        prefFlow[bioarea] = (
-            availWaterInfiltration[bioarea] * relSat**self.var.cPrefFlow
-        )
+        prefFlow[bioarea] = availWaterInfiltration[bioarea] * relSat**self.var.cPrefFlow
         prefFlow[bioarea] = np.where(
             self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold,
             0.0,
