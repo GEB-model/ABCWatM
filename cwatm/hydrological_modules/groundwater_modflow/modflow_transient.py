@@ -407,7 +407,7 @@ class groundwater_modflow:
         assert isclose(
             (groundwater_recharge * self.var.cellArea).sum(),
             np.nansum(groundwater_recharge_modflow * self.modflow_cell_area),
-            rel_tol=0.05,
+            rel_tol=1e-5,
         )
         self.modflow.set_recharge(groundwater_recharge_modflow)
 
@@ -417,7 +417,7 @@ class groundwater_modflow:
         assert isclose(
             (groundwater_abstraction * self.var.cellArea).sum(),
             np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area),
-            rel_tol=0.05,
+            rel_tol=1e-5,
         )
         self.modflow.set_groundwater_abstraction(groundwater_abstraction_modflow)
 
