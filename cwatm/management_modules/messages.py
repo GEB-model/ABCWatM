@@ -28,10 +28,11 @@ class CWATMError(Exception):
         # sys.tracebacklimit = 0
         header = "\n\n ========================== CWATM ERROR =============================\n"
         try:
-           self._msg = header + msg +"\n" +  sys.exc_info()[1].message
-           print(self._msg)
+            self._msg = header + msg + "\n" + sys.exc_info()[1].message
+            print(self._msg)
         except:
-           self._msg = header + msg +"\n"
+            self._msg = header + msg + "\n"
+
     def __str__(self):
         return self._msg
 
@@ -45,23 +46,25 @@ class CWATMFileError(CWATMError):
     :return: prints out a message about file error
 
     """
+
     def __init__(self, filename, msg="", sname=""):
         # don't show the error code, lines etc.
         path, name = os.path.split(filename)
         if os.path.exists(filename):
-            text1 = "In  \"" + sname + "\"\n"
-            text1 += "filename: "+ str(filename) + " exists, but an error was raised"
+            text1 = 'In  "' + sname + '"\n'
+            text1 += "filename: " + str(filename) + " exists, but an error was raised"
         elif os.path.exists(path):
-            text1 = "In  \"" + sname + "\"\n"
-            text1 += "path: "+ path + " exists\nbut filename: "+name+ " does not\n"
-            text1 +="file name extension can be .nc4 or .nc\n"
+            text1 = 'In  "' + sname + '"\n'
+            text1 += "path: " + path + " exists\nbut filename: " + name + " does not\n"
+            text1 += "file name extension can be .nc4 or .nc\n"
         else:
-            text1 = " In  \""+ sname +"\"\n"
-            text1 += "searching: \""+filename+"\""
-            text1 += "\npath: "+ path + " does not exists\n"
+            text1 = ' In  "' + sname + '"\n'
+            text1 += 'searching: "' + filename + '"'
+            text1 += "\npath: " + path + " does not exists\n"
 
         header = "\n\n ======================== CWATM FILE ERROR ===========================\n"
         self._msg = header + msg + text1
+
 
 class CWATMWarning(Warning):
     """
@@ -77,8 +80,10 @@ class CWATMWarning(Warning):
         header = "\n\n ========================== CWATM Warning =============================\n"
         self._msg = header + msg
         sys.tracebacklimit = 1
+
     def __str__(self):
         return self._msg
+
 
 class CWATMRunInfo(Warning):
     """
@@ -93,8 +98,14 @@ class CWATMRunInfo(Warning):
 
     def __init__(self, outputS):
         header = "\nCWATM Simulation Information and Setting\n"
-        msg = "The simulation output as specified in the settings file: " + str(outputS[0]) + " can be found in "+str(outputS[1])+"\n"
+        msg = (
+            "The simulation output as specified in the settings file: "
+            + str(outputS[0])
+            + " can be found in "
+            + str(outputS[1])
+            + "\n"
+        )
         self._msg = header + msg
+
     def __str__(self):
         return self._msg
-

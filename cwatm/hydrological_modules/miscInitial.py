@@ -11,8 +11,8 @@
 
 from cwatm.management_modules.data_handling import *
 
-class miscInitial(object):
 
+class miscInitial(object):
     """
     Miscellaneous repeatedly used expressions
     Definition if cell area comes from regular grid e.g. 5x5km or from irregular lat/lon
@@ -25,21 +25,21 @@ class miscInitial(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    DtSec                 number of seconds per timestep (default = 86400)                                  s        
-    MtoM3                 Coefficient to change units                                                       --       
-    InvDtSec                                                                                                         
-    cellArea              Cell area [m²] of each simulated mesh                                                      
-    cellLength            length of a grid cell                                                             m        
-    InvCellArea           Inverse of cell area of each simulated mesh                                       m-1      
-    DtDay                 seconds in a timestep (default=86400)                                             s        
-    InvDtDay              inverse seconds in a timestep (default=86400)                                     s-1      
-    MMtoM                 Coefficient to change units                                                       --       
-    MtoMM                 Coefficient to change units                                                       --       
-    M3toM                 Coefficient to change units                                                       --       
-    con_precipitation     conversion factor for precipitation                                               --       
-    con_e                 conversion factor for evaporation                                                 --       
+    DtSec                 number of seconds per timestep (default = 86400)                                  s
+    MtoM3                 Coefficient to change units                                                       --
+    InvDtSec
+    cellArea              Cell area [m²] of each simulated mesh
+    cellLength            length of a grid cell                                                             m
+    InvCellArea           Inverse of cell area of each simulated mesh                                       m-1
+    DtDay                 seconds in a timestep (default=86400)                                             s
+    InvDtDay              inverse seconds in a timestep (default=86400)                                     s-1
+    MMtoM                 Coefficient to change units                                                       --
+    MtoMM                 Coefficient to change units                                                       --
+    M3toM                 Coefficient to change units                                                       --
+    con_precipitation     conversion factor for precipitation                                               --
+    con_e                 conversion factor for evaporation                                                 --
     ====================  ================================================================================  =========
 
     **Functions**
@@ -50,7 +50,6 @@ class miscInitial(object):
         self.HRU = model.data.HRU
         self.model = model
 
-
     def initial(self):
         """
         Initialization of some basic parameters e.g. cellArea
@@ -60,7 +59,7 @@ class miscInitial(object):
         * conversion factors for precipitation and pot evaporation
         """
 
-        if checkOption('gridSizeUserDefined'):
+        if checkOption("gridSizeUserDefined"):
 
             # <lfoption name="gridSizeUserDefined" choice="1" default="0">
             # If option gridsizeUserDefined is activated, users can specify grid size properties
@@ -79,7 +78,6 @@ class miscInitial(object):
             # self.model.data.to_HRU(varname="cellArea", fn='mean', delete=False)  # checked
             pass
 
-
         else:
             # Default behaviour: grid size is derived from location attributes of
             # base maps. Requirements:
@@ -88,14 +86,14 @@ class miscInitial(object):
             # - All grid cells have the same size
 
             # Area of pixel [m2]
-            self.var.cellArea=np.empty(maskinfo['mapC'])
+            self.var.cellArea = np.empty(maskinfo["mapC"])
             self.var.cellArea.fill(self.var.cellLength * self.var.cellLength)
 
-#            self.var.PixelArea = spatial(self.var.PixelArea)
-            # Convert to spatial expresion (otherwise this variable cannnot be
-            # used in areatotal function)
+        #            self.var.PixelArea = spatial(self.var.PixelArea)
+        # Convert to spatial expresion (otherwise this variable cannnot be
+        # used in areatotal function)
 
-# -----------------------------------------------------------------
+        # -----------------------------------------------------------------
         # Miscellaneous repeatedly used expressions (as suggested by GF)
 
         # self.var.InvCellLength = 1.0 / self.var.cellLength
@@ -110,7 +108,7 @@ class miscInitial(object):
         self.model.InvDtSec = 1 / self.model.DtSec
         # Inverse of time step [1/d]
 
-       # self.model.DtSecChannel = loadmap('DtSecChannel')
+        # self.model.DtSecChannel = loadmap('DtSecChannel')
         # Sub time step used for kinematic wave channel routing [seconds]
         # within the model,the smallest out of DtSecChannel and DtSec is used
 
@@ -119,6 +117,6 @@ class miscInitial(object):
         # Multiplier to convert water depths in meters to mm
         self.var.MtoMM = 1000
 
-        self.var.con_precipitation = loadmap('precipitation_coversion')
+        self.var.con_precipitation = loadmap("precipitation_coversion")
 
-        self.var.con_e = loadmap('evaporation_coversion')
+        self.var.con_e = loadmap("evaporation_coversion")

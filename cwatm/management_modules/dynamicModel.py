@@ -1,9 +1,12 @@
 # initial and dynamic model-> idea taken from PC_Raster
 
+
 class DynamicModel:
     i = 1
 
+
 # ----------------------------------------
+
 
 class ModelFrame:
     """
@@ -34,7 +37,7 @@ class ModelFrame:
         # finalize modflow model
         self.model.groundwater_modflow_module.modflow.finalize()
 
-        if self.model.config['general']['simulate_forest']:
+        if self.model.config["general"]["simulate_forest"]:
             for plantFATE_model in self.model.plantFATE:
                 if plantFATE_model is not None:
                     plantFATE_model.finalize()
