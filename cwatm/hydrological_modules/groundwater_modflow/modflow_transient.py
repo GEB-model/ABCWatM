@@ -284,9 +284,6 @@ class groundwater_modflow:
             if returnBool(
                 "correct_soildepth_underlakes"
             ):  # in some regions or models soil depth is around zeros under lakes, so it should be similar than neighboring cells
-                print(
-                    "=> Topography minus soil depth is used as upper limit of groundwater. Correcting depth under lakes."
-                )
                 waterBodyID_temp = loadmap("waterBodyID").astype(np.int64)
                 soil_depth_temp = np.where(
                     waterBodyID_temp != 0,
@@ -303,9 +300,6 @@ class groundwater_modflow:
                 )
                 soildepth_modflow[np.isnan(soildepth_modflow)] = 0
             else:
-                print(
-                    "=> Topography minus soil depth is used as upper limit of groundwater. No correction of depth under lakes"
-                )
                 soildepth_modflow = self.CWATM2modflow(
                     self.var.decompress(self.var.soildepth_12)
                 )
@@ -314,9 +308,6 @@ class groundwater_modflow:
             if returnBool(
                 "correct_soildepth_underlakes"
             ):  # we make a manual correction
-                print(
-                    "=> Topography is used as upper limit of groundwater. Correcting depth under lakes. It can make ModFlow difficulties to converge"
-                )
                 waterBodyID_temp = loadmap("waterBodyID").astype(np.int64)
                 soil_depth_temp = np.where(
                     waterBodyID_temp != 0, loadmap("depth_underlakes"), 0
