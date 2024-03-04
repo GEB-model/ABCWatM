@@ -54,7 +54,7 @@ class ModFlowSimulation:
         self.topography = topography
         assert self.basin_mask.dtype == bool
         self.n_active_cells = self.basin_mask.size - self.basin_mask.sum()
-        self.working_directory = os.path.join(outDir["OUTPUT"], "modflow_model")
+        self.working_directory = model.simulation_root / "modflow_model"
         os.makedirs(self.working_directory, exist_ok=True)
         self.verbose = verbose
 
