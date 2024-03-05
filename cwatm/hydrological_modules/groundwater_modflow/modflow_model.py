@@ -261,7 +261,7 @@ class ModFlowSimulation:
         elif platform.system() == "Linux":
             libary_name = "linux/libmf6.so"
         elif platform.system() == "Darwin":
-            libary_name = "darwin/libmf6.dylib"
+            libary_name = "mac/libmf6.dylib"
         else:
             raise ValueError(f"Platform {platform.system()} not recognized.")
 
