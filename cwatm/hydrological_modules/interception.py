@@ -96,7 +96,7 @@ class interception(object):
         assert not np.isnan(interceptCap).any()
 
         # Rain instead Pr, because snow is substracted later
-        # assuming that all interception storage is used the other time step
+        # assuming that all interception storage is used in the other time step
         throughfall = np.maximum(0.0, self.var.Rain + self.var.interceptStor - interceptCap)
 
         # update interception storage after throughfall
