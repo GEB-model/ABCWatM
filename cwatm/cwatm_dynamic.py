@@ -69,7 +69,7 @@ class CWATModel_dyn(DynamicModel):
         interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic()
         timemeasure("Soil main")  # 5. timing
 
-        self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)
+        # self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)
         timemeasure("Groundwater")  # 7. timing
 
         self.runoff_concentration_module.dynamic(interflow, directRunoff)

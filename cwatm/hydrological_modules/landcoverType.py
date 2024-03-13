@@ -555,8 +555,8 @@ class landcoverType(object):
 
         openWaterEvap = self.var.full_compressed(0, dtype=np.float32)
         # Soil for forest, grassland, and irrigated land
-        capillar = self.model.data.to_HRU(data=self.model.data.grid.capillar, fn=None)
-        del self.model.data.grid.capillar
+        capillar = np.zeros_like(self.model.data.HRU.land_use_type, dtype=np.float32)
+        # del self.model.data.grid.capillar
 
         interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(
             capillar,

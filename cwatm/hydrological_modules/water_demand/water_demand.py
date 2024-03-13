@@ -183,7 +183,7 @@ class water_demand:
         assert self.model.data.grid.waterBodyIDC.size == self.model.data.grid.waterBodyTypC.size
         available_reservoir_storage_m3 = np.zeros_like(self.model.data.grid.reservoirStorageM3C)
         available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = self.reservoir_operators.get_available_water_reservoir_command_areas(self.model.data.grid.reservoirStorageM3C[self.model.data.grid.waterBodyTypC == 2])
-        return self.model.data.grid.channelStorageM3.copy(), available_reservoir_storage_m3, self.model.groundwater_modflow_module.available_groundwater_m, self.model.data.grid.head
+        return self.model.data.grid.channelStorageM3.copy(), available_reservoir_storage_m3, np.zeros_like(self.model.data.grid.channelStorageM3), np.zeros_like(self.model.data.grid.mask_flat, dtype=np.float32)
 
     def withdraw(self, source, demand):
         withdrawal = np.minimum(source, demand)
@@ -259,7 +259,7 @@ class water_demand:
                 available_channel_storage_m3=available_channel_storage_m3,
                 available_groundwater_m3=available_groundwater_m3,
                 groundwater_head=groundwater_head,
-                groundwater_depth = self.model.data.grid.groundwater_depth,
+                groundwater_depth = np.zeros_like(self.model.data.grid.mask_flat, dtype=np.float32),
                 available_reservoir_storage_m3=available_reservoir_storage_m3,
                 command_areas=self.var.reservoir_command_areas.get() if self.model.use_gpu else self.var.reservoir_command_areas,
             )

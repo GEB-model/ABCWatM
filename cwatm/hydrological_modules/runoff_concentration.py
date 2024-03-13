@@ -85,7 +85,7 @@ class runoff_concentration(object):
         return None
 
     def dynamic(self, interflow, directRunoff):
-        self.var.runoff = directRunoff + interflow + self.var.baseflow
+        self.var.runoff = directRunoff + interflow # + self.var.baseflow
 
 
 

@@ -67,7 +67,7 @@ class CWATModel_ini(DynamicModel):
         self.soil_module = soil(self)
         self.landcoverType_module = landcoverType(self)
         self.evaporation_module = evaporation(self)
-        self.groundwater_modflow_module = groundwater_modflow(self)
+        #self.groundwater_modflow_module = groundwater_modflow(self)
         self.waterdemand_module = water_demand(self)
         self.interception_module = interception(self)
         self.sealed_water_module = sealed_water(self)
@@ -90,7 +90,7 @@ class CWATModel_ini(DynamicModel):
         self.snowfrost_module.initial(ElevationStD)
         self.soil_module.initial()
 
-        self.groundwater_modflow_module.initial()
+        #self.groundwater_modflow_module.initial()
         # groundwater before meteo, bc it checks steady state
 
         self.landcoverType_module.initial(ElevationStD)

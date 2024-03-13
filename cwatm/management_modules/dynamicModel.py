@@ -32,7 +32,7 @@ class ModelFrame:
         Finalize the model
         """
         # finalize modflow model
-        self.model.groundwater_modflow_module.modflow.finalize()
+        #self.model.groundwater_modflow_module.modflow.finalize()
 
         if self.model.config['general']['simulate_forest']:
             for plantFATE_model in self.model.plantFATE:
