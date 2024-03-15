@@ -35,7 +35,6 @@ from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
 from cwatm.management_modules.data_handling import (
     loadsetclone,
-    metaNetCDF,
     checkOption,
     loadmap,
 )
