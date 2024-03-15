@@ -10,6 +10,7 @@
 
 from cwatm.management_modules.data_handling import cbinding, checkOption
 import numpy as np
+
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
@@ -25,9 +26,9 @@ class evaporation(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    cropKC                crop coefficient for each of the 4 different land cover types (forest, irrigated  --       
+    cropKC                crop coefficient for each of the 4 different land cover types (forest, irrigated  --
     ====================  ================================================================================  =========
 
     **Functions**
@@ -37,7 +38,7 @@ class evaporation(object):
         """The constructor evaporation"""
         self.var = model.data.HRU
         self.model = model
-        
+
     def dynamic(self, ETRef):
         """
         Dynamic part of the soil module
@@ -55,17 +56,21 @@ class evaporation(object):
         # crop coefficient read for forest and grassland from file
 
         # calculate potential bare soil evaporation
-        potBareSoilEvap = self.var.cropCorrect * self.var.minCropKC * ETRef
+        potBareSoilEvap = (
+            self.var.crop_factor_calibration_factor * self.var.minCropKC * ETRef
+        )
         # calculate snow evaporation
-        self.var.snowEvap =  np.minimum(self.var.SnowMelt, potBareSoilEvap)
+        self.var.snowEvap = np.minimum(self.var.SnowMelt, potBareSoilEvap)
         self.var.SnowMelt = self.var.SnowMelt - self.var.snowEvap
         potBareSoilEvap = potBareSoilEvap - self.var.snowEvap
 
         # calculate potential ET
         ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m]
-        totalPotET = self.var.cropCorrect * self.var.cropKC * ETRef
+        totalPotET = self.var.crop_factor_calibration_factor * self.var.cropKC * ETRef
 
         ## potTranspiration: Transpiration for each land cover class
-        potTranspiration = np.maximum(0., totalPotET - potBareSoilEvap - self.var.snowEvap)
+        potTranspiration = np.maximum(
+            0.0, totalPotET - potBareSoilEvap - self.var.snowEvap
+        )
 
         return potTranspiration, potBareSoilEvap, totalPotET

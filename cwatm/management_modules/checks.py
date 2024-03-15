@@ -11,6 +11,7 @@
 
 from .globals import *
 
+
 def counted(fn):
     """
     count number of times a subroutine is called
@@ -18,9 +19,11 @@ def counted(fn):
     :param fn:
     :return: number of times the subroutine is called
     """
+
     def wrapper(*args, **kwargs):
         wrapper.called += 1
         return fn(*args, **kwargs)
+
     wrapper.called = 0
     wrapper.__name__ = fn.__name__
     return wrapper
@@ -45,14 +48,14 @@ def checkmap(name, value, map, flagmap, flagcompress, mapC):
 
     def input2str(inp):
         if isinstance(inp, str):
-            return(inp)
+            return inp
         elif isinstance(inp, int):
-            return f'{inp}'
+            return f"{inp}"
         else:
             if inp < 100000:
-                return f'{inp:.2f}'
+                return f"{inp:.2f}"
             else:
-                return f'{inp:.2E}'
+                return f"{inp:.2E}"
 
     # ----------------------------------
     s = [name]
@@ -65,14 +68,14 @@ def checkmap(name, value, map, flagmap, flagcompress, mapC):
         except:
             mapshape = input2str(map.shape[0])
 
-        if not(flagcompress):
+        if not (flagcompress):
             mapshape = input2str(map.shape[0]) + "x" + input2str(map.shape[1])
             numbernonmv = np.count_nonzero(~np.isnan(map))  # count nonmissing values
             numbermv = np.count_nonzero(np.isnan(map))  # count missing value (np.nan)
-            #numbernan = "-"
-            #numberzero = "-"
+            # numbernan = "-"
+            # numberzero = "-"
             numbernan = input2str(np.count_nonzero(np.isnan(map)))
-            numberzero = input2str( map.shape[0] * map.shape[1] -  np.count_nonzero(map))
+            numberzero = input2str(map.shape[0] * map.shape[1] - np.count_nonzero(map))
             numbernonzero = input2str(np.count_nonzero(map))
 
             compressF = "False"
@@ -84,7 +87,7 @@ def checkmap(name, value, map, flagmap, flagcompress, mapC):
             numbernonmv = np.count_nonzero(~np.isnan(mapC))  # count nonmissing values
             numbermv = np.count_nonzero(np.isnan(mapC))  # count missing value (np.nan)
 
-            compressF ="True"
+            compressF = "True"
             numbernan = input2str(np.count_nonzero(np.isnan(mapC)))
             numberzero = input2str(mapC.shape[0] - np.count_nonzero(mapC))
             numbernonzero = input2str(np.count_nonzero(mapC))
@@ -114,9 +117,38 @@ def checkmap(name, value, map, flagmap, flagcompress, mapC):
         s.append(input2str(float(map)))
         s.append("")
 
-
-    t = ["<30","<40",">11",">11",">11",">11",">11",">11",">11",">11",">11", ">11",">11"]
-    h = ["Name","File/Value","nonMV","MV", "lon-lat","Compress","MV-comp","Zero-comp","NonZero","min","mean","max","x1","x2","x3"]
+    t = [
+        "<30",
+        "<40",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+        ">11",
+    ]
+    h = [
+        "Name",
+        "File/Value",
+        "nonMV",
+        "MV",
+        "lon-lat",
+        "Compress",
+        "MV-comp",
+        "Zero-comp",
+        "NonZero",
+        "min",
+        "mean",
+        "max",
+        "x1",
+        "x2",
+        "x3",
+    ]
     if checkmap.called == 1:
         print("---------------------------------------------")
         print("nonMV:     non missing value in 2D map")
@@ -132,23 +164,18 @@ def checkmap(name, value, map, flagmap, flagcompress, mapC):
         print("---------------------------------------------")
 
         for i in range(len(s)):
-            if i<(len(s)-1):
-               print(f'{h[i]:{t[i]}}',end = '')
+            if i < (len(s) - 1):
+                print(f"{h[i]:{t[i]}}", end="")
             else:
-               print(f'{h[i]:{t[i]}}')
+                print(f"{h[i]:{t[i]}}")
 
     for i in range(len(s)):
         if i < (len(s) - 1):
-            print(f'{s[i]:{t[i]}}',end = '')
+            print(f"{s[i]:{t[i]}}", end="")
         else:
-            print(f'{s[i]:{t[i]}}')
+            print(f"{s[i]:{t[i]}}")
 
-
-
-    #print("%-30s%-40s%11i%11i%11i%11i%14.2f%14.2f%14.2f" %(s[0],s[1][-39:],s[2],s[3],s[8],s[7],s[4],s[5],s[6]))
-    #print("%-30s%-40s%11s%11s%11s%11s%14s%14s%14s" % (s[0], s[1][-39:], s[2], s[3], s[8], s[7], s[4], s[5], s[6]))
+    # print("%-30s%-40s%11i%11i%11i%11i%14.2f%14.2f%14.2f" %(s[0],s[1][-39:],s[2],s[3],s[8],s[7],s[4],s[5],s[6]))
+    # print("%-30s%-40s%11s%11s%11s%11s%14s%14s%14s" % (s[0], s[1][-39:], s[2], s[3], s[8], s[7], s[4], s[5], s[6]))
 
     return
-
-
-

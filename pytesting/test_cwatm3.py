@@ -9,9 +9,11 @@ import importlib
 # ------------------------------------------------------
 
 # load settingsfile from command line
-parser = argparse.ArgumentParser(description="load settingsfile on --settingsfile, use cwatm on --cwatm")
-parser.add_argument('--settingsfile')
-parser.add_argument('--cwatm')
+parser = argparse.ArgumentParser(
+    description="load settingsfile on --settingsfile, use cwatm on --cwatm"
+)
+parser.add_argument("--settingsfile")
+parser.add_argument("--cwatm")
 
 # parses the settings file and the cwatm folder in the command line
 args, notknownargs = parser.parse_known_args()
@@ -19,7 +21,9 @@ args, notknownargs = parser.parse_known_args()
 # parse where is the settingsfile for pytest
 test_settingfile = args.settingsfile
 if test_settingfile == None:
-    print ("option --settingsfile e.g.: pytest test_cwatm3.py --html=report.html --settingsfile=test_py_catwm1.txt --cwatm=C:/work/CWATM/run_cwatm.py")
+    print(
+        "option --settingsfile e.g.: pytest test_cwatm3.py --html=report.html --settingsfile=test_py_catwm1.txt --cwatm=C:/work/CWATM/run_cwatm.py"
+    )
     sys.exit()
 
 # where is the cwatm folder, if no cwatm folder mentioned use 1 folder backwards
@@ -41,8 +45,7 @@ print("Settingsfile: ", test_settingfile)
 # ------------------------------------------------------
 
 
-
-def replace_setting(iset,outset,changes,adds):
+def replace_setting(iset, outset, changes, adds):
     # settings und changes
     # - original settings -  "settings_rhine_5min.ini"
     # - put new setting in output directory system
@@ -56,11 +59,11 @@ def replace_setting(iset,outset,changes,adds):
 
     def lreplace(line):
         newline = line
-        lookin = line.split('=')[0].strip()
+        lookin = line.split("=")[0].strip()
         for ch in changes:
-            lookfor = ch.split('=')[0].strip()
+            lookfor = ch.split("=")[0].strip()
             if lookin == lookfor:
-                newline = ch+'\n'
+                newline = ch + "\n"
         return newline
 
     sin = open(iset)
@@ -72,7 +75,7 @@ def replace_setting(iset,outset,changes,adds):
     sout.close()
     sout = open(outset, "a")
     for a in adds:
-        sout.write(a+'\n')
+        sout.write(a + "\n")
     sout.close()
 
 
@@ -80,20 +83,20 @@ def replace_setting(iset,outset,changes,adds):
 noskip = {}
 runs = []
 models = []
-number = 0          # number of models with variations
-tvalue = False      # checks if last discharge value fits
+number = 0  # number of models with variations
+tvalue = False  # checks if last discharge value fits
 
 # ---------------------
 set_load = []
-dict_name =[]
+dict_name = []
 
 tin = open(test_settingfile)
 test_run = False
 for line in tin:
     line1 = line.lstrip()
-    if len(line1)> 0:
+    if len(line1) > 0:
         if line1[0] != "#":
-            first ,secon = line1.split(': ')
+            first, secon = line1.split(": ")
             first = first.lstrip().strip()
             secon = secon.lstrip().strip()
             if test_run == False:
@@ -121,21 +124,29 @@ for line in tin:
                         tvalue = True
 
             else:
-                if first == "path_system":  PathSystem = "PathSystem = " + secon
-                if first == "path_root":  PathRoot = "PathRoot = " + secon
-                if first == "path_init":  PathInit = "PathInit = " + secon
-                if first == "path_out":   PathOut = "PathOut = " + secon
-                if first == "path_maps":  PathMaps = "PathMaps = " + secon
-                if first == "path_meteo": PathMeteo = "PathMeteo = " + secon
+                if first == "path_system":
+                    PathSystem = "PathSystem = " + secon
+                if first == "path_root":
+                    PathRoot = "PathRoot = " + secon
+                if first == "path_init":
+                    PathInit = "PathInit = " + secon
+                if first == "path_out":
+                    PathOut = "PathOut = " + secon
+                if first == "path_maps":
+                    PathMaps = "PathMaps = " + secon
+                if first == "path_meteo":
+                    PathMeteo = "PathMeteo = " + secon
 
                 # settings for the individual tests
-                if first == "header": set_text1.append(secon)
-                if first == "description": set_description1.append(secon)
+                if first == "header":
+                    set_text1.append(secon)
+                if first == "description":
+                    set_description1.append(secon)
                 if first == "set_save":
-                    path =  os.path.dirname(set_load[-1])
-                    setout1.append(os.path.join(path,secon))
+                    path = os.path.dirname(set_load[-1])
+                    setout1.append(os.path.join(path, secon))
                 if first == "changes":
-                    s = [x.lstrip().strip() for x in secon.split(';')]
+                    s = [x.lstrip().strip() for x in secon.split(";")]
                     s.append(PathSystem)
                     s.append(PathRoot)
                     s.append(PathInit)
@@ -145,17 +156,28 @@ for line in tin:
                     changes1.append(s)
 
                 if first == "adds":
-                    s = [x.lstrip().strip() for x in secon.split(';')]
+                    s = [x.lstrip().strip() for x in secon.split(";")]
                     adds1.append(s)
-                if first == "last_value": values1.append(float(secon))
-                if first == "base_setting":    # finish the setting when next one is in
+                if first == "last_value":
+                    values1.append(float(secon))
+                if first == "base_setting":  # finish the setting when next one is in
 
                     # join to modelruns if it is not skip
-                    if  noskip[runs[number]]:
+                    if noskip[runs[number]]:
                         for i in range(len(set_text1)):
-                            replace_setting(set_load[-1], setout1[i], changes1[i], adds1[i])
-                            model = (set_text1[i], set_description1[i], changes1[i], adds1[i], setout1[i], tvalue, values1[i])
-                            models.append((set_description1[i],model))
+                            replace_setting(
+                                set_load[-1], setout1[i], changes1[i], adds1[i]
+                            )
+                            model = (
+                                set_text1[i],
+                                set_description1[i],
+                                changes1[i],
+                                adds1[i],
+                                setout1[i],
+                                tvalue,
+                                values1[i],
+                            )
+                            models.append((set_description1[i], model))
                             # a little bit complicated, but to make sure that the description shows up in the report
                     test_run = False
                     number += 1
@@ -164,15 +186,23 @@ for line in tin:
 tin.close()
 
 # join to modelruns if it is not skip
-if  noskip[runs[number]]:
+if noskip[runs[number]]:
     for i in range(len(set_text1)):
         replace_setting(set_load[-1], setout1[i], changes1[i], adds1[i])
-        model = (set_text1[i], set_description1[i], changes1[i], adds1[i], setout1[i], tvalue, values1[i])
-        models.append((set_description1[i],model))
+        model = (
+            set_text1[i],
+            set_description1[i],
+            changes1[i],
+            adds1[i],
+            setout1[i],
+            tvalue,
+            values1[i],
+        )
+        models.append((set_description1[i], model))
         # a little bit complicated, but to make sure that the description shows up in the report
 
 # to show the description in the report html it is separated here in the variable info
-info=[]
+info = []
 for model in models:
     info.append(model[0])
 
@@ -188,19 +218,18 @@ def cwatm(info, model):
                     0        1        2       3       4         5         6
     :return: sucess of model run
     """
-    print('\n ===== ', model[0], ' =====')
+    print("\n ===== ", model[0], " =====")
     print(" Setting file: ", model[4])
     print(" Description: ", info)
     print(" Changes: ", model[2])
-    print(" Adds: ", model[3], '\n')
+    print(" Adds: ", model[3], "\n")
 
-    success, last_dis = run_cwatm.main(model[4], ['-l'])
+    success, last_dis = run_cwatm.main(model[4], ["-l"])
     assert success
     if model[5]:
         minvalue = model[6] * 0.99
         maxvalue = model[6] * 1.01
-        assert (minvalue <= last_dis <= maxvalue)
-
+        assert minvalue <= last_dis <= maxvalue
 
 
 @pytest.mark.parametrize("info", ["CWatM first test without any arguments"])
@@ -209,15 +238,12 @@ def test_cwatm_without_settings(info):
     Test with CWatM runs with necessary libraries
     :return: success of model run without settingsfile
     """
-    print('\n ===== CWATM without settingsfile =====')
-    print (" Setting file: NONE")
+    print("\n ===== CWATM without settingsfile =====")
+    print(" Setting file: NONE")
     success = run_cwatm.usage()
     assert success
 
+
 @pytest.mark.parametrize("info, model", models)
-def test_cwatm(info, model): cwatm(info, model)
-
-
-
-
-
+def test_cwatm(info, model):
+    cwatm(info, model)

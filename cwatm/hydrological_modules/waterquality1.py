@@ -12,7 +12,6 @@ from cwatm.management_modules.data_handling import *
 
 
 class waterquality1(object):
-
     """
     WATER QUALITY 1
 
@@ -22,21 +21,21 @@ class waterquality1(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    Tavg                  average air Temperature (input for the model)                                     K        
-    DtSec                 number of seconds per timestep (default = 86400)                                  s        
-    discharge             discharge                                                                         m3/s     
-    cellArea              Cell area [m²] of each simulated mesh                                                      
-    waterquality                                                                                                     
-    celllenght                                                                                                       
-    downdist                                                                                                         
-    travelDistance                                                                                                   
-    travelTime                                                                                                       
-    chanLength                                                                                                       
-    totalCrossSectionAre                                                                                             
-    waterLevel                                                                                                       
-    waterTemperature                                                                                                 
+    Tavg                  average air Temperature (input for the model)                                     K
+    DtSec                 number of seconds per timestep (default = 86400)                                  s
+    discharge             discharge                                                                         m3/s
+    cellArea              Cell area [m²] of each simulated mesh
+    waterquality
+    celllenght
+    downdist
+    travelDistance
+    travelTime
+    chanLength
+    totalCrossSectionAre
+    waterLevel
+    waterTemperature
     ====================  ================================================================================  =========
 
     **Functions**
@@ -54,30 +53,29 @@ class waterquality1(object):
 
         self.var.waterquality = False
         if "waterquality" in option:
-           self.var.waterquality = checkOption('waterquality')
+            self.var.waterquality = checkOption("waterquality")
 
         if self.var.waterquality:
             self.var.celllenght = np.sqrt(self.var.cellArea)
-            ldd = loadmap('Ldd')
+            ldd = loadmap("Ldd")
             self.var.downdist = self.var.celllenght
-            self.var.downdist =np.where(ldd == 1, 1.414214 * self.var.downdist , self.var.downdist )
-            self.var.downdist =np.where(ldd == 3, 1.414214 * self.var.downdist , self.var.downdist )
-            self.var.downdist =np.where(ldd == 7, 1.414214 * self.var.downdist , self.var.downdist )
-            self.var.downdist =np.where(ldd == 9, 1.414214 * self.var.downdist , self.var.downdist )
+            self.var.downdist = np.where(
+                ldd == 1, 1.414214 * self.var.downdist, self.var.downdist
+            )
+            self.var.downdist = np.where(
+                ldd == 3, 1.414214 * self.var.downdist, self.var.downdist
+            )
+            self.var.downdist = np.where(
+                ldd == 7, 1.414214 * self.var.downdist, self.var.downdist
+            )
+            self.var.downdist = np.where(
+                ldd == 9, 1.414214 * self.var.downdist, self.var.downdist
+            )
 
-
-
-
-
-            i =1
-
-
-
-
+            i = 1
 
     # --------------------------------------------------------------------------
-# --------------------------------------------------------------------------
-
+    # --------------------------------------------------------------------------
 
     def dynamic(self):
         """
@@ -85,69 +83,73 @@ class waterquality1(object):
         Read meteo input maps from netcdf files
         """
 
-        if self.var.waterquality :
+        if self.var.waterquality:
 
-          #crossArea = 0.34 * (self.var.discharge ** 0.341) * 1.22 * (self.var.discharge ** 0.557)
-          dis = np.where (self.var.discharge < 0.0001, 0.0001, self.var.discharge)
-          width = 1.22 * (dis ** 0.557)
-          crossArea = 0.4148 * dis ** 0.898
-          # van Vliet et al. 2012
+            # crossArea = 0.34 * (self.var.discharge ** 0.341) * 1.22 * (self.var.discharge ** 0.557)
+            dis = np.where(self.var.discharge < 0.0001, 0.0001, self.var.discharge)
+            width = 1.22 * (dis**0.557)
+            crossArea = 0.4148 * dis**0.898
+            # van Vliet et al. 2012
 
-
-
-
-          #flowVelocity = np.minimum(self.var.discharge /self.var.totalCrossSectionArea, 0.36*self.var.discharge**0.24)
-          flowVelocity = np.minimum(self.var.discharge / crossArea,0.36 * dis ** 0.24)
-          flowVelocity = np.maximum(flowVelocity, 10.*0.0011575)
-             # Channel velocity (m/s); dividing Q (m3/s) by CrossSectionArea (m2)
-             # avoid extreme velocities by using the Wollheim 2006 equation
+            # flowVelocity = np.minimum(self.var.discharge /self.var.totalCrossSectionArea, 0.36*self.var.discharge**0.24)
+            flowVelocity = np.minimum(self.var.discharge / crossArea, 0.36 * dis**0.24)
+            flowVelocity = np.maximum(flowVelocity, 10.0 * 0.0011575)
+            # Channel velocity (m/s); dividing Q (m3/s) by CrossSectionArea (m2)
+            # avoid extreme velocities by using the Wollheim 2006 equation
             #  minimum velocity = 1000 m per day!
 
-             #FlowVelocity = FlowVelocity * np.min(PixelLength/ChanLength,1)
-             # reduction for sinuosity of channels
-          self.var.travelDistance = flowVelocity * self.model.DtSec
-             # if flow is fast, Traveltime=1, TravelDistance is high: Pixellength*DtSec
-             # if flow is slow, Traveltime=DtSec then TravelDistance=PixelLength
-             # maximum set to 30km/day for 5km cell, is at DtSec/Traveltime=6, is at Traveltime<DtSec/6
+            # FlowVelocity = FlowVelocity * np.min(PixelLength/ChanLength,1)
+            # reduction for sinuosity of channels
+            self.var.travelDistance = flowVelocity * self.model.DtSec
+            # if flow is fast, Traveltime=1, TravelDistance is high: Pixellength*DtSec
+            # if flow is slow, Traveltime=DtSec then TravelDistance=PixelLength
+            # maximum set to 30km/day for 5km cell, is at DtSec/Traveltime=6, is at Traveltime<DtSec/6
 
-          #TravelTime = downstreamdist(Ldd) * (ChanLength/PixelLength) / FlowVelocity
-          self.var.travelTime = self.var.chanLength / flowVelocity
-          self.var.travelTime = np.where(self.var.travelTime > 200000, 200000, self.var.travelTime)
-                # Traveltime through gridcell (sec)
-                # further calculation with pc raster: l2.map = ldddist(ldd.map,p1.map,ttime1.map/cell.map)/86400
-                # / cell.map (here 0.8333 deg is necessary because it is multiplied again in the ldddist command
-                # p1.map is boolean map with mouth as 1, rest as 0
+            # TravelTime = downstreamdist(Ldd) * (ChanLength/PixelLength) / FlowVelocity
+            self.var.travelTime = self.var.chanLength / flowVelocity
+            self.var.travelTime = np.where(
+                self.var.travelTime > 200000, 200000, self.var.travelTime
+            )
+            # Traveltime through gridcell (sec)
+            # further calculation with pc raster: l2.map = ldddist(ldd.map,p1.map,ttime1.map/cell.map)/86400
+            # / cell.map (here 0.8333 deg is necessary because it is multiplied again in the ldddist command
+            # p1.map is boolean map with mouth as 1, rest as 0
 
+            # Water level
+            chanCrossSectionArea = np.where(
+                crossArea < self.var.totalCrossSectionArea,
+                crossArea,
+                self.var.totalCrossSectionArea,
+            )
+            chanWaterDepth = chanCrossSectionArea / width
+            # Water level in channel [m]
 
-          # Water level
-          chanCrossSectionArea = np.where(crossArea < self.var.totalCrossSectionArea, crossArea, self.var.totalCrossSectionArea)
-          chanWaterDepth = chanCrossSectionArea / width
-          # Water level in channel [m]
+            floodPlainCrossSectionArea = np.where(
+                crossArea < self.var.totalCrossSectionArea,
+                0,
+                crossArea - self.var.totalCrossSectionArea,
+            )
+            floodPlainWaterDepth = floodPlainCrossSectionArea / (2.0 * width)
+            # Water level on floodplain [m]
+            self.var.waterLevel = chanWaterDepth + floodPlainWaterDepth
+            # Total water level [m]
 
-          floodPlainCrossSectionArea = np.where(crossArea < self.var.totalCrossSectionArea, 0, crossArea - self.var.totalCrossSectionArea)
-          floodPlainWaterDepth = floodPlainCrossSectionArea / (2.0 * width)
-          # Water level on floodplain [m]
-          self.var.waterLevel = chanWaterDepth + floodPlainWaterDepth
-          # Total water level [m]
+            # Water-Air temperature relationship based on Morrill et al. (2005), Mohseni et al. (1998), van Vliet et al. (2012)
+            # Water Temperature (Ãƒâ€šÃ‚Â°C)
+            # Water Temperature equation parameters
 
-          # Water-Air temperature relationship based on Morrill et al. (2005), Mohseni et al. (1998), van Vliet et al. (2012)
-          # Water Temperature (Ãƒâ€šÃ‚Â°C)
-          # Water Temperature equation parameters
+            WTalpha = 28.0
+            # this is the max water temperature (degree Celsius)
+            WTmu = 3.0
+            # this is the min water temperature (degree Celsius)
+            WTgamma = 0.18
+            WTbeta = 14
 
-          WTalpha = 28.0
-          # this is the max water temperature (degree Celsius)
-          WTmu = 3.0
-          # this is the min water temperature (degree Celsius)
-          WTgamma = 0.18
-          WTbeta = 14
+            # WaterTemperature = 3.0 + (28-3)/(1+exp(0.18*(14-AirTemperature)));
+            self.var.waterTemperature = WTmu + (WTalpha - WTmu) / (
+                1 + np.exp(WTgamma * (WTbeta - self.var.Tavg))
+            )
+            # Water-Air temperature relationship based on Morrill et al. (2005)
+            # Water Temperature (Ãƒâ€šÃ‚Â°C)
 
-
-
-
-
-          #WaterTemperature = 3.0 + (28-3)/(1+exp(0.18*(14-AirTemperature)));
-          self.var.waterTemperature = WTmu + (WTalpha - WTmu)/(1 + np.exp(WTgamma * (WTbeta -  self.var.Tavg)))
-             # Water-Air temperature relationship based on Morrill et al. (2005)
-             # Water Temperature (Ãƒâ€šÃ‚Â°C)
-
-          i =1
+            i = 1

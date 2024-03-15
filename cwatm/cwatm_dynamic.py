@@ -11,6 +11,7 @@
 from cwatm.management_modules.data_handling import *
 from cwatm.management_modules.messages import *
 
+
 class CWATModel_dyn(DynamicModel):
 
     # =========== DYNAMIC ====================================================
@@ -29,28 +30,28 @@ class CWATModel_dyn(DynamicModel):
             * t: timing of different processes at the end
         """
 
-        #self.CalendarDate = dateVar['dateStart'] + datetime.timedelta(days=dateVar['curr'])
-        #self.CalendarDay = int(self.CalendarDate.strftime("%j"))
+        # self.CalendarDate = dateVar['dateStart'] + datetime.timedelta(days=dateVar['curr'])
+        # self.CalendarDay = int(self.CalendarDate.strftime("%j"))
         # timestep_dynamic(self)
-
 
         del timeMes[:]
         timemeasure("Start dynamic")
 
-        if checkOption('calc_environflow') and (returnBool('calc_ef_afterRun')  == False):
+        if checkOption("calc_environflow") and (
+            returnBool("calc_ef_afterRun") == False
+        ):
             # if only the dis is used for calculation of EF
             self.environflow_module.dynamic()
             # self.output_module.dynamic(ef = True)
             sys.exit("done with Environmental Flow")
 
-
         # self.readmeteo_module.dynamic()
         # timemeasure("Read meteo") # 1. timing after read input maps
 
         self.evaporationPot_module.dynamic()
-        timemeasure("ET pot") # 2. timing after read input maps
+        timemeasure("ET pot")  # 2. timing after read input maps
 
-        #if Flags['check']: return  # if check than finish here
+        # if Flags['check']: return  # if check than finish here
 
         """ Here it starts with hydrological modules:
         """
@@ -66,10 +67,20 @@ class CWATModel_dyn(DynamicModel):
         # ***** READ land use fraction maps***************************
 
         # *********  Soil splitted in different land cover fractions *************
-        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic()
+        (
+            interflow,
+            directRunoff,
+            groundwater_recharge,
+            groundwater_abstraction,
+            channel_abstraction,
+            openWaterEvap,
+            returnFlow,
+        ) = self.landcoverType_module.dynamic()
         timemeasure("Soil main")  # 5. timing
 
-        self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)
+        self.groundwater_modflow_module.dynamic(
+            groundwater_recharge, groundwater_abstraction
+        )
         timemeasure("Groundwater")  # 7. timing
 
         self.runoff_concentration_module.dynamic(interflow, directRunoff)
@@ -78,8 +89,9 @@ class CWATModel_dyn(DynamicModel):
         self.lakes_res_small_module.dynamic()
         timemeasure("Small lakes")  # 9. timing
 
-
-        self.routing_kinematic_module.dynamic(openWaterEvap, channel_abstraction, returnFlow)
+        self.routing_kinematic_module.dynamic(
+            openWaterEvap, channel_abstraction, returnFlow
+        )
         timemeasure("Routing_Kin")  # 10. timing
 
         self.waterquality1.dynamic()

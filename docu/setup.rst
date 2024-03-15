@@ -248,7 +248,7 @@ example::
    CellArea                      n_netcdf/landsurface/topo/cellarea.nc          2832          0      68x77       True          0          0       2832   5.31E+07   5.63E+07   5.94E+07
    precipitation_coversion       86.4                                              -          -          -          -          -                 86.40           
    evaporation_coversion         1.00                                              -          -          -          -          -                  1.00           
-   crop_correct                  1.534                                             -          -          -          -          -                  1.53           
+   crop_factor_calibration_factor                  1.534                                             -          -          -          -          -                  1.53           
    NumberSnowLayers              7                                                 -          -          -          -          -                  7.00           
    GlacierTransportZone          3                                                 -          -          -          -          -                  3.00           
    ElevationStD                  min_netcdf/landsurface/topo/elvstd.nc          2832          0      68x77       True          0          0       2832       0.04      78.67     672.68

@@ -179,7 +179,7 @@ class soil(object):
             ini_file = out_dir / f"p_daily.ini"
 
             yaml["> STRINGS"]["outDir"] = out_dir
-            if self.model.scenario in ("spinup", "pre-spinup"):
+            if self.model.spinup is True:
                 original_state_file = (
                     Path("input")
                     / "plantFATE_initialization"
@@ -595,11 +595,7 @@ class soil(object):
                         "temperature": self.model.data.grid.tas[forest_grid],
                     }
 
-                    if (
-                        self.model.current_timestep
-                        == 1
-                        # and self.model.scenario == "spinup"
-                    ):
+                    if self.model.current_timestep == 1:
                         self.model.plantFATE[forest_RU_idx].first_step(
                             tstart=self.model.current_time, **plantFATE_data
                         )

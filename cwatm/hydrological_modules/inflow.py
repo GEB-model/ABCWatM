@@ -12,8 +12,8 @@
 import math
 from cwatm.management_modules.data_handling import *
 
-class inflow(object):
 
+class inflow(object):
     """
     READ INFLOW HYDROGRAPHS (OPTIONAL)
     If option "inflow" is set to 1 the inflow hydrograph code is used otherwise dummy code is used
@@ -22,15 +22,15 @@ class inflow(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    sampleInflow          location of inflow point                                                          lat/lon  
-    noinflowpoints        number of inflow points                                                           --       
-    inflowTs              inflow time series data                                                           m3/s     
-    QInM3Old              Inflow from previous day                                                          m3       
-    totalQInM3            total inflow over time (for mass balance calculation)                             m3       
-    inflowM3              inflow to basin                                                                   m3       
-    DtSec                 number of seconds per timestep (default = 86400)                                  s        
+    sampleInflow          location of inflow point                                                          lat/lon
+    noinflowpoints        number of inflow points                                                           --
+    inflowTs              inflow time series data                                                           m3/s
+    QInM3Old              Inflow from previous day                                                          m3
+    totalQInM3            total inflow over time (for mass balance calculation)                             m3
+    inflowM3              inflow to basin                                                                   m3
+    DtSec                 number of seconds per timestep (default = 86400)                                  s
     ====================  ================================================================================  =========
 
     **Functions**
@@ -59,8 +59,8 @@ class inflow(object):
             """
 
             sampleAdresses = {}
-            for i in range(maskinfo['mapC'][0]):
-                if out[i]>0:
+            for i in range(maskinfo["mapC"][0]):
+                if out[i] > 0:
                     sampleAdresses[out[i]] = i
             return sampleAdresses
 
@@ -83,11 +83,9 @@ class inflow(object):
                     newrecarray[name] = a[name]
             return newrecarray
 
+        if checkOption("inflow"):
 
-
-        if checkOption('inflow'):
-
-            localGauges = returnBool('InLocal')
+            localGauges = returnBool("InLocal")
 
             where = "InflowPoints"
             inflowPointsMap = cbinding(where)
@@ -104,21 +102,22 @@ class inflow(object):
                         msg = "Coordinates are not pairs\n"
                     raise CWATMFileError(inflowPointsMap, msg, sname="Gauges")
 
-
             inflowPoints[inflowPoints < 0] = 0
-            self.var.sampleInflow = getlocOutpoints(inflowPoints)  # for key in sorted(mydict):
+            self.var.sampleInflow = getlocOutpoints(
+                inflowPoints
+            )  # for key in sorted(mydict):
             self.var.noinflowpoints = len(self.var.sampleInflow)
 
-            inDir = cbinding('In_Dir')
-            inflowFile = cbinding('QInTS').split()
+            inDir = cbinding("In_Dir")
+            inflowFile = cbinding("QInTS").split()
 
-            inflowNames =[]
+            inflowNames = []
             flagFirstTss = True
             for name in inflowFile:
-                names =['timestep']
+                names = ["timestep"]
                 try:
 
-                    filename = os.path.join(inDir,name)
+                    filename = os.path.join(inDir, name)
                     file = open(filename, "r")
 
                     # read data header
@@ -126,9 +125,9 @@ class inflow(object):
                     no = int(file.readline()) - 1
                     line = file.readline()
                     for i in range(no):
-                        line = file.readline().strip('\n')
+                        line = file.readline().strip("\n")
                         if line in inflowNames:
-                            msg = line  + " in: " + filename + " is used already"
+                            msg = line + " in: " + filename + " is used already"
                             raise CWATMError(msg)
 
                         inflowNames.append(line)
@@ -136,28 +135,33 @@ class inflow(object):
                     file.close()
                     skiplines = 3 + no
                 except:
-                    raise CWATMFileError(os.path.join(inDir,name), sname=name)
+                    raise CWATMFileError(os.path.join(inDir, name), sname=name)
 
-                tempTssData = np.genfromtxt(filename, skip_header=skiplines, names=names, usecols=names[1:], filling_values=0.0)
+                tempTssData = np.genfromtxt(
+                    filename,
+                    skip_header=skiplines,
+                    names=names,
+                    usecols=names[1:],
+                    filling_values=0.0,
+                )
 
                 if flagFirstTss:
                     self.var.inflowTs = tempTssData.copy()
                     flagFirstTss = False
                     # copy temp data into the inflow data
                 else:
-                    self.var.inflowTs = join_struct_arrays2((self.var.inflowTs, tempTssData))
+                    self.var.inflowTs = join_struct_arrays2(
+                        (self.var.inflowTs, tempTssData)
+                    )
                     # join this dataset with the ones before
 
                 ###import numpy.lib.recfunctions as rfn
                 ###d = rfn.merge_arrays((a,b), flatten=True, usemask=False)
 
-
             self.var.QInM3Old = globals.inZero.copy()
             # Initialising cumulative output variables
             # These are all needed to compute the cumulative mass balance error
             self.var.totalQInM3 = globals.inZero.copy()
-
-
 
     def dynamic(self):
         """
@@ -165,16 +169,16 @@ class inflow(object):
         Use the inflow points to add inflow from time series file(s)
         """
 
-        if checkOption('inflow'):
+        if checkOption("inflow"):
 
             # Get inflow hydrograph at each inflow point [m3/s]
             self.var.inflowM3 = globals.inZero.copy()
             for key in self.var.sampleInflow:
                 loc = self.var.sampleInflow[key]
-                index = dateVar['curr']-1
-                self.var.inflowM3[loc] = self.var.inflowTs[str(key)][index] * self.model.DtSec
+                index = dateVar["curr"] - 1
+                self.var.inflowM3[loc] = (
+                    self.var.inflowTs[str(key)][index] * self.model.DtSec
+                )
                 # Convert to [m3] per time step
             self.var.totalQInM3 += self.var.inflowM3
             # Map of total inflow from inflow hydrographs [m3]
-
-

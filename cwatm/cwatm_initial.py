@@ -17,22 +17,31 @@ from cwatm.hydrological_modules.soil import soil
 from cwatm.hydrological_modules.landcoverType import landcoverType
 from cwatm.hydrological_modules.sealed_water import sealed_water
 from cwatm.hydrological_modules.evaporation import evaporation
-from cwatm.hydrological_modules.groundwater_modflow.modflow_transient import groundwater_modflow
+from cwatm.hydrological_modules.groundwater_modflow.modflow_transient import (
+    groundwater_modflow,
+)
 from cwatm.hydrological_modules.water_demand.water_demand import water_demand
 from cwatm.hydrological_modules.interception import interception
 from cwatm.hydrological_modules.runoff_concentration import runoff_concentration
 from cwatm.hydrological_modules.lakes_res_small import lakes_res_small
 from cwatm.hydrological_modules.waterbalance import waterbalance
 from cwatm.hydrological_modules.environflow import environflow
-from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import routing_kinematic
+from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
+    routing_kinematic,
+)
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
 from cwatm.hydrological_modules.waterquality1 import waterquality1
 from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
-from cwatm.management_modules.data_handling import loadsetclone, metaNetCDF, checkOption, loadmap
+from cwatm.management_modules.data_handling import (
+    loadsetclone,
+    metaNetCDF,
+    checkOption,
+    loadmap,
+)
+
 
 class CWATModel_ini(DynamicModel):
-
     """
     CWATN initial part
     this part is to initialize the variables.
@@ -51,7 +60,7 @@ class CWATModel_ini(DynamicModel):
         # ----------------------------------------
         ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2
         # set the maskmap
-        self.MaskMap = loadsetclone(self, 'MaskMap')
+        self.MaskMap = loadsetclone(self, "MaskMap")
 
         # ----------------------------------------
         # include output of tss and maps
@@ -85,7 +94,9 @@ class CWATModel_ini(DynamicModel):
 
         self.evaporationPot_module.initial()
 
-        ElevationStD = self.data.to_HRU(data=loadmap('ElevationStD'), fn=None)  # checked
+        ElevationStD = self.data.to_HRU(
+            data=loadmap("ElevationStD"), fn=None
+        )  # checked
 
         self.snowfrost_module.initial(ElevationStD)
         self.soil_module.initial()
@@ -100,7 +111,7 @@ class CWATModel_ini(DynamicModel):
         self.lakes_res_small_module.initial()
 
         self.routing_kinematic_module.initial()
-        if checkOption('includeWaterBodies'):
+        if checkOption("includeWaterBodies"):
             self.lakes_reservoirs_module.initWaterbodies()
             self.lakes_reservoirs_module.initial_lakes()
             self.lakes_reservoirs_module.initial_reservoirs()

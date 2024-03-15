@@ -11,6 +11,7 @@
 import numpy as np
 from cwatm.management_modules.data_handling import checkOption
 
+
 class sealed_water(object):
     """
     Sealed and open water runoff
@@ -21,18 +22,18 @@ class sealed_water(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    modflow               Flag: True if modflow_coupling = True in settings file                            --       
-    EWRef                 potential evaporation rate from water surface                                     m        
-    capillar              Simulated flow from groundwater to the third CWATM soil layer                     m        
-    waterbalance_module                                                                                              
-    availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m        
-    actualET              simulated evapotranspiration from soil, flooded area and vegetation               m        
-    directRunoff          Simulated surface runoff                                                          m        
-    openWaterEvap         Simulated evaporation from open areas                                             m        
-    actTransTotal         Total actual transpiration from the three soil layers                             m        
-    actBareSoilEvap       Simulated evaporation from the first soil layer                                   m        
+    modflow               Flag: True if modflow_coupling = True in settings file                            --
+    EWRef                 potential evaporation rate from water surface                                     m
+    capillar              Simulated flow from groundwater to the third CWATM soil layer                     m
+    waterbalance_module
+    availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m
+    actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
+    directRunoff          Simulated surface runoff                                                          m
+    openWaterEvap         Simulated evaporation from open areas                                             m
+    actTransTotal         Total actual transpiration from the three soil layers                             m
+    actBareSoilEvap       Simulated evaporation from the first soil layer                                   m
     ====================  ================================================================================  =========
 
     **Functions**
@@ -56,21 +57,41 @@ class sealed_water(object):
         mult[self.var.land_use_type == 5] = 1
         mult[self.var.land_use_type == 4] = 0.2
 
-        sealed_area = np.where((self.var.land_use_type == 4) | self.var.land_use_type == 5)
+        sealed_area = np.where(
+            (self.var.land_use_type == 4) | self.var.land_use_type == 5
+        )
 
         # GW capillary rise in sealed area is added to the runoff
-        openWaterEvap[sealed_area] = np.minimum(mult[sealed_area] * self.var.EWRef[sealed_area], self.var.natural_available_water_infiltration[sealed_area] + capillar[sealed_area])
-        directRunoff[sealed_area] = self.var.natural_available_water_infiltration[sealed_area] - openWaterEvap[sealed_area] + capillar[sealed_area]
+        openWaterEvap[sealed_area] = np.minimum(
+            mult[sealed_area] * self.var.EWRef[sealed_area],
+            self.var.natural_available_water_infiltration[sealed_area]
+            + capillar[sealed_area],
+        )
+        directRunoff[sealed_area] = (
+            self.var.natural_available_water_infiltration[sealed_area]
+            - openWaterEvap[sealed_area]
+            + capillar[sealed_area]
+        )
 
         # open water evaporation is directly substracted from the river, lakes, reservoir
-        self.var.actualET[sealed_area] = self.var.actualET[sealed_area] +  openWaterEvap[sealed_area]
+        self.var.actualET[sealed_area] = (
+            self.var.actualET[sealed_area] + openWaterEvap[sealed_area]
+        )
 
-        if checkOption('calcWaterBalance'):
+        if checkOption("calcWaterBalance"):
             self.model.waterbalance_module.waterBalanceCheck(
-                how='cellwise',
-                influxes=[self.var.natural_available_water_infiltration[sealed_area], capillar[sealed_area]],
-                outfluxes=[directRunoff[sealed_area], self.var.actTransTotal[sealed_area], self.var.actBareSoilEvap[sealed_area], openWaterEvap[sealed_area]],
-                tollerance=1e-6
+                how="cellwise",
+                influxes=[
+                    self.var.natural_available_water_infiltration[sealed_area],
+                    capillar[sealed_area],
+                ],
+                outfluxes=[
+                    directRunoff[sealed_area],
+                    self.var.actTransTotal[sealed_area],
+                    self.var.actBareSoilEvap[sealed_area],
+                    openWaterEvap[sealed_area],
+                ],
+                tollerance=1e-6,
             )
 
         return directRunoff

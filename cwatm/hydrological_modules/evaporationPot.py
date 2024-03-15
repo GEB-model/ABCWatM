@@ -8,9 +8,10 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
+import warnings
 import numpy as np
 from cwatm.management_modules.data_handling import loadmap, returnBool, loadmap
-from cwatm.management_modules.globals import binding
+from cwatm.management_modules.messages import CWATMError
 
 
 class evaporationPot(object):
@@ -29,7 +30,7 @@ class evaporationPot(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    cropCorrect           calibrated factor of crop KC factor                                               --
+    crop_factor_calibration_factor           calibrated factor of crop KC factor                                               --
     pet_modus             Flag: index which ETP approach is used e.g. 1 for Penman-Monteith                 --
     AlbedoCanopy          Albedo of vegetation canopy (FAO,1998) default =0.23                              --
     AlbedoSoil            Albedo of bare soil surface (Supit et. al. 1994) default = 0.15                   --
@@ -69,9 +70,18 @@ class evaporationPot(object):
         """
 
         # self.var.sumETRef = globals.inZero.copy()
-        self.var.cropCorrect = loadmap("crop_correct")
-        self.var.cropCorrect = self.model.data.to_HRU(
-            data=self.var.cropCorrect, fn=None
+        try:
+            self.var.crop_factor_calibration_factor = loadmap(
+                "crop_factor_calibration_factor"
+            )
+        except CWATMError:
+            self.var.crop_factor_calibration_factor = loadmap("crop_correct")
+            warnings.warn(
+                "crop_factor_calibration_factor not found, using crop_correct instead. Please rename crop_correct to crop_factor_calibration_factor in CWatM initalization file.",
+                DeprecationWarning,
+            )
+        self.var.crop_factor_calibration_factor = self.model.data.to_HRU(
+            data=self.var.crop_factor_calibration_factor, fn=None
         )
 
         self.var.AlbedoCanopy = loadmap("AlbedoCanopy")
@@ -84,13 +94,9 @@ class evaporationPot(object):
         Based on Penman Monteith - FAO 56
 
         """
-        tas_C = self.model.data.to_HRU(data=self.model.data.grid.tas, fn=None) - 273.15
-        tasmin_C = (
-            self.model.data.to_HRU(data=self.model.data.grid.tasmin, fn=None) - 273.15
-        )
-        tasmax_C = (
-            self.model.data.to_HRU(data=self.model.data.grid.tasmax, fn=None) - 273.15
-        )
+        tas_C = self.var.tas - 273.15
+        tasmin_C = self.var.tasmin - 273.15
+        tasmax_C = self.var.tasmax - 273.15
 
         # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
         ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
@@ -102,7 +108,7 @@ class evaporationPot(object):
             4.903e-9 * (((tasmin_C + 273.16) ** 4) + ((tasmax_C + 273.16) ** 4)) / 2
         )  # rlus = Surface Upwelling Longwave Radiation
 
-        ps_kPa = self.model.data.to_HRU(data=self.model.data.grid.ps, fn=None) * 0.001
+        ps_kPa = self.var.ps * 0.001
         psychrometric_constant = 0.665e-3 * ps_kPa
         # psychrometric constant [kPa C-1]
         # http://www.fao.org/docrep/X0490E/x0490e07.htm  Equation 8
@@ -114,23 +120,17 @@ class evaporationPot(object):
         if returnBool("useHuss"):
             raise NotImplementedError
         else:
-            hurs = self.model.data.to_HRU(data=self.model.data.grid.hurs, fn=None)
-            # if relative humidity
-            actual_vapour_pressure = saturated_vapour_pressure * hurs / 100.0
+            actual_vapour_pressure = saturated_vapour_pressure * self.var.hurs / 100.0
             # longwave radiation balance
 
-        rlds_MJ_m2_day = (
-            self.model.data.to_HRU(data=self.model.data.grid.rlds, fn=None) * 0.0864
-        )  # 86400 * 1E-6
+        rlds_MJ_m2_day = self.var.rlds * 0.0864  # 86400 * 1E-6
         net_longwave_radation_MJ_m2_day = rlus_MJ_m2_day - rlds_MJ_m2_day
 
         # ************************************************************
         # ***** NET ABSORBED RADIATION *******************************
         # ************************************************************
 
-        rsds_MJ_m2_day = (
-            self.model.data.to_HRU(data=self.model.data.grid.rsds, fn=None) * 0.0864
-        )  # 86400 * 1E-6
+        rsds_MJ_m2_day = self.var.rsds * 0.0864  # 86400 * 1E-6
         # net absorbed radiation of reference vegetation canopy [mm/d]
         RNA = np.maximum(
             (1 - self.var.AlbedoCanopy) * rsds_MJ_m2_day
@@ -158,9 +158,7 @@ class evaporationPot(object):
         # Adjust wind speed for measurement height: wind speed measured at
         # 10 m, but needed at 2 m height
         # Shuttleworth, W.J. (1993) in Maidment, D.R. (1993), p. 4.36
-        wind_2m = (
-            self.model.data.to_HRU(data=self.model.data.grid.sfcWind, fn=None) * 0.749
-        )
+        wind_2m = self.var.sfcWind * 0.749
 
         # TODO: update this properly following PCR-GLOBWB (https://github.com/UU-Hydro/PCR-GLOBWB_model/blob/0511485ad3ac0a1367d9d4918d2f61ae0fa0e900/model/evaporation/ref_pot_et_penman_monteith.py#L227)
 

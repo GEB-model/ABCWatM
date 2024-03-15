@@ -12,6 +12,7 @@ from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import returnBool, binding
 import numpy as np
 
+
 class waterdemand_environmental_need:
     """
     WATERDEMAND environment_need
@@ -22,15 +23,15 @@ class waterdemand_environmental_need:
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    cut_ef_map            if TRUE calculated maps of environmental flow are cut to the extend of the area   --       
-    M3toM                 Coefficient to change units                                                       --       
-    chanLength                                                                                                       
-    channelAlpha                                                                                                     
-    use_environflow                                                                                                  
-    envFlowm3s                                                                                                       
-    envFlow                                                                                                          
+    cut_ef_map            if TRUE calculated maps of environmental flow are cut to the extend of the area   --
+    M3toM                 Coefficient to change units                                                       --
+    chanLength
+    channelAlpha
+    use_environflow
+    envFlowm3s
+    envFlow
     ====================  ================================================================================  =========
 
     **Functions**

@@ -11,6 +11,7 @@
 from cwatm.management_modules.data_handling import *
 import numpy as np
 import math
+
 try:
     import cupy as cp
 except (ModuleNotFoundError, ImportError):
@@ -18,7 +19,6 @@ except (ModuleNotFoundError, ImportError):
 
 
 class snow_frost(object):
-
     """
     RAIN AND SNOW
 
@@ -31,54 +31,52 @@ class snow_frost(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    Tavg                  average air Temperature (input for the model)                                     K        
-    load_initial                                                                                                     
-    waterbalance_module                                                                                              
-    Rain                  Precipitation less snow                                                           m        
-    SnowMelt              total snow melt from all layers                                                   m        
-    SnowCover             snow cover (sum over all layers)                                                  m        
-    ElevationStD                                                                                                     
-    Precipitation         Precipitation (input for the model)                                               m        
-    DtDay                 seconds in a timestep (default=86400)                                             s        
-    numberSnowLayersFloa                                                                                             
-    numberSnowLayers      Number of snow layers (up to 10)                                                  --       
-    glaciertransportZone  Number of layers which can be mimiced as glacier transport zone                   --       
-    deltaInvNorm          Quantile of the normal distribution (for different numbers of snow layers)        --       
-    DeltaTSnow            Temperature lapse rate x std. deviation of elevation                              C°       
-    SnowDayDegrees        day of the year to degrees: 360/365.25 = 0.9856                                   --       
-    summerSeasonStart     day when summer season starts = 165                                               --       
-    IceDayDegrees         days of summer (15th June-15th Sept.) to degree: 180/(259-165)                    --       
+    Tavg                  average air Temperature (input for the model)                                     K
+    load_initial
+    waterbalance_module
+    Rain                  Precipitation less snow                                                           m
+    SnowMelt              total snow melt from all layers                                                   m
+    SnowCover             snow cover (sum over all layers)                                                  m
+    ElevationStD
+    Precipitation         Precipitation (input for the model)                                               m
+    DtDay                 seconds in a timestep (default=86400)                                             s
+    numberSnowLayersFloa
+    numberSnowLayers      Number of snow layers (up to 10)                                                  --
+    glaciertransportZone  Number of layers which can be mimiced as glacier transport zone                   --
+    deltaInvNorm          Quantile of the normal distribution (for different numbers of snow layers)        --
+    DeltaTSnow            Temperature lapse rate x std. deviation of elevation                              C°
+    SnowDayDegrees        day of the year to degrees: 360/365.25 = 0.9856                                   --
+    summerSeasonStart     day when summer season starts = 165                                               --
+    IceDayDegrees         days of summer (15th June-15th Sept.) to degree: 180/(259-165)                    --
     SnowSeason            seasonal melt factor                                                              m C°-1 da
-    TempSnow              Average temperature at which snow melts                                           C°       
-    SnowFactor            Multiplier applied to precipitation that falls as snow                            --       
-    SnowMeltCoef          Snow melt coefficient - default: 0.004                                            --       
-    IceMeltCoef           Ice melt coefficnet - default  0.007                                              --       
-    TempMelt              Average temperature at which snow melts                                           C°       
-    SnowCoverS            snow cover for each layer                                                         m        
-    Kfrost                Snow depth reduction coefficient, (HH, p. 7.28)                                   m-1      
-    Afrost                Daily decay coefficient, (Handbook of Hydrology, p. 7.28)                         --       
-    FrostIndexThreshold   Degree Days Frost Threshold (stops infiltration, percolation and capillary rise)  --       
-    SnowWaterEquivalent   Snow water equivalent, (based on snow density of 450 kg/m3) (e.g. Tarboton and L  --       
-    FrostIndex            FrostIndex - Molnau and Bissel (1983), A Continuous Frozen Ground Index for Floo  --       
-    extfrostindex         Flag for second frostindex                                                        --       
-    FrostIndexThreshold2  FrostIndex2 - Molnau and Bissel (1983), A Continuous Frozen Ground Index for Flo           
-    frostInd1             forstindex 1                                                                               
-    frostInd2             frostindex 2                                                                               
-    frostindexS           array for frostindex                                                                       
-    prevSnowCover         snow cover of previous day (only for water balance)                               m        
-    Snow                  Snow (equal to a part of Precipitation)                                           m        
+    TempSnow              Average temperature at which snow melts                                           C°
+    SnowFactor            Multiplier applied to precipitation that falls as snow                            --
+    SnowMeltCoef          Snow melt coefficient - default: 0.004                                            --
+    IceMeltCoef           Ice melt coefficnet - default  0.007                                              --
+    TempMelt              Average temperature at which snow melts                                           C°
+    SnowCoverS            snow cover for each layer                                                         m
+    Kfrost                Snow depth reduction coefficient, (HH, p. 7.28)                                   m-1
+    Afrost                Daily decay coefficient, (Handbook of Hydrology, p. 7.28)                         --
+    FrostIndexThreshold   Degree Days Frost Threshold (stops infiltration, percolation and capillary rise)  --
+    SnowWaterEquivalent   Snow water equivalent, (based on snow density of 450 kg/m3) (e.g. Tarboton and L  --
+    FrostIndex            FrostIndex - Molnau and Bissel (1983), A Continuous Frozen Ground Index for Floo  --
+    extfrostindex         Flag for second frostindex                                                        --
+    FrostIndexThreshold2  FrostIndex2 - Molnau and Bissel (1983), A Continuous Frozen Ground Index for Flo
+    frostInd1             forstindex 1
+    frostInd2             frostindex 2
+    frostindexS           array for frostindex
+    prevSnowCover         snow cover of previous day (only for water balance)                               m
+    Snow                  Snow (equal to a part of Precipitation)                                           m
     ====================  ================================================================================  =========
 
     **Functions**
     """
 
-
     def __init__(self, model):
         self.var = model.data.HRU
         self.model = model
-
 
     def initial(self, ElevationStD):
         """
@@ -88,11 +86,11 @@ class snow_frost(object):
         * loads the parameter for frost
         """
 
-        self.var.numberSnowLayersFloat = loadmap('NumberSnowLayers')    # default 3
+        self.var.numberSnowLayersFloat = loadmap("NumberSnowLayers")  # default 3
         self.var.numberSnowLayers = int(self.var.numberSnowLayersFloat)
-        self.var.glaciertransportZone = int(loadmap('GlacierTransportZone'))  # default 1 -> highest zone is transported to middle zone
-
-
+        self.var.glaciertransportZone = int(
+            loadmap("GlacierTransportZone")
+        )  # default 1 -> highest zone is transported to middle zone
 
         # Difference between (average) air temperature at average elevation of
         # pixel and centers of upper- and lower elevation zones [deg C]
@@ -102,43 +100,86 @@ class snow_frost(object):
         #  Number: 2 ,3, 4, 5, 6, 7, ,8, 9, 10
         dn = {}
         dn[1] = np.array([0])
-        dn[2] = np.array([-0.67448975,  0.67448975])
-        dn[3] = np.array([-0.96742157,  0.,  0.96742157])
-        dn[5] = np.array([-1.28155157, -0.52440051,  0.,  0.52440051,  1.28155157])
-        dn[7] = np.array([-1.46523379, -0.79163861, -0.36610636, 0., 0.36610636,0.79163861, 1.46523379])
-        dn[9] = np.array([-1.59321882, -0.96742157, -0.5894558 , -0.28221615,  0., 0.28221615,  0.5894558 ,  0.96742157,  1.59321882])
-        dn[10] = np.array([-1.64485363, -1.03643339, -0.67448975, -0.38532047, -0.12566135, 0.12566135,  0.38532047,  0.67448975,  1.03643339,  1.64485363])
+        dn[2] = np.array([-0.67448975, 0.67448975])
+        dn[3] = np.array([-0.96742157, 0.0, 0.96742157])
+        dn[5] = np.array([-1.28155157, -0.52440051, 0.0, 0.52440051, 1.28155157])
+        dn[7] = np.array(
+            [
+                -1.46523379,
+                -0.79163861,
+                -0.36610636,
+                0.0,
+                0.36610636,
+                0.79163861,
+                1.46523379,
+            ]
+        )
+        dn[9] = np.array(
+            [
+                -1.59321882,
+                -0.96742157,
+                -0.5894558,
+                -0.28221615,
+                0.0,
+                0.28221615,
+                0.5894558,
+                0.96742157,
+                1.59321882,
+            ]
+        )
+        dn[10] = np.array(
+            [
+                -1.64485363,
+                -1.03643339,
+                -0.67448975,
+                -0.38532047,
+                -0.12566135,
+                0.12566135,
+                0.38532047,
+                0.67448975,
+                1.03643339,
+                1.64485363,
+            ]
+        )
 
-        #divNo = 1./float(self.var.numberSnowLayers)
-        #deltaNorm = np.linspace(divNo/2, 1-divNo/2, self.var.numberSnowLayers)
-        #self.var.deltaInvNorm = norm.ppf(deltaNorm)
+        # divNo = 1./float(self.var.numberSnowLayers)
+        # deltaNorm = np.linspace(divNo/2, 1-divNo/2, self.var.numberSnowLayers)
+        # self.var.deltaInvNorm = norm.ppf(deltaNorm)
         self.var.deltaInvNorm = dn[self.var.numberSnowLayers]
 
-        #self.var.DeltaTSnow =  uNorm[self.var.numberSnowLayers] * ElevationStD * loadmap('TemperatureLapseRate')
-        #self.var.DeltaTSnow = 0.9674 * ElevationStD * loadmap('TemperatureLapseRate')
-        self.var.DeltaTSnow = ElevationStD * self.model.data.to_HRU(data=loadmap('TemperatureLapseRate'), fn=None)  # checked
-
+        # self.var.DeltaTSnow =  uNorm[self.var.numberSnowLayers] * ElevationStD * loadmap('TemperatureLapseRate')
+        # self.var.DeltaTSnow = 0.9674 * ElevationStD * loadmap('TemperatureLapseRate')
+        self.var.DeltaTSnow = ElevationStD * self.model.data.to_HRU(
+            data=loadmap("TemperatureLapseRate"), fn=None
+        )  # checked
 
         self.var.SnowDayDegrees = 0.9856
         # day of the year to degrees: 360/365.25 = 0.9856
         self.var.summerSeasonStart = 165
-        #self.var.IceDayDegrees = 1.915
-        self.var.IceDayDegrees = 180./(259- self.var.summerSeasonStart)
+        # self.var.IceDayDegrees = 1.915
+        self.var.IceDayDegrees = 180.0 / (259 - self.var.summerSeasonStart)
         # days of summer (15th June-15th Sept.) to degree: 180/(259-165)
-        self.var.SnowSeason = loadmap('SnowSeasonAdj') * 0.5
+        self.var.SnowSeason = loadmap("SnowSeasonAdj") * 0.5
         # default value of range  of seasonal melt factor is set to 0.001 m C-1 day-1
         # 0.5 x range of sinus function [-1,1]
-        self.var.TempSnow = loadmap('TempSnow')
-        self.var.SnowFactor = loadmap('SnowFactor')
-        self.var.SnowMeltCoef = loadmap('SnowMeltCoef')
-        self.var.IceMeltCoef = loadmap('IceMeltCoef')
+        self.var.TempSnow = loadmap("TempSnow")
+        self.var.SnowFactor = loadmap("SnowFactor")
+        self.var.SnowMeltCoef = loadmap("SnowMeltCoef")
+        self.var.IceMeltCoef = loadmap("IceMeltCoef")
 
-        self.var.TempMelt = loadmap('TempMelt')
+        self.var.TempMelt = loadmap("TempMelt")
 
         # initialize snowcovers as many as snow layers -> read them as SnowCover1 , SnowCover2 ...
         # SnowCover1 is the highest zone
-        SnowCoverS = np.tile(self.model.data.to_HRU(data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None), (self.var.numberSnowLayers, 1))
-        self.var.SnowCoverS = self.model.data.HRU.load_initial("SnowCoverS", default=SnowCoverS)
+        SnowCoverS = np.tile(
+            self.model.data.to_HRU(
+                data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None
+            ),
+            (self.var.numberSnowLayers, 1),
+        )
+        self.var.SnowCoverS = self.model.data.HRU.load_initial(
+            "SnowCoverS", default=SnowCoverS
+        )
 
         # Pixel-average initial snow cover: average of values in 3 elevation
         # zones
@@ -147,22 +188,24 @@ class snow_frost(object):
         # Initial part of frost index
 
         # self.var.Kfrost = loadmap('Kfrost')
-        self.var.Afrost = loadmap('Afrost')
-        self.var.FrostIndexThreshold = loadmap('FrostIndexThreshold')
-        self.var.SnowWaterEquivalent = loadmap('SnowWaterEquivalent')
+        self.var.Afrost = loadmap("Afrost")
+        self.var.FrostIndexThreshold = loadmap("FrostIndexThreshold")
+        self.var.SnowWaterEquivalent = loadmap("SnowWaterEquivalent")
 
-        self.var.FrostIndex = self.model.data.HRU.load_initial('FrostIndex', default=self.model.data.HRU.full_compressed(0, dtype=np.float32))
+        self.var.FrostIndex = self.model.data.HRU.load_initial(
+            "FrostIndex",
+            default=self.model.data.HRU.full_compressed(0, dtype=np.float32),
+        )
 
         self.var.extfrostindex = False
         if "morefrost" in binding:
-            self.var.extfrostindex = returnBool('morefrost')
-            self.var.FrostIndexThreshold2 = loadmap('FrostIndexThreshold2')
+            self.var.extfrostindex = returnBool("morefrost")
+            self.var.FrostIndexThreshold2 = loadmap("FrostIndexThreshold2")
             self.var.frostInd1 = globals.inZero
             self.var.frostInd2 = globals.inZero
             self.var.frostindexS = []
             for i in range(self.var.numberSnowLayers):
                 self.var.frostindexS.append(globals.inZero)
-
 
     def dynamic(self):
         """
@@ -182,12 +225,15 @@ class snow_frost(object):
         Todo:
             calculate sinus shape function for the southern hemisspere
         """
-        if checkOption('calcWaterBalance'):
+        if checkOption("calcWaterBalance"):
             self.var.prevSnowCover = np.sum(self.var.SnowCoverS, axis=0)
 
         day_of_year = self.model.current_time.timetuple().tm_yday
-        SeasSnowMeltCoef = self.var.SnowSeason * np.sin(math.radians((day_of_year - 81)
-                                * self.var.SnowDayDegrees)) + self.var.SnowMeltCoef
+        SeasSnowMeltCoef = (
+            self.var.SnowSeason
+            * np.sin(math.radians((day_of_year - 81) * self.var.SnowDayDegrees))
+            + self.var.SnowMeltCoef
+        )
 
         # SeasSnowMeltCoef = SnowSeason * sin((dateVar['doy']-81)* SnowDayDegrees) + SnowMeltCoef;
 
@@ -195,9 +241,12 @@ class snow_frost(object):
         # annual minimum (December 21st) and annual maximum (June 21st)
         # TODO change this for the southern hemisspere
 
-
         if (day_of_year > self.var.summerSeasonStart) and (day_of_year < 260):
-            SummerSeason = np.sin(math.radians((day_of_year - self.var.summerSeasonStart) * self.var.IceDayDegrees))
+            SummerSeason = np.sin(
+                math.radians(
+                    (day_of_year - self.var.summerSeasonStart) * self.var.IceDayDegrees
+                )
+            )
         else:
             SummerSeason = 0.0
 
@@ -205,61 +254,100 @@ class snow_frost(object):
         self.var.Rain = self.var.full_compressed(0, dtype=np.float32)
         self.var.SnowMelt = self.var.full_compressed(0, dtype=np.float32)
 
-        tas_C = self.model.data.to_HRU(data=self.model.data.grid.tas, fn=None) - 273.15
-        converstion_factor = 0.001 * 86400.0  # kg/m2/s to m/day
-        self.var.precipitation_m_day = self.model.DtDay * converstion_factor * self.model.data.to_HRU(data=self.model.data.grid.pr, fn=None)
+        tas_C = self.var.tas - 273.15
+        self.var.precipitation_m_day = (
+            self.model.DtDay * 0.001 * 86400.0 * self.var.pr  # kg/m2/s to m/day
+        )
 
         for i in range(self.var.numberSnowLayers):
             TavgS = tas_C + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
             # Temperature at center of each zone (temperature at zone B equals Tavg)
             # i=0 -> highest zone
             # i=2 -> lower zone
-            SnowS = np.where(TavgS < self.var.TempSnow, self.var.SnowFactor * self.var.precipitation_m_day, self.var.full_compressed(0, dtype=np.float32))
+            SnowS = np.where(
+                TavgS < self.var.TempSnow,
+                self.var.SnowFactor * self.var.precipitation_m_day,
+                self.var.full_compressed(0, dtype=np.float32),
+            )
             # Precipitation is assumed to be snow if daily average temperature is below TempSnow
             # Snow is multiplied by correction factor to account for undercatch of
             # snow precipitation (which is common)
-            RainS = np.where(TavgS >= self.var.TempSnow, self.var.precipitation_m_day, self.var.full_compressed(0, dtype=np.float32))
+            RainS = np.where(
+                TavgS >= self.var.TempSnow,
+                self.var.precipitation_m_day,
+                self.var.full_compressed(0, dtype=np.float32),
+            )
             # if it's snowing then no rain
             # snowmelt coeff in m/deg C/day
-            SnowMeltS = (TavgS - self.var.TempMelt) * SeasSnowMeltCoef * (1 + 0.01 * RainS) * self.model.DtDay
-            SnowMeltS = np.maximum(SnowMeltS, self.var.full_compressed(0, dtype=np.float32))
+            SnowMeltS = (
+                (TavgS - self.var.TempMelt)
+                * SeasSnowMeltCoef
+                * (1 + 0.01 * RainS)
+                * self.model.DtDay
+            )
+            SnowMeltS = np.maximum(
+                SnowMeltS, self.var.full_compressed(0, dtype=np.float32)
+            )
 
             # for which layer the ice melt is calcultated with the middle temp.
             # for the others it is calculated with the corrected temp
             # this is to mimic glacier transport to lower zones
             if i <= self.var.glaciertransportZone:
-                IceMeltS = tas_C * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                IceMeltS = (
+                    tas_C * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                )
                 # if i = 0 and 1 -> higher and middle zone
                 # Ice melt coeff in m/C/deg
             else:
-                IceMeltS = TavgS * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                IceMeltS = (
+                    TavgS * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
+                )
 
-            IceMeltS = np.maximum(IceMeltS, self.var.full_compressed(0, dtype=np.float32))
-            SnowMeltS = np.maximum(np.minimum(SnowMeltS + IceMeltS, self.var.SnowCoverS[i]), self.var.full_compressed(0, dtype=np.float32))
+            IceMeltS = np.maximum(
+                IceMeltS, self.var.full_compressed(0, dtype=np.float32)
+            )
+            SnowMeltS = np.maximum(
+                np.minimum(SnowMeltS + IceMeltS, self.var.SnowCoverS[i]),
+                self.var.full_compressed(0, dtype=np.float32),
+            )
             # check if snow+ice not bigger than snowcover
             self.var.SnowCoverS[i] = self.var.SnowCoverS[i] + SnowS - SnowMeltS
             Snow += SnowS
             self.var.Rain += RainS
             self.var.SnowMelt += SnowMeltS
 
-
             if self.var.extfrostindex:
                 Kfrost = np.where(TavgS < 0, 0.08, 0.5)
-                FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.frostindexS[i] - TavgS *\
-                        np.exp(-0.4 * 100 * Kfrost * np.minimum(1.0, self.var.SnowCoverS[i] / self.var.SnowWaterEquivalent))
-                self.var.frostindexS[i] = np.maximum(self.var.frostindexS[i] + FrostIndexChangeRate * self.model.DtDay, 0)
-
+                FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.frostindexS[
+                    i
+                ] - TavgS * np.exp(
+                    -0.4
+                    * 100
+                    * Kfrost
+                    * np.minimum(
+                        1.0, self.var.SnowCoverS[i] / self.var.SnowWaterEquivalent
+                    )
+                )
+                self.var.frostindexS[i] = np.maximum(
+                    self.var.frostindexS[i] + FrostIndexChangeRate * self.model.DtDay, 0
+                )
 
         if self.var.extfrostindex:
-            if dateVar['curr'] >= dateVar['intSpin']:
+            if dateVar["curr"] >= dateVar["intSpin"]:
                 for i in range(self.var.numberSnowLayers):
-                    self.var.frostInd1 = np.where(self.var.frostindexS[i] > self.var.FrostIndexThreshold, self.var.frostInd1  + 1/ float(self.var.numberSnowLayers), self.var.frostInd1)
-                    self.var.frostInd2 = np.where(self.var.frostindexS[i] > self.var.FrostIndexThreshold2, self.var.frostInd2 + 1/ float(self.var.numberSnowLayers), self.var.frostInd2)
-            if dateVar['currDate'] == dateVar['dateEnd']:
-                self.var.frostInd1 = self.var.frostInd1 / float(dateVar['diffdays'])
-                self.var.frostInd2 = self.var.frostInd2 / float(dateVar['diffdays'])
-
-
+                    self.var.frostInd1 = np.where(
+                        self.var.frostindexS[i] > self.var.FrostIndexThreshold,
+                        self.var.frostInd1 + 1 / float(self.var.numberSnowLayers),
+                        self.var.frostInd1,
+                    )
+                    self.var.frostInd2 = np.where(
+                        self.var.frostindexS[i] > self.var.FrostIndexThreshold2,
+                        self.var.frostInd2 + 1 / float(self.var.numberSnowLayers),
+                        self.var.frostInd2,
+                    )
+            if dateVar["currDate"] == dateVar["dateEnd"]:
+                self.var.frostInd1 = self.var.frostInd1 / float(dateVar["diffdays"])
+                self.var.frostInd2 = self.var.frostInd2 / float(dateVar["diffdays"])
 
         Snow /= self.var.numberSnowLayersFloat
         self.var.Rain /= self.var.numberSnowLayersFloat
@@ -275,14 +363,25 @@ class snow_frost(object):
         #         [np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat],
         #         "Snow1", False)
 
-
         # ---------------------------------------------------------------------------------
         # Dynamic part of frost index
         Kfrost = np.where(tas_C < 0, 0.08, 0.5).astype(tas_C.dtype)
-        FrostIndexChangeRate = -(1 - self.var.Afrost) * self.var.FrostIndex - tas_C * \
-            np.exp(-0.4 * 100 * Kfrost * np.minimum(1.0, (np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat) / self.var.SnowWaterEquivalent))
+        FrostIndexChangeRate = -(
+            1 - self.var.Afrost
+        ) * self.var.FrostIndex - tas_C * np.exp(
+            -0.4
+            * 100
+            * Kfrost
+            * np.minimum(
+                1.0,
+                (np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat)
+                / self.var.SnowWaterEquivalent,
+            )
+        )
         # Rate of change of frost index (expressed as rate, [degree days/day])
-        self.var.FrostIndex = np.maximum(self.var.FrostIndex + FrostIndexChangeRate * self.model.DtDay, 0)
+        self.var.FrostIndex = np.maximum(
+            self.var.FrostIndex + FrostIndexChangeRate * self.model.DtDay, 0
+        )
         # frost index in soil [degree days] based on Molnau and Bissel (1983, A Continuous Frozen Ground Index for Flood
         # Forecasting. In: Maidment, Handbook of Hydrology, p. 7.28, 7.55)
         # if Tavg is above zero, FrostIndex will stay 0
@@ -306,5 +405,3 @@ class snow_frost(object):
                 self.var.frostInd2 = self.var.frostInd2 / float(dateVar['diffdays'])
                 ii = 1
         """
-
-

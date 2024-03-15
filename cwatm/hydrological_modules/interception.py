@@ -9,9 +9,15 @@
 # -------------------------------------------------------------------------
 
 from cwatm.management_modules import globals
-from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption, cbinding
+from cwatm.management_modules.data_handling import (
+    loadmap,
+    divideValues,
+    checkOption,
+    cbinding,
+)
 import numpy as np
 import xarray as xr
+
 
 class interception(object):
     """
@@ -21,20 +27,20 @@ class interception(object):
     **Global variables**
 
     ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit     
+    Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    EWRef                 potential evaporation rate from water surface                                     m        
-    waterbalance_module                                                                                              
-    interceptCap          interception capacity of vegetation                                               m        
-    minInterceptCap       Maximum interception read from file for forest and grassland land cover           m        
-    interceptStor         simulated vegetation interception storage                                         m        
-    Rain                  Precipitation less snow                                                           m        
-    availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m        
-    SnowMelt              total snow melt from all layers                                                   m        
-    interceptEvap         simulated evaporation from water intercepted by vegetation                        m        
-    potTranspiration      Potential transpiration (after removing of evaporation)                           m        
-    actualET              simulated evapotranspiration from soil, flooded area and vegetation               m        
-    snowEvap              total evaporation from snow for a snow layers                                     m        
+    EWRef                 potential evaporation rate from water surface                                     m
+    waterbalance_module
+    interceptCap          interception capacity of vegetation                                               m
+    minInterceptCap       Maximum interception read from file for forest and grassland land cover           m
+    interceptStor         simulated vegetation interception storage                                         m
+    Rain                  Precipitation less snow                                                           m
+    availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m
+    SnowMelt              total snow melt from all layers                                                   m
+    interceptEvap         simulated evaporation from water intercepted by vegetation                        m
+    potTranspiration      Potential transpiration (after removing of evaporation)                           m
+    actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
+    snowEvap              total evaporation from snow for a snow layers                                     m
     ====================  ================================================================================  =========
 
     **Functions**
@@ -48,20 +54,27 @@ class interception(object):
         self.var.minInterceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.interceptStor = self.var.full_compressed(np.nan, dtype=np.float32)
 
-        self.var.interceptStor = self.model.data.HRU.load_initial("interceptStor", default=self.model.data.HRU.full_compressed(0, dtype=np.float32))
+        self.var.interceptStor = self.model.data.HRU.load_initial(
+            "interceptStor",
+            default=self.model.data.HRU.full_compressed(0, dtype=np.float32),
+        )
 
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
-            self.var.minInterceptCap[coverType_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_minInterceptCap"), fn=None)
-        
+            self.var.minInterceptCap[coverType_indices] = self.model.data.to_HRU(
+                data=loadmap(coverType + "_minInterceptCap"), fn=None
+            )
+
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()
 
         self.interception_ds = {}
-        for land_cover in ('forest', 'grassland'):
+        for land_cover in ("forest", "grassland"):
             self.interception_ds[land_cover] = xr.open_dataset(
-                self.model.model_structure['forcing'][f'landcover/{land_cover}/interceptCap{land_cover.title()}_10days']
-            )[f'interceptCap{land_cover.title()}_10days']
+                self.model.model_structure["forcing"][
+                    f"landcover/{land_cover}/interceptCap{land_cover.title()}_10days"
+                ]
+            )[f"interceptCap{land_cover.title()}_10days"]
 
     def dynamic(self, potTranspiration):
         """
@@ -74,51 +87,68 @@ class interception(object):
 
         """
 
-        if checkOption('calcWaterBalance'):
+        if checkOption("calcWaterBalance"):
             interceptStor_pre = self.var.interceptStor.copy()
 
         interceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
-            if coverType in ('forest', 'grassland'):
+            if coverType in ("forest", "grassland"):
                 covertype_interceptCapNC = self.model.data.to_HRU(
                     data=self.model.data.grid.compress(
-                        self.interception_ds[coverType].sel(
+                        self.interception_ds[coverType]
+                        .sel(
                             time=self.model.current_time.replace(year=2000),
-                            method='ffill').data
+                            method="ffill",
+                        )
+                        .data
                     ),
-                    fn=None
+                    fn=None,
                 )
-                interceptCap[coverType_indices] = covertype_interceptCapNC[coverType_indices]
+                interceptCap[coverType_indices] = covertype_interceptCapNC[
+                    coverType_indices
+                ]
             else:
-                interceptCap[coverType_indices] = self.var.minInterceptCap[coverType_indices]
-        
+                interceptCap[coverType_indices] = self.var.minInterceptCap[
+                    coverType_indices
+                ]
+
         assert not np.isnan(interceptCap).any()
 
         # Rain instead Pr, because snow is substracted later
         # assuming that all interception storage is used the other time step
-        throughfall = np.maximum(0.0, self.var.Rain + self.var.interceptStor - interceptCap)
+        throughfall = np.maximum(
+            0.0, self.var.Rain + self.var.interceptStor - interceptCap
+        )
 
         # update interception storage after throughfall
         self.var.interceptStor = self.var.interceptStor + self.var.Rain - throughfall
 
         # availWaterInfiltration Available water for infiltration: throughfall + snow melt
-        self.var.natural_available_water_infiltration = np.maximum(0.0, throughfall + self.var.SnowMelt)
+        self.var.natural_available_water_infiltration = np.maximum(
+            0.0, throughfall + self.var.SnowMelt
+        )
 
         sealed_area = np.where(self.var.land_use_type == 4)
         water_area = np.where(self.var.land_use_type == 5)
-        bio_area = np.where(self.var.land_use_type < 4)  # 'forest', 'grassland', 'irrPaddy', 'irrNonPaddy'
+        bio_area = np.where(
+            self.var.land_use_type < 4
+        )  # 'forest', 'grassland', 'irrPaddy', 'irrNonPaddy'
 
         self.var.interceptEvap = self.var.full_compressed(np.nan, dtype=np.float32)
         # interceptEvap evaporation from intercepted water (based on potTranspiration)
         self.var.interceptEvap[bio_area] = np.minimum(
             self.var.interceptStor[bio_area],
-            potTranspiration[bio_area] * divideValues(self.var.interceptStor[bio_area], interceptCap[bio_area]) ** (2./3.)
+            potTranspiration[bio_area]
+            * divideValues(self.var.interceptStor[bio_area], interceptCap[bio_area])
+            ** (2.0 / 3.0),
         )
 
         self.var.interceptEvap[sealed_area] = np.maximum(
-            np.minimum(self.var.interceptStor[sealed_area], self.var.EWRef[sealed_area]),
-            self.var.full_compressed(0, dtype=np.float32)[sealed_area]
+            np.minimum(
+                self.var.interceptStor[sealed_area], self.var.EWRef[sealed_area]
+            ),
+            self.var.full_compressed(0, dtype=np.float32)[sealed_area],
         )
 
         self.var.interceptEvap[water_area] = 0  # never interception for water
@@ -131,17 +161,20 @@ class interception(object):
         # interceptEvap is the first flux in ET, soil evapo and transpiration are added later
         self.var.actualET = self.var.interceptEvap + self.var.snowEvap
 
-        if checkOption('calcWaterBalance'):
+        if checkOption("calcWaterBalance"):
             self.model.waterbalance_module.waterBalanceCheck(
-                how='cellwise',
+                how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],  # In
-                outfluxes=[self.var.natural_available_water_infiltration, self.var.interceptEvap],  # Out
+                outfluxes=[
+                    self.var.natural_available_water_infiltration,
+                    self.var.interceptEvap,
+                ],  # Out
                 prestorages=[interceptStor_pre],  # prev storage
                 poststorages=[self.var.interceptStor],
-                tollerance=1e-7
+                tollerance=1e-7,
             )
 
         # if self.model.use_gpu:
-            # self.var.interceptEvap = self.var.interceptEvap.get()
+        # self.var.interceptEvap = self.var.interceptEvap.get()
 
         return potTranspiration
