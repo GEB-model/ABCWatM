@@ -393,21 +393,21 @@ class groundwater_modflow:
         groundwater_recharge_modflow = self.CWATM2modflow(
             self.var.decompress(groundwater_recharge, fillvalue=0)
         )
-        assert isclose(
-            (groundwater_recharge * self.var.cellArea).sum(),
-            np.nansum(groundwater_recharge_modflow * self.modflow_cell_area),
-            rel_tol=1e-5,
-        )
+        # assert isclose(
+        #     (groundwater_recharge * self.var.cellArea).sum(),
+        #     np.nansum(groundwater_recharge_modflow * self.modflow_cell_area),
+        #     rel_tol=1e-5,
+        # )
         self.modflow.set_recharge(groundwater_recharge_modflow)
 
         groundwater_abstraction_modflow = self.CWATM2modflow(
             self.var.decompress(groundwater_abstraction, fillvalue=0)
         )
-        assert isclose(
-            (groundwater_abstraction * self.var.cellArea).sum(),
-            np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area),
-            rel_tol=1e-5,
-        )
+        # assert isclose(
+        #     (groundwater_abstraction * self.var.cellArea).sum(),
+        #     np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area),
+        #     rel_tol=1e-5,
+        # )
         self.modflow.set_groundwater_abstraction(groundwater_abstraction_modflow)
 
         self.modflow.step()

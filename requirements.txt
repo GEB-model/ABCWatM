@@ -7,4 +7,3 @@ numba
 bmipy
 xmipy
 xlrd
-pyflow

@@ -254,12 +254,9 @@ class snow_frost(object):
         self.var.Rain = self.var.full_compressed(0, dtype=np.float32)
         self.var.SnowMelt = self.var.full_compressed(0, dtype=np.float32)
 
-        tas_C = self.model.data.to_HRU(data=self.model.data.grid.tas, fn=None) - 273.15
-        converstion_factor = 0.001 * 86400.0  # kg/m2/s to m/day
+        tas_C = self.var.tas - 273.15
         self.var.precipitation_m_day = (
-            self.model.DtDay
-            * converstion_factor
-            * self.model.data.to_HRU(data=self.model.data.grid.pr, fn=None)
+            self.model.DtDay * 0.001 * 86400.0 * self.var.pr  # kg/m2/s to m/day
         )
 
         for i in range(self.var.numberSnowLayers):

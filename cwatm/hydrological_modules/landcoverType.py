@@ -937,14 +937,12 @@ class landcoverType(object):
         ]
         self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
 
-        potTranspiration, potBareSoilEvap, totalPotET = (
+        self.var.potTranspiration, potBareSoilEvap, totalPotET = (
             self.model.evaporation_module.dynamic(self.var.ETRef)
         )
 
-        if self.model.config["general"]["simulate_forest"]:
-            print("check whether this is correct with plantFATE implementation")
-        potTranspiration = self.model.interception_module.dynamic(
-            potTranspiration
+        potTranspiration_minus_interception_evaporation = (
+            self.model.interception_module.dynamic(self.var.potTranspiration)
         )  # first thing that evaporates is the water intercepted water.
 
         # *********  WATER Demand   *************************
@@ -965,7 +963,11 @@ class landcoverType(object):
             prefFlow,
             openWaterEvap,
         ) = self.model.soil_module.dynamic(
-            capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET
+            capillar,
+            openWaterEvap,
+            potTranspiration_minus_interception_evaporation,
+            potBareSoilEvap,
+            totalPotET,
         )
         directRunoff = self.model.sealed_water_module.dynamic(
             capillar, openWaterEvap, directRunoff
@@ -977,14 +979,14 @@ class landcoverType(object):
             ] += self.var.actTransTotal.get()[self.var.crop_map != -1]
             self.var.potential_transpiration_crop[
                 self.var.crop_map != -1
-            ] += potTranspiration.get()[self.var.crop_map != -1]
+            ] += self.var.potTranspiration.get()[self.var.crop_map != -1]
         else:
             self.var.actual_transpiration_crop[
                 self.var.crop_map != -1
             ] += self.var.actTransTotal[self.var.crop_map != -1]
             self.var.potential_transpiration_crop[
                 self.var.crop_map != -1
-            ] += potTranspiration[self.var.crop_map != -1]
+            ] += self.var.potTranspiration[self.var.crop_map != -1]
 
         assert not np.isnan(interflow).any()
         assert not np.isnan(groundwater_recharge).any()

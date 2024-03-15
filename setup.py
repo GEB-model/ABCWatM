@@ -45,7 +45,6 @@ setup(
         "scipy",
         "netCDF4",
         "gdal",
-        "pyflow",
         "pandas",
         "xlrd",
         "flopy",
