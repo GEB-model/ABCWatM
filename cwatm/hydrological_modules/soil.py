@@ -759,13 +759,6 @@ class soil(object):
         potBeta = (self.var.arnoBeta[bioarea] + 1) / self.var.arnoBeta[bioarea]
         potInf = store - store * (1 - (1 - satAreaFrac) ** potBeta)
 
-        infiltration_multiplier = (
-            self.model.agents.farmers.infiltration_multiplier.by_field(
-                self.model.data.HRU.land_owners, nofieldvalue=1
-            )
-        )
-        potInf *= infiltration_multiplier[bioarea]
-
         del satAreaFrac
         del potBeta
         del store
