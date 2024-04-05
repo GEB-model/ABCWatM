@@ -16,12 +16,10 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
-from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import (
     checkOption,
     binding,
     loadmap,
-    cbinding,
 )
 
 
@@ -29,8 +27,6 @@ from cwatm.management_modules.data_handling import (
 def get_crop_kc(
     crop_map, crop_age_days_map, crop_harvest_age_days, crop_stage_data, kc_crop_stage
 ):
-    assert (kc_crop_stage != 0).all()
-    assert (crop_stage_data != 0).all()
 
     shape = crop_map.shape
     crop_map = crop_map.ravel()
@@ -44,15 +40,16 @@ def get_crop_kc(
             age_days = crop_age_days_map[i]
             harvest_day = crop_harvest_age_days[i]
             assert harvest_day > 0
-            crop_progress = age_days / harvest_day * 100
+            crop_progress = age_days * 100 // harvest_day  # for to be integer
+            assert crop_progress <= 100
             d1, d2, d3, d4 = crop_stage_data[crop]
             kc1, kc2, kc3 = kc_crop_stage[crop]
             assert d1 + d2 + d3 + d4 == 100
-            if crop_progress < d1:
+            if crop_progress <= d1:
                 field_kc = kc1
-            elif crop_progress < d1 + d2:
+            elif crop_progress <= d1 + d2:
                 field_kc = kc1 + (crop_progress - d1) * (kc2 - kc1) / d2
-            elif crop_progress < d1 + d2 + d3:
+            elif crop_progress <= d1 + d2 + d3:
                 field_kc = kc2
             else:
                 assert crop_progress <= d1 + d2 + d3 + d4
@@ -898,18 +895,18 @@ class landcoverType(object):
 
         crop_stage_lenghts = np.column_stack(
             [
-                self.farmers.crop_variables["d1"],
-                self.farmers.crop_variables["d2a"] + self.farmers.crop_variables["d2b"],
-                self.farmers.crop_variables["d3a"] + self.farmers.crop_variables["d3b"],
-                self.farmers.crop_variables["d4"],
+                self.farmers.crop_data["l_ini"],
+                self.farmers.crop_data["l_dev"],
+                self.farmers.crop_data["l_mid"],
+                self.farmers.crop_data["l_late"],
             ]
         )
 
         crop_factors = np.column_stack(
             [
-                self.farmers.crop_variables["Kc1"],
-                self.farmers.crop_variables["Kc3"],
-                self.farmers.crop_variables["Kc5"],
+                self.farmers.crop_data["kc_initial"],
+                self.farmers.crop_data["kc_mid"],
+                self.farmers.crop_data["kc_end"],
             ]
         )
 
