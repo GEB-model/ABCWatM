@@ -297,11 +297,7 @@ class lakes_reservoirs(object):
                 self.var.waterBodyOutC > 0, self.var.waterBodyTypC.astype(np.int64), 0
             )
 
-            self.reservoir_operators = (
-                self.model.agents.reservoir_operators.initiate_agents(
-                    self.var.waterBodyIDC[self.var.waterBodyTypC == 2]
-                )
-            )
+            self.reservoir_operators = self.model.agents.reservoir_operators
 
             if (
                 "routing/lakesreservoirs/command_areas"
