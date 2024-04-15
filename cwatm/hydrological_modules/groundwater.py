@@ -105,7 +105,7 @@ class groundwater(object):
             0.0,
             self.var.storGroundwater
             - self.model.data.to_grid(
-                HRU_data=self.model.data.HRU.nonFossilGroundwaterAbs, fn="mean"
+                HRU_data=self.model.data.HRU.nonFossilGroundwaterAbs, fn="weightedmean"
             ),
         )
         # PS: We assume only local groundwater abstraction can happen (only to satisfy water demand within a cell).

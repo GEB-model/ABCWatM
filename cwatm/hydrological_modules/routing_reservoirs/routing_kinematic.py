@@ -335,9 +335,9 @@ class routing_kinematic(object):
         # channelFraction = np.maximum(self.var.fracVegCover[5], channelFraction)
 
         EWRefact = self.var.lakeEvaFactor * self.model.data.to_grid(
-            HRU_data=self.model.data.HRU.EWRef, fn="mean"
+            HRU_data=self.model.data.HRU.EWRef, fn="weightedmean"
         ) - self.model.data.to_grid(
-            HRU_data=openWaterEvap, fn="mean"
+            HRU_data=openWaterEvap, fn="weightedmean"
         )  # checked
         # evaporation from channel minus the calculated evaporation from rainfall
         EvapoChannel = EWRefact * channelFraction * self.var.cellArea

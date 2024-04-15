@@ -170,7 +170,7 @@ class soil(object):
         self.var.soildepth[2] = self.var.soildepth[2] * soildepth_factor
 
         self.model.data.grid.soildepth_12 = self.model.data.to_grid(
-            HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn="mean"
+            HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn="weightedmean"
         )
 
         def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
@@ -565,7 +565,7 @@ class soil(object):
             np.nan,
         )
         self.model.data.grid.soil_water_potential = self.model.data.to_grid(
-            HRU_data=soil_water_potential_plantFATE_HRUs, fn="nanmean"
+            HRU_data=soil_water_potential_plantFATE_HRUs, fn="weightednanmean"
         )
 
         if self.model.config["general"]["simulate_forest"]:

@@ -1064,7 +1064,7 @@ class landcoverType(object):
             )
 
         groundwater_recharge = self.model.data.to_grid(
-            HRU_data=groundwater_recharge, fn="mean"
+            HRU_data=groundwater_recharge, fn="weightedmean"
         )
         if checkOption("usewaterbodyexchange"):
             self.water_body_exchange(groundwater_recharge)
@@ -1072,8 +1072,8 @@ class landcoverType(object):
             self.model.data.grid.riverbedExchangeM3 = 0
 
         return (
-            self.model.data.to_grid(HRU_data=interflow, fn="mean"),
-            self.model.data.to_grid(HRU_data=directRunoff, fn="mean"),
+            self.model.data.to_grid(HRU_data=interflow, fn="weightedmean"),
+            self.model.data.to_grid(HRU_data=directRunoff, fn="weightedmean"),
             groundwater_recharge,
             groundwater_abstaction,
             channel_abstraction_m,

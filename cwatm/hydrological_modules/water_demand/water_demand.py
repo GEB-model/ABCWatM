@@ -288,7 +288,7 @@ class water_demand:
             # water withdrawal
             # 1. domestic (surface + ground)
             domestic_water_demand = self.model.data.to_grid(
-                HRU_data=domestic_water_demand, fn="mean"
+                HRU_data=domestic_water_demand, fn="weightedmean"
             )
             domestic_water_demand_m3 = self.model.data.grid.MtoM3(domestic_water_demand)
             del domestic_water_demand
@@ -305,7 +305,7 @@ class water_demand:
 
             # 2. industry (surface + ground)
             industry_water_demand = self.model.data.to_grid(
-                HRU_data=industry_water_demand, fn="mean"
+                HRU_data=industry_water_demand, fn="weightedmean"
             )
             industry_water_demand_m3 = self.model.data.grid.MtoM3(industry_water_demand)
             del industry_water_demand
@@ -322,7 +322,7 @@ class water_demand:
 
             # 3. livestock (surface)
             livestock_water_demand = self.model.data.to_grid(
-                HRU_data=livestock_water_demand, fn="mean"
+                HRU_data=livestock_water_demand, fn="weightedmean"
             )
             livestock_water_demand_m3 = self.model.data.grid.MtoM3(
                 livestock_water_demand
@@ -436,7 +436,9 @@ class water_demand:
                 )
 
             returnFlow = (
-                self.model.data.to_grid(HRU_data=return_flow_irrigation_m, fn="mean")
+                self.model.data.to_grid(
+                    HRU_data=return_flow_irrigation_m, fn="weightedmean"
+                )
                 + domestic_return_flow_m
                 + industry_return_flow_m
                 + livestock_return_flow_m
