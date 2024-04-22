@@ -13,7 +13,9 @@ from cwatm.management_modules.data_handling import *
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
 
 from cwatm.management_modules.globals import *
-
+from cwatm.hydrological_modules.water_demand.irrigation import waterdemand_irrigation
+from cwatm.hydrological_modules.evaporation import evaporation
+from cwatm.hydrological_modules.evaporationPot import evaporationPot
 
 class lakes_reservoirs(object):
     r"""
@@ -170,6 +172,11 @@ class lakes_reservoirs(object):
     def __init__(self, model):
         self.var = model.data.grid
         self.model = model
+
+        # New initializations needed to calculated irrigation consumption for reservoirs.
+        self.irrigation = waterdemand_irrigation(model)
+        self.evaporation = evaporation(model)
+        self.evaporationPot = evaporationPot(model)
 
     def initWaterbodies(self):
         """
@@ -724,6 +731,26 @@ class lakes_reservoirs(object):
             )
 
             reservoirOutflow = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
+            
+            """""""""""""""""""""""""""""""""""
+            New reservoir management approach.
+            """""""""""""""""""""""""""""""""""
+            # First load the reference evapotranspiration and calculate the total potential evapotranspiration
+            # Then calculate the potential irrigation consumption.
+            # Potential irrigation consumption as input to the reservoir management model.
+            ETref = self.evaporationPot.var.ETRef
+            _, _, totalPotET = self.evaporation.dynamic(ETref)
+            pot_irrConsumption = self.irrigation.dynamic(totalPotET)
+
+            # reservoirOutflow[self.var.waterBodyTypC == 2] = (
+            #     self.model.agents.reservoir_operators.new_reservoir_management(
+            #         inflowC[self.var.waterBodyTypC == 2],
+            #         pot_irrConsumption,
+            #         #self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+            #     )
+            # )
+
+            # Original reservoir management approach
             reservoirOutflow[self.var.waterBodyTypC == 2] = (
                 self.model.agents.reservoir_operators.regulate_reservoir_outflow(
                     self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
