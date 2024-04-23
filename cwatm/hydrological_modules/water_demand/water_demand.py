@@ -235,6 +235,14 @@ class water_demand:
                 ], pot_irrConsumption
             )
         )
+
+        ### Code for trying out irrigation consumption calculations. ###
+        irrigation_consumption = np.zeros_like(self.model.data.grid.reservoirStorageM3C)
+        
+        irrigation_consumption[self.model.data.grid.waterBodyTypC == 2] = (
+            self.reservoir_operators.get_irrigation_per_command_area(pot_irrConsumption))
+        
+        ### End of my irrigation tryout code. ###
         return (
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
