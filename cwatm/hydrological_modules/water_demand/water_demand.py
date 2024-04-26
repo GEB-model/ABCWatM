@@ -216,7 +216,7 @@ class water_demand:
                 float(cbinding("poro")) * float(cbinding("thickness")) + globals.inZero
             )
 
-    def get_available_water(self, pot_irrConsumption):
+    def get_available_water(self):
         assert (
             self.model.data.grid.waterBodyIDC.size
             == self.model.data.grid.reservoirStorageM3C.size
@@ -231,18 +231,10 @@ class water_demand:
         available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = (
             self.reservoir_operators.get_available_water_reservoir_command_areas(
                 self.model.data.grid.reservoirStorageM3C[
-                    self.model.data.grid.waterBodyTypC == 2
-                ], pot_irrConsumption
+                    self.model.data.grid.waterBodyTypC == 2]
             )
         )
-
-        ### Code for trying out irrigation consumption calculations. ###
-        irrigation_consumption = np.zeros_like(self.model.data.grid.reservoirStorageM3C)
         
-        irrigation_consumption[self.model.data.grid.waterBodyTypC == 2] = (
-            self.reservoir_operators.get_irrigation_per_command_area(pot_irrConsumption))
-        
-        ### End of my irrigation tryout code. ###
         return (
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
