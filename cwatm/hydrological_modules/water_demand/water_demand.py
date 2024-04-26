@@ -276,7 +276,7 @@ class water_demand:
                 available_reservoir_storage_m3,
                 available_groundwater_m,
                 groundwater_head,
-            ) = self.get_available_water(pot_irrConsumption)
+            ) = self.get_available_water()
             available_groundwater_m3 = self.model.data.grid.MtoM3(
                 available_groundwater_m
             )
