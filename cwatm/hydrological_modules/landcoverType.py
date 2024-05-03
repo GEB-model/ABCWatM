@@ -22,6 +22,8 @@ from cwatm.management_modules.data_handling import (
     loadmap,
 )
 
+from geb.workflows import TimingModule
+
 
 @njit(cache=True)
 def get_crop_kc(
@@ -886,6 +888,8 @@ class landcoverType(object):
         And sums every thing up depending on the land cover type fraction
         """
 
+        timer = TimingModule("Landcover")
+
         if checkOption("calcWaterBalance"):
             interceptStor_pre = self.var.interceptStor.copy()
             w1_pre = self.var.w1.copy()
@@ -941,11 +945,13 @@ class landcoverType(object):
         potTranspiration_minus_interception_evaporation = (
             self.model.interception_module.dynamic(self.var.potTranspiration)
         )  # first thing that evaporates is the water intercepted water.
+        timer.new_split("Transpiration")
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = (
             self.model.waterdemand_module.dynamic(totalPotET)
         )
+        timer.new_split("Demand")
 
         openWaterEvap = self.var.full_compressed(0, dtype=np.float32)
         # Soil for forest, grassland, and irrigated land
@@ -966,9 +972,12 @@ class landcoverType(object):
             potBareSoilEvap,
             totalPotET,
         )
+        timer.new_split("Soil")
+
         directRunoff = self.model.sealed_water_module.dynamic(
             capillar, openWaterEvap, directRunoff
         )
+        timer.new_split("Sealed")
 
         if self.model.use_gpu:
             self.var.actual_transpiration_crop[
@@ -1070,6 +1079,10 @@ class landcoverType(object):
             self.water_body_exchange(groundwater_recharge)
         else:
             self.model.data.grid.riverbedExchangeM3 = 0
+
+        timer.new_split("Waterbody exchange")
+
+        print(timer)
 
         return (
             self.model.data.to_grid(HRU_data=interflow, fn="weightedmean"),

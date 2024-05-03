@@ -8,14 +8,11 @@
 # Copyright:   (c) burekpe 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.data_handling import *
-from cwatm.management_modules.messages import *
+from cwatm.management_modules.dynamicModel import DynamicModel
+from geb.workflows import TimingModule
 
 
 class CWATModel_dyn(DynamicModel):
-
-    # =========== DYNAMIC ====================================================
-
     def dynamic(self):
         """
         Dynamic part of CWATM
@@ -30,43 +27,18 @@ class CWATModel_dyn(DynamicModel):
             * t: timing of different processes at the end
         """
 
-        # self.CalendarDate = dateVar['dateStart'] + datetime.timedelta(days=dateVar['curr'])
-        # self.CalendarDay = int(self.CalendarDate.strftime("%j"))
-        # timestep_dynamic(self)
-
-        del timeMes[:]
-        timemeasure("Start dynamic")
-
-        if checkOption("calc_environflow") and (
-            returnBool("calc_ef_afterRun") == False
-        ):
-            # if only the dis is used for calculation of EF
-            self.environflow_module.dynamic()
-            # self.output_module.dynamic(ef = True)
-            sys.exit("done with Environmental Flow")
-
-        # self.readmeteo_module.dynamic()
-        # timemeasure("Read meteo") # 1. timing after read input maps
+        timer = TimingModule("CWatM")
 
         self.evaporationPot_module.dynamic()
-        timemeasure("ET pot")  # 2. timing after read input maps
+        timer.new_split("PET")
 
-        # if Flags['check']: return  # if check than finish here
-
-        """ Here it starts with hydrological modules:
-        """
-
-        # ***** INFLOW HYDROGRAPHS (OPTIONAL)****************
-        self.inflow_module.dynamic()
+        # self.inflow_module.dynamic()
         self.lakes_reservoirs_module.dynamic()
+        timer.new_split("Waterbodies")
 
-        # ***** RAIN AND SNOW *****************************************
         self.snowfrost_module.dynamic()
-        timemeasure("Snow")  # 3. timing
+        timer.new_split("Snow and frost")
 
-        # ***** READ land use fraction maps***************************
-
-        # *********  Soil splitted in different land cover fractions *************
         (
             interflow,
             directRunoff,
@@ -76,34 +48,23 @@ class CWATModel_dyn(DynamicModel):
             openWaterEvap,
             returnFlow,
         ) = self.landcoverType_module.dynamic()
-        timemeasure("Soil main")  # 5. timing
+        timer.new_split("Landcover")
 
         self.groundwater_modflow_module.dynamic(
             groundwater_recharge, groundwater_abstraction
         )
-        timemeasure("Groundwater")  # 7. timing
+        timer.new_split("GW")
 
         self.runoff_concentration_module.dynamic(interflow, directRunoff)
-        timemeasure("Runoff conc.")  # 8. timing
+        timer.new_split("Runoff concentration")
 
         self.lakes_res_small_module.dynamic()
-        timemeasure("Small lakes")  # 9. timing
+        timer.new_split("Small waterbodies")
 
         self.routing_kinematic_module.dynamic(
             openWaterEvap, channel_abstraction, returnFlow
         )
-        timemeasure("Routing_Kin")  # 10. timing
+        timer.new_split("Routing")
 
-        self.waterquality1.dynamic()
-        # *******  Calculate CUMULATIVE MASS BALANCE ERROR  **********
-        # self.waterbalance_module.dynamic()
-
-        # ------------------------------------------------------
-        # End of calculation -----------------------------------
-        # ------------------------------------------------------
-
-        # self.waterbalance_module.checkWaterSoilGround()
-        timemeasure("Waterbalance")  # 11. timing
-
-        self.environflow_module.dynamic()
-        # in case environmental flow is calculated last
+        if self.timing:
+            print(timer)

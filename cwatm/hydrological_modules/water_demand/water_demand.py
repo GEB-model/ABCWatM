@@ -30,6 +30,8 @@ from cwatm.hydrological_modules.water_demand.environmental_need import (
     waterdemand_environmental_need,
 )
 
+from geb.workflows import TimingModule
+
 
 class water_demand:
     """
@@ -257,14 +259,19 @@ class water_demand:
         * get non-Irrigation water demand and its return flow fraction
         """
 
+        timer = TimingModule("Water demand")
+
         if checkOption("includeWaterDemand"):
 
             # WATER DEMAND
             domestic_water_demand, domestic_water_efficiency = self.domestic.dynamic()
+            timer.new_split("Domestic")
             industry_water_demand, industry_water_efficiency = self.industry.dynamic()
+            timer.new_split("Industry")
             livestock_water_demand, livestock_water_efficiency = (
                 self.livestock.dynamic()
             )
+            timer.new_split("Livestock")
             pot_irrConsumption = self.irrigation.dynamic(totalPotET)
 
             assert (domestic_water_demand >= 0).all()
@@ -336,6 +343,7 @@ class water_demand:
             livestock_return_flow_m = self.model.data.grid.M3toM(
                 livestock_withdrawal_m3 * (1 - livestock_water_efficiency)
             )
+            timer.new_split("Water withdrawal")
 
             # 4. irrigation (surface + reservoir + ground)
             (
@@ -364,6 +372,7 @@ class water_demand:
                     else self.var.reservoir_command_areas
                 ),
             )
+            timer.new_split("Irrigation")
 
             if checkOption("calcWaterBalance"):
                 self.model.waterbalance_module.waterBalanceCheck(
@@ -471,6 +480,8 @@ class water_demand:
                     ],
                     tollerance=10000,
                 )
+
+            print(timer)
 
             return (
                 groundwater_abstraction_m3 / self.model.data.grid.cellArea,

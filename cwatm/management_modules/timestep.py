@@ -83,26 +83,6 @@ def ctbinding(inBinding):
         raise CWATMError(msg)
 
 
-def timemeasure(name, loops=0, update=False, sample=1):
-    """
-    Measuring of the time for each subroutine
-
-    :param name: name of the subroutine
-    :param loops: if it it called several times this is added to the name
-    :param update:
-    :param sample:
-    :return: add a string to the time measure string: timeMesString
-    """
-
-    timeMes.append(xtime.perf_counter())
-    if loops == 0:
-        s = name
-    else:
-        s = name + "_%i" % loops
-    timeMesString.append(s)
-    return
-
-
 # -----------------------------------------------------------------------
 # Calendar routines
 # -----------------------------------------------------------------------
