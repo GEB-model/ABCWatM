@@ -480,8 +480,8 @@ class water_demand:
                     ],
                     tollerance=10000,
                 )
-
-            print(timer)
+            if self.model.timing:
+                print(timer)
 
             return (
                 groundwater_abstraction_m3 / self.model.data.grid.cellArea,

@@ -1082,7 +1082,8 @@ class landcoverType(object):
 
         timer.new_split("Waterbody exchange")
 
-        print(timer)
+        if self.model.timing:
+            print(timer)
 
         return (
             self.model.data.to_grid(HRU_data=interflow, fn="weightedmean"),
