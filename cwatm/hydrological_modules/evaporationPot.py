@@ -13,6 +13,8 @@ import numpy as np
 from cwatm.management_modules.data_handling import loadmap, returnBool, loadmap
 from cwatm.management_modules.messages import CWATMError
 
+from geb.workflows import TimingModule
+
 
 class evaporationPot(object):
     """
@@ -94,14 +96,21 @@ class evaporationPot(object):
         Based on Penman Monteith - FAO 56
 
         """
+
+        timer = TimingModule("Potential evaporation")
+
         tas_C = self.var.tas - 273.15
         tasmin_C = self.var.tasmin - 273.15
         tasmax_C = self.var.tasmax - 273.15
+
+        timer.new_split("Read data")
 
         # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
         ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
         ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
         saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+
+        timer.new_split("Saturation vapour pressure")
 
         # Up longwave radiation [MJ/m2/day]
         rlus_MJ_m2_day = (
@@ -113,6 +122,8 @@ class evaporationPot(object):
         # psychrometric constant [kPa C-1]
         # http://www.fao.org/docrep/X0490E/x0490e07.htm  Equation 8
         # see http://www.fao.org/docrep/X0490E/x0490e08.htm#penman%20monteith%20equation
+
+        timer.new_split("Psychrometric constant")
 
         # calculate vapor pressure
         # Fao 56 Page 36
@@ -145,6 +156,8 @@ class evaporationPot(object):
         )
         # net absorbed radiation of water surface
 
+        timer.new_split("Radiation")
+
         vapour_pressure_deficit = np.maximum(
             saturated_vapour_pressure - actual_vapour_pressure, 0.0
         )
@@ -153,6 +166,8 @@ class evaporationPot(object):
         ) / ((tas_C + 237.3) ** 2)
         # slope of saturated vapour pressure curve [kPa/deg C]
         # Equation 13 Chapter 3
+
+        timer.new_split("Vapour pressure")
 
         # Chapter 2 Equation 6
         # Adjust wind speed for measurement height: wind speed measured at
@@ -190,6 +205,8 @@ class evaporationPot(object):
             / denominator
         )
 
+        timer.new_split("Penman-Monteith")
+
         # Potential evapo(transpi)ration is calculated for two reference surfaces:
         # 1. Reference vegetation canopy (ETRef)
         # 2. Open water surface (EWRef)
@@ -202,3 +219,8 @@ class evaporationPot(object):
         # potential evaporation rate from water surface [m/day]
 
         # -> here we are at ET0 (see http://www.fao.org/docrep/X0490E/x0490e04.htm#TopOfPage figure 4:)
+
+        timer.new_split("ETRef and EWRef")
+
+        if self.model.timing:
+            print(timer)
