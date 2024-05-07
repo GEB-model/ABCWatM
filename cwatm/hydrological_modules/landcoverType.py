@@ -186,7 +186,7 @@ class landcoverType(object):
     def __init__(self, model):
         self.var = model.data.HRU
         self.model = model
-        self.farmers = model.agents.farmers
+        self.crop_farmers = model.agents.crop_farmers
 
     def initial(self, ElevationStD):
         """
@@ -899,18 +899,18 @@ class landcoverType(object):
 
         crop_stage_lenghts = np.column_stack(
             [
-                self.farmers.crop_data["l_ini"],
-                self.farmers.crop_data["l_dev"],
-                self.farmers.crop_data["l_mid"],
-                self.farmers.crop_data["l_late"],
+                self.crop_farmers.crop_data["l_ini"],
+                self.crop_farmers.crop_data["l_dev"],
+                self.crop_farmers.crop_data["l_mid"],
+                self.crop_farmers.crop_data["l_late"],
             ]
         )
 
         crop_factors = np.column_stack(
             [
-                self.farmers.crop_data["kc_initial"],
-                self.farmers.crop_data["kc_mid"],
-                self.farmers.crop_data["kc_end"],
+                self.crop_farmers.crop_data["kc_initial"],
+                self.crop_farmers.crop_data["kc_mid"],
+                self.crop_farmers.crop_data["kc_end"],
             ]
         )
 

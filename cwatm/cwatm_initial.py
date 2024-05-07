@@ -20,7 +20,7 @@ from cwatm.hydrological_modules.evaporation import evaporation
 from cwatm.hydrological_modules.groundwater_modflow.modflow_transient import (
     groundwater_modflow,
 )
-from cwatm.hydrological_modules.water_demand.water_demand import water_demand
+from cwatm.hydrological_modules.water_demand import water_demand
 from cwatm.hydrological_modules.interception import interception
 from cwatm.hydrological_modules.runoff_concentration import runoff_concentration
 from cwatm.hydrological_modules.lakes_res_small import lakes_res_small

@@ -2,7 +2,7 @@
 # Name:        Waterdemand module
 # Purpose:
 #
-# Author:      PB, JB
+# Author:      PB, JdB
 #
 # Created:     15/07/2016
 # Copyright:   (c) PB 2016
@@ -21,13 +21,6 @@ from cwatm.management_modules.data_handling import (
     cbinding,
     loadmap,
     checkOption,
-)
-from cwatm.hydrological_modules.water_demand.domestic import waterdemand_domestic
-from cwatm.hydrological_modules.water_demand.industry import waterdemand_industry
-from cwatm.hydrological_modules.water_demand.livestock import waterdemand_livestock
-from cwatm.hydrological_modules.water_demand.irrigation import waterdemand_irrigation
-from cwatm.hydrological_modules.water_demand.environmental_need import (
-    waterdemand_environmental_need,
 )
 
 from geb.workflows import TimingModule
@@ -136,14 +129,136 @@ class water_demand:
     def __init__(self, model):
         self.model = model
         self.var = model.data.HRU
-        self.farmers = model.agents.farmers
+        self.crop_farmers = model.agents.crop_farmers
+        self.livestock_farmers = model.agents.livestock_farmers
+        self.industry = model.agents.industry
+        self.households = model.agents.households
         self.reservoir_operators = model.agents.reservoir_operators
 
-        self.domestic = waterdemand_domestic(model)
-        self.industry = waterdemand_industry(model)
-        self.livestock = waterdemand_livestock(model)
-        self.irrigation = waterdemand_irrigation(model)
-        self.environmental_need = waterdemand_environmental_need(model)
+    def potential_irrigation_consumption(self, totalPotET):
+        pot_irrConsumption = self.var.full_compressed(0, dtype=np.float32)
+        # Paddy irrigation -> No = 2
+        # Non paddy irrigation -> No = 3
+
+        # a function of cropKC (evaporation and transpiration) and available water see Wada et al. 2014 p. 19
+        paddy_irrigated_land = np.where(self.var.land_use_type == 2)
+        pot_irrConsumption[paddy_irrigated_land] = np.where(
+            self.var.cropKC[paddy_irrigated_land] > 0.75,
+            np.maximum(
+                0.0,
+                (
+                    self.var.maxtopwater
+                    - (
+                        self.var.topwater[paddy_irrigated_land]
+                        + self.var.natural_available_water_infiltration[
+                            paddy_irrigated_land
+                        ]
+                    )
+                ),
+            ),
+            0.0,
+        )
+        assert not np.isnan(pot_irrConsumption).any()
+
+        nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
+
+        # Infiltration capacity
+        #  ========================================
+        # first 2 soil layers to estimate distribution between runoff and infiltration
+        soilWaterStorage = (
+            self.var.w1[nonpaddy_irrigated_land] + self.var.w2[nonpaddy_irrigated_land]
+        )
+        soilWaterStorageCap = (
+            self.var.ws1[nonpaddy_irrigated_land]
+            + self.var.ws2[nonpaddy_irrigated_land]
+        )
+        relSat = soilWaterStorage / soilWaterStorageCap
+        satAreaFrac = 1 - (1 - relSat) ** self.var.arnoBeta[nonpaddy_irrigated_land]
+        satAreaFrac = np.maximum(np.minimum(satAreaFrac, 1.0), 0.0)
+
+        store = soilWaterStorageCap / (self.var.arnoBeta[nonpaddy_irrigated_land] + 1)
+        potBeta = (self.var.arnoBeta[nonpaddy_irrigated_land] + 1) / self.var.arnoBeta[
+            nonpaddy_irrigated_land
+        ]
+        potInfiltrationCapacity = store - store * (1 - (1 - satAreaFrac) ** potBeta)
+        # ----------------------------------------------------------
+        availWaterPlant1 = np.maximum(
+            0.0,
+            self.var.w1[nonpaddy_irrigated_land]
+            - self.var.wwp1[nonpaddy_irrigated_land],
+        )  # * self.var.rootDepth[0][No]  should not be multiplied again with soildepth
+        availWaterPlant2 = np.maximum(
+            0.0,
+            self.var.w2[nonpaddy_irrigated_land]
+            - self.var.wwp2[nonpaddy_irrigated_land],
+        )  # * self.var.rootDepth[1][No]
+        # availWaterPlant3 = np.maximum(0., self.var.w3[No] - self.var.wwp3[No])  #* self.var.rootDepth[2][No]
+        readAvlWater = availWaterPlant1 + availWaterPlant2  # + availWaterPlant3
+
+        # calculate   ****** SOIL WATER STRESS ************************************
+
+        # The crop group number is a indicator of adaptation to dry climate,
+        # e.g. olive groves are adapted to dry climate, therefore they can extract more water from drying out soil than e.g. rice.
+        # The crop group number of olive groves is 4 and of rice fields is 1
+        # for irrigation it is expected that the crop has a low adaptation to dry climate
+        # cropGroupNumber = 1.0
+        etpotMax = np.minimum(0.1 * (totalPotET[nonpaddy_irrigated_land] * 1000.0), 1.0)
+        # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of 10 mm/day.
+
+        # for group number 1 -> those are plants which needs irrigation
+        # p = 1 / (0.76 + 1.5 * np.minimum(0.1 * (self.var.totalPotET[No] * 1000.), 1.0)) - 0.10 * ( 5 - cropGroupNumber)
+        p = 1 / (0.76 + 1.5 * etpotMax) - 0.4
+        # soil water depletion fraction (easily available soil water) # Van Diepen et al., 1988: WOFOST 6.0, p.87.
+        p = p + (etpotMax - 0.6) / 4
+        # correction for crop group 1  (Van Diepen et al, 1988) -> p between 0.14 - 0.77
+        p = np.maximum(np.minimum(p, 1.0), 0.0)
+        # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
+        # p is closer to 0 if evapo is bigger and cropgroup is smaller
+
+        wCrit1 = (
+            (1 - p)
+            * (
+                self.var.wfc1[nonpaddy_irrigated_land]
+                - self.var.wwp1[nonpaddy_irrigated_land]
+            )
+        ) + self.var.wwp1[nonpaddy_irrigated_land]
+        wCrit2 = (
+            (1 - p)
+            * (
+                self.var.wfc2[nonpaddy_irrigated_land]
+                - self.var.wwp2[nonpaddy_irrigated_land]
+            )
+        ) + self.var.wwp2[nonpaddy_irrigated_land]
+        # wCrit3 = ((1 - p) * (self.var.wfc3[No] - self.var.wwp3[No])) + self.var.wwp3[No]
+
+        critWaterPlant1 = np.maximum(
+            0.0, wCrit1 - self.var.wwp1[nonpaddy_irrigated_land]
+        )  # * self.var.rootDepth[0][No]
+        critWaterPlant2 = np.maximum(
+            0.0, wCrit2 - self.var.wwp2[nonpaddy_irrigated_land]
+        )  # * self.var.rootDepth[1][No]
+        # critWaterPlant3 = np.maximum(0., wCrit3 - self.var.wwp3[No]) # * self.var.rootDepth[2][No]
+        critAvlWater = critWaterPlant1 + critWaterPlant2  # + critWaterPlant3
+
+        pot_irrConsumption[nonpaddy_irrigated_land] = np.where(
+            self.var.cropKC[nonpaddy_irrigated_land] > 0.20,
+            np.where(
+                readAvlWater < critAvlWater,
+                np.maximum(
+                    0.0, self.var.totAvlWater[nonpaddy_irrigated_land] - readAvlWater
+                ),
+                0.0,
+            ),
+            0.0,
+        )
+        assert not np.isnan(pot_irrConsumption).any()
+        # should not be bigger than infiltration capacity
+        pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(
+            pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity
+        )
+
+        assert not np.isnan(pot_irrConsumption).any()
+        return pot_irrConsumption
 
     def initial(self):
         """
@@ -153,13 +268,6 @@ class water_demand:
         """
 
         if checkOption("includeWaterDemand"):
-
-            self.domestic.initial()
-            self.industry.initial()
-            self.livestock.initial()
-            self.irrigation.initial()
-            self.environmental_need.initial()
-
             if checkOption("includeWaterBodies"):
                 self.var.using_reservoir_command_areas = False
                 if "using_reservoir_command_areas" in option:
@@ -262,17 +370,20 @@ class water_demand:
         timer = TimingModule("Water demand")
 
         if checkOption("includeWaterDemand"):
-
             # WATER DEMAND
-            domestic_water_demand, domestic_water_efficiency = self.domestic.dynamic()
+            domestic_water_demand, domestic_water_efficiency = (
+                self.households.water_demand()
+            )
             timer.new_split("Domestic")
-            industry_water_demand, industry_water_efficiency = self.industry.dynamic()
+            industry_water_demand, industry_water_efficiency = (
+                self.industry.water_demand()
+            )
             timer.new_split("Industry")
             livestock_water_demand, livestock_water_efficiency = (
-                self.livestock.dynamic()
+                self.livestock_farmers.water_demand()
             )
             timer.new_split("Livestock")
-            pot_irrConsumption = self.irrigation.dynamic(totalPotET)
+            pot_irrConsumption = self.potential_irrigation_consumption(totalPotET)
 
             assert (domestic_water_demand >= 0).all()
             assert (industry_water_demand >= 0).all()
@@ -351,7 +462,7 @@ class water_demand:
                 irrigation_water_consumption_m,
                 return_flow_irrigation_m,
                 addtoevapotrans_m,
-            ) = self.farmers.abstract_water(
+            ) = self.crop_farmers.abstract_water(
                 cell_area=(
                     self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea
                 ),
