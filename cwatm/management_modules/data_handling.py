@@ -24,7 +24,6 @@ from typing import Tuple
 from . import globals
 from cwatm.management_modules.checks import *
 from cwatm.management_modules.timestep import *
-from cwatm.management_modules.replace_pcr import *
 from cwatm.management_modules.messages import *
 
 import difflib  # to check the closest word in settingsfile, if an error occurs

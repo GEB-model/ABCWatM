@@ -99,16 +99,6 @@ dynamicModel module
     :undoc-members:
     :show-inheritance:
 
-replace_pcr module
-------------------
-
-**Some pcr operation are done in numpy**
-
-.. automodule:: cwatm.management_modules.replace_pcr
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 .. automodule:: cwatm.management_modules
     :members:

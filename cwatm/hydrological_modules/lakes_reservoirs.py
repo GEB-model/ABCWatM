@@ -8,11 +8,45 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 import pandas as pd
+import numpy as np
 
-from cwatm.management_modules.data_handling import *
-from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
+from cwatm.management_modules.data_handling import (
+    checkOption,
+    loadmap,
+    binding,
+    decompress,
+    compressArray,
+    returnBool,
+)
+from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
+    subcatchment1,
+    defLdd2,
+    upstream1,
+)
 
-from cwatm.management_modules.globals import *
+
+def laketotal(values, areaclass):
+    """
+    numpy area total procedure
+
+    :param values:
+    :param areaclass:
+    :return: calculates the total area of a class
+    """
+    return np.take(np.bincount(areaclass, weights=values), areaclass)
+
+
+def npareamaximum(values, areaclass):
+    """
+    numpy area maximum procedure
+
+    :param values:
+    :param areaclass:
+    :return: calculates the maximum of an area of a class
+    """
+    valueMax = np.zeros(areaclass.max().item() + 1)
+    np.maximum.at(valueMax, areaclass, values)
+    return np.take(valueMax, areaclass)
 
 
 class lakes_reservoirs(object):
@@ -315,7 +349,7 @@ class lakes_reservoirs(object):
                 "average_area"
             ].values
 
-            # FracWaterC = np.compress(self.var.compress_LR,npareatotal(self.var.fracVegCover[5] * self.var.cellArea, self.var.waterBodyID))
+            # FracWaterC = np.compress(self.var.compress_LR,laketotal(self.var.fracVegCover[5] * self.var.cellArea, self.var.waterBodyID))
             # if water body surface from fraction map > area from lakeres map then use fracwater map
             # not used, bc lakes res is splitted into big lakes linked to river network and small lakes linked to runoff of a gridcell
 
@@ -357,24 +391,44 @@ class lakes_reservoirs(object):
             self.var.lakeEvaFactor = loadmap("lakeEvaFactor")
 
             # initial only the big arrays are set to 0, the  initial values are loaded inside the subrouines of lakes and reservoirs
-            self.var.reslakeoutflow = globals.inZero.copy()
-            self.var.lakeVolume = globals.inZero.copy()
+            self.var.reslakeoutflow = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.lakeVolume = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
             self.var.outLake = self.var.load_initial("outLake")
 
-            self.var.lakeStorage = globals.inZero.copy()
-            self.var.lakeInflow = globals.inZero.copy()
-            self.var.lakeOutflow = globals.inZero.copy()
-            self.var.reservoirStorage = globals.inZero.copy()
+            self.var.lakeStorage = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.lakeInflow = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.lakeOutflow = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.reservoirStorage = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
 
             self.var.MtoM3C = np.compress(self.var.compress_LR, self.var.cellArea)
 
             # init water balance [m]
-            self.var.EvapWaterBodyM = globals.inZero.copy()
-            self.var.lakeResInflowM = globals.inZero.copy()
-            self.var.lakeResOutflowM = globals.inZero.copy()
+            self.var.EvapWaterBodyM = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.lakeResInflowM = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
+            self.var.lakeResOutflowM = self.model.data.grid.full_compressed(
+                0, dtype=np.float32
+            )
 
             if checkOption("calcWaterBalance"):
-                self.var.lakedaycorrect = globals.inZero.copy()
+                self.var.lakedaycorrect = self.model.data.grid.full_compressed(
+                    0, dtype=np.float32
+                )
 
     def initial_lakes(self):
         """
@@ -478,9 +532,11 @@ class lakes_reservoirs(object):
         self.var.resStorageC = np.where(
             self.var.waterBodyTypC > 1, self.var.reservoirStorageM3C, 0.0
         )
-        self.var.lakeResStorage = globals.inZero.copy()
-        self.var.lakeStorage = globals.inZero.copy()
-        self.var.resStorage = globals.inZero.copy()
+        self.var.lakeResStorage = self.model.data.grid.full_compressed(
+            0, dtype=np.float32
+        )
+        self.var.lakeStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
+        self.var.resStorage = self.model.data.grid.full_compressed(0, dtype=np.float32)
         np.put(
             self.var.lakeResStorage, self.var.decompress_LR, self.var.lakeResStorageC
         )
@@ -619,7 +675,7 @@ class lakes_reservoirs(object):
                 self.var.lakeLevelC = self.var.lakeVolumeM3C / self.var.lakeAreaC
 
             # expanding the size
-            # self.var.QLakeOutM3Dt = globals.inZero.copy()
+            # self.var.QLakeOutM3Dt = self.model.data.grid.full_compressed(0, dtype=np.float32)
             # np.put(self.var.QLakeOutM3Dt,self.var.LakeIndex,QLakeOutM3DtC)
             # if  (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
             if self.model.save_initial_data and (
@@ -784,7 +840,7 @@ class lakes_reservoirs(object):
         # ----------
         # inflow lakes
         # 1.  dis = upstream1(self_.var.downstruct_LR, self_.var.discharge)   # from river upstream
-        # 2.  runoff = npareatotal(self.var_.waterBodyID, self_.var.waterBodyID)  # from cell itself
+        # 2.  runoff = laketotal(self.var_.waterBodyID, self_.var.waterBodyID)  # from cell itself
         # 3.                  # outflow from upstream lakes
 
         # ----------
@@ -797,7 +853,7 @@ class lakes_reservoirs(object):
         dis_LR = np.where(self.var.waterBodyID > 0, dis_LR, 0.0) * self.model.DtSec
 
         # sum up runoff and discharge on the lake
-        inflow = npareatotal(
+        inflow = laketotal(
             dis_LR + self.var.runoff * self.var.cellArea, self.var.waterBodyID
         )
 
@@ -809,7 +865,7 @@ class lakes_reservoirs(object):
 
         if checkOption("inflow"):
             # if inflow ( from module inflow) goes to a lake this is not counted, because lakes,reservoirs are dislinked from the network
-            inflow2basin = npareatotal(self.var.inflowDt, self.var.waterBodyID)
+            inflow2basin = laketotal(self.var.inflowDt, self.var.waterBodyID)
             inflow2basin = np.where(self.var.waterBodyOut > 0, inflow2basin, 0.0)
             inflow = inflow + inflow2basin
 
@@ -902,9 +958,9 @@ class lakes_reservoirs(object):
         # ------------------------------------------------------------
 
         np.put(self.var.reslakeoutflow, self.var.decompress_LR, outflowC)
-        lakeResOutflowDis = npareatotal(
-            self.var.reslakeoutflow, self.var.waterBodyID
-        ) / (self.model.DtSec / self.var.noRoutingSteps)
+        lakeResOutflowDis = laketotal(self.var.reslakeoutflow, self.var.waterBodyID) / (
+            self.model.DtSec / self.var.noRoutingSteps
+        )
         # shift outflow 1 cell downstream
         out1 = upstream1(self.var.downstruct, self.var.reslakeoutflow)
         # everything with is not going to another lake is output to river network
@@ -913,7 +969,7 @@ class lakes_reservoirs(object):
         # everything what is not going to the network is going to another lake
         outLake1 = np.where(self.var.waterBodyID > 0, out1, 0)
         # sum up all inflow from other lakes
-        outLakein = npareatotal(outLake1, self.var.waterBodyID)
+        outLakein = laketotal(outLake1, self.var.waterBodyID)
         # use only the value of the outflow point
         self.var.outLake = np.where(self.var.waterBodyOut > 0, outLakein, 0.0)
         if self.var.noRoutingSteps == (NoRoutingExecuted + 1) and checkOption(

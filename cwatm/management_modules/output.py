@@ -21,7 +21,6 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
 
 
 from cwatm.management_modules.checks import *
-from cwatm.management_modules.replace_pcr import *
 from cwatm.management_modules.data_handling import *
 from cwatm.management_modules.data_handling import valuecell
 from .messages import *
