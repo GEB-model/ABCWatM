@@ -145,7 +145,7 @@ def dirDownstream(dirUp, lddcomp, dirDown):
     return np.array(dirDown).astype(np.int64), np.array(catchment).astype(np.int64)
 
 
-@njit
+@njit(cache=True)
 def upstreamArea(dirDown, dirshort, area):
     """
     calculates upstream area
@@ -316,7 +316,7 @@ def lddshort(lddnp, lddOrder):
     return dir_compressed
 
 
-@njit
+@njit(cache=True)
 def repairLdd1(ldd):
     dirX = np.array([0, -1, 0, 1, -1, 0, 1, -1, 0, 1], dtype=np.int32)
     dirY = np.array([0, 1, 1, 1, 0, 0, 0, -1, -1, -1], dtype=np.int32)
@@ -348,7 +348,7 @@ def repairLdd1(ldd):
     return ldd
 
 
-@njit
+@njit(cache=True)
 def dirID(lddorder, ldd):
     out_array = np.full_like(ldd, -1)  # Initialize out_array with -1, same shape as ldd
     dirX = np.array([0, -1, 0, 1, -1, 0, 1, -1, 0, 1], dtype=np.int32)
@@ -371,7 +371,7 @@ def dirID(lddorder, ldd):
     return out_array
 
 
-@njit
+@njit(cache=True)
 def repairLdd2(ldd, dir):
     check = np.zeros(ldd.size, dtype=np.int64)
     for i in range(ldd.size):
@@ -419,7 +419,7 @@ def lddrepair(lddnp, lddOrder):
     return ldd_compressed, dir_compressed
 
 
-@njit
+@njit(cache=True)
 def IterateToQnew(Qin, Qold, sideflow, alpha, beta, deltaT, deltaX):
     MAX_ITERS = 10
     epsilon = np.float64(0.0001)
@@ -459,7 +459,7 @@ def IterateToQnew(Qin, Qold, sideflow, alpha, beta, deltaT, deltaX):
     return Qkx
 
 
-@njit
+@njit(cache=True)
 def kinematic(Qold, sideflow, dirDown, dirUpLen, dirUpID, alpha, beta, deltaT, deltaX):
     Qnew = np.zeros_like(Qold)
     for i in range(Qold.size):
