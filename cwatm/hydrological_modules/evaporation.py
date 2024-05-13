@@ -50,22 +50,41 @@ class evaporation(object):
         :return: potential evaporation from bare soil, potential transpiration
         """
 
+
         # get crop coefficient
         # to get ETc from ET0 x kc factor  ((see http://www.fao.org/docrep/X0490E/x0490e04.htm#TopOfPage figure 4:)
         # crop coefficient read for forest and grassland from file
 
         # calculate potential bare soil evaporation
-        potBareSoilEvap = self.var.cropCorrect * self.var.minCropKC * ETRef
+        potBareSoilEvap = self.var.cropCorrect * self.var.minCropKC * ETRef 
+
         # calculate snow evaporation
-        self.var.snowEvap =  np.minimum(self.var.SnowMelt, potBareSoilEvap)
+        self.var.snowEvap =  np.minimum(self.var.SnowMelt, potBareSoilEvap) 
         self.var.SnowMelt = self.var.SnowMelt - self.var.snowEvap
-        potBareSoilEvap = potBareSoilEvap - self.var.snowEvap
 
         # calculate potential ET
-        ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m]
-        totalPotET = self.var.cropCorrect * self.var.cropKC * ETRef
+        ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m] 
+        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
+        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
+        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3)) 
+
+        if np.isnan(self.var.cropKC[land_use_indices_agriculture]).any():
+            # Replace NaN values with the replacement value
+            self.var.cropKC[land_use_indices_agriculture] = np.nanmean(self.var.cropKC[land_use_indices_grassland])
+
+        totalPotET = self.var.cropCorrect * self.var.cropKC * ETRef 
+        totalPotET[land_use_indices_forest] *= 1.2
+        potBareSoilEvap[land_use_indices_forest] *= 0.425
+        #totalPotET *= 
+        
+
+       
+        # change pot ET of grasslands
+        self.potET_forest = totalPotET[land_use_indices_forest]
+        self.potET_grassland = totalPotET[land_use_indices_grassland]
+        self.potET_agriculture = totalPotET[land_use_indices_agriculture]
 
         ## potTranspiration: Transpiration for each land cover class
         potTranspiration = np.maximum(0., totalPotET - potBareSoilEvap - self.var.snowEvap)
 
-        return potTranspiration, potBareSoilEvap, totalPotET
+        return potTranspiration, potBareSoilEvap, totalPotET, self.potET_forest,self.potET_grassland,self.potET_agriculture

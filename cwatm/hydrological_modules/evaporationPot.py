@@ -91,7 +91,7 @@ class evaporationPot(object):
         tasmax_C = (
             self.model.data.to_HRU(data=self.model.data.grid.tasmax, fn=None) - 273.15
         )
-
+        
         # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
         ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
         ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
@@ -160,7 +160,7 @@ class evaporationPot(object):
         # Shuttleworth, W.J. (1993) in Maidment, D.R. (1993), p. 4.36
         wind_2m = (
             self.model.data.to_HRU(data=self.model.data.grid.sfcWind, fn=None) * 0.749
-        )
+        ) 
 
         # TODO: update this properly following PCR-GLOBWB (https://github.com/UU-Hydro/PCR-GLOBWB_model/blob/0511485ad3ac0a1367d9d4918d2f61ae0fa0e900/model/evaporation/ref_pot_et_penman_monteith.py#L227)
 
@@ -204,3 +204,20 @@ class evaporationPot(object):
         # potential evaporation rate from water surface [m/day]
 
         # -> here we are at ET0 (see http://www.fao.org/docrep/X0490E/x0490e04.htm#TopOfPage figure 4:)
+        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
+        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
+        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
+        self.ETref_forest = self.var.ETRef[land_use_indices_forest]
+        self.ETref_agriculture = self.var.ETRef[land_use_indices_agriculture]
+        self.ETref_grassland = self.var.ETRef[land_use_indices_grassland]
+        self.averagetemp_forest = tas_C[land_use_indices_forest]
+        self.averagetemp_agriculture = tas_C[land_use_indices_agriculture]
+        self.averagetemp_grassland = tas_C[land_use_indices_grassland]
+        self.humidity_forest = hurs[land_use_indices_forest]
+        self.humidity_agriculture = hurs[land_use_indices_agriculture]
+        self.humidity_grassland = hurs[land_use_indices_grassland]
+        return self.ETref_forest, self.ETref_agriculture, self.ETref_grassland, self.averagetemp_forest, self.averagetemp_agriculture, self.averagetemp_grassland,self.humidity_forest,self.humidity_agriculture,self.humidity_grassland
+
+    
+
+
