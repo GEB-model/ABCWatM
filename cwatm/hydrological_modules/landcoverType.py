@@ -211,8 +211,8 @@ class landcoverType(object):
         maxRootDepth = self.var.full_compressed(np.nan, dtype=np.float32)
         soildepth_factor = loadmap('soildepth_factor')
 
-        #mask = ((self.var.land_use_type == 1) & (self.var.land_owners != -1)) #change land use type grassland to agriculture where land owners are
-        #self.var.land_use_type[mask] = 3
+        mask = ((self.var.land_use_type == 1) & (self.var.land_owners != -1)) #change land use type grassland to agriculture where land owners are
+        self.var.land_use_type[mask] = 3
 
         if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change": #self.model.config["general"]["name"] == "spinup"
                 # Create a mask for areas with value 1 in the raster, everything else = 0 
@@ -485,7 +485,7 @@ class landcoverType(object):
             print("Mean of satterm 3", np.mean(satTerm3FC))
 
 
-        # for paddy irrigation flooded paddy fields
+# for paddy irrigation flooded paddy fields
         self.var.topwater = self.model.data.HRU.load_initial("topwater", default=self.var.full_compressed(0, dtype=np.float32))
         self.var.adjRoot = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
 
@@ -525,7 +525,7 @@ class landcoverType(object):
 
             # Due to large rooting depths, the third (final) soil layer may be pushed to its minimum of 0.05 m.
             # In such a case, it may be better to turn off the root fractioning feature, as there is limited depth
-            # in the third soil layer to hold water, while having a significant fraction of the rootss.
+            # in the third soil layer to hold water, while having a significant fraction of the roots.
             # TODO: Extend soil depths to match maximum root depths
             
             rootFrac = np.tile(self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1))
@@ -559,6 +559,7 @@ class landcoverType(object):
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
         self.forest_kc_ds = xr.open_dataset(self.model.model_structure['forcing']['landcover/forest/cropCoefficientForest_10days'])['cropCoefficientForest_10days']
+        self.grass_kc_ds = xr.open_dataset(self.model.model_structure['forcing']['landcover/grassland/cropCoefficientGrassland_10days'])['cropCoefficientGrassland_10days']
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -703,17 +704,25 @@ class landcoverType(object):
                     time=self.model.current_time.replace(year=2000),
                     method='ffill').data
             ),
+            fn=None  
+        )
+        grassland_cropCoefficientNC = self.model.data.to_HRU(
+            data=self.model.data.grid.compress(
+                self.grass_kc_ds.sel(
+                    time=self.model.current_time.replace(year=2000),
+                    method='ffill').data
+            ),
             fn=None
         )
         
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[self.var.land_use_type == 0]
-        self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
+        self.var.cropKC[self.var.land_use_type == 1] = grassland_cropCoefficientNC[self.var.land_use_type == 1]
 
         potTranspiration, potBareSoilEvap, totalPotET = self.model.evaporation_module.dynamic(self.var.ETRef)
         
         if self.model.config['general']['simulate_forest']:
             print('check whether this is correct with plantFATE implementation')
-        potTranspiration = self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the water intercepted water.
+        potTranspiration = self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the intercepted water.
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = self.model.waterdemand_module.dynamic(totalPotET)
@@ -723,7 +732,7 @@ class landcoverType(object):
         capillar = self.model.data.to_HRU(data=self.model.data.grid.capillar, fn=None)
         del self.model.data.grid.capillar
 
-        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap = self.model.soil_module.dynamic(
+        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap= self.model.soil_module.dynamic(
             capillar,
             openWaterEvap,
             potTranspiration,
@@ -731,6 +740,36 @@ class landcoverType(object):
             totalPotET
         )
         directRunoff = self.model.sealed_water_module.dynamic(capillar, openWaterEvap, directRunoff)
+        #directRunoff = self.model.runoff_concentration_module.dynamic(interflow, directRunoff)
+        land_use_indices_forest = np.where(self.var.land_use_type == 0)
+        land_use_indices_grass_agri = np.where((self.var.land_use_type == 1) | (self.var.land_use_type == 3))
+        bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
+
+        if self.model.current_timestep == 1:
+            self.var.runoff_delay = self.var.full_compressed(0, dtype=np.float32)
+            self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
+            self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
+            self.var.runoff_delay_pre = self.var.runoff_delay.copy()
+            directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
+        else:
+            self.var.runoff_delay_pre = self.var.runoff_delay.copy()
+            directRunoff[land_use_indices_forest] = directRunoff[land_use_indices_forest] + self.var.runoff_delay_pre[land_use_indices_forest]
+            self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
+            self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
+            directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
+
+        # interflow[land_use_indices_forest] = interflow[land_use_indices_forest] + runoff_delay
+        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
+        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
+        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
+        self.directrunoff_forest = directRunoff[land_use_indices_forest]
+        self.directrunoff_agriculture = directRunoff[land_use_indices_agriculture]
+        self.directrunoff_grassland = directRunoff[land_use_indices_grassland]
+        self.interflow_forest = interflow[land_use_indices_forest]
+        self.interflow_agriculture = interflow[land_use_indices_agriculture]
+        self.interflow_grassland = interflow[land_use_indices_grassland]
+
+
 
         if self.model.use_gpu:
             self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal.get()[self.var.crop_map != -1]
@@ -738,6 +777,7 @@ class landcoverType(object):
         else:
             self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal[self.var.crop_map != -1]
             self.var.potential_transpiration_crop[self.var.crop_map != -1] += potTranspiration[self.var.crop_map != -1]
+            
 
         assert not np.isnan(interflow).any()
         assert not np.isnan(groundwater_recharge).any()
@@ -763,16 +803,16 @@ class landcoverType(object):
                     self.var.actTransTotal, self.var.actBareSoilEvap, openWaterEvap
                 ],
                 prestorages=[w1_pre, w2_pre, w3_pre, topwater_pre],
-                poststorages=[self.var.w1, self.var.w2, self.var.w3, self.var.topwater],
+                poststorages=[self.var.w1, self.var.w2, self.var.w3, self.var.topwater, self.var.runoff_delay],
                 tollerance=1e-6
             )
 
-            totalstorage = np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat + self.var.interceptStor + self.var.w1 + self.var.w2 + self.var.w3 + self.var.topwater
-            totalstorage_pre = self.var.prevSnowCover + w1_pre + w2_pre + w3_pre + topwater_pre + interceptStor_pre
+            totalstorage = np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat + self.var.interceptStor + self.var.w1 + self.var.w2 + self.var.w3 + self.var.topwater +self.var.runoff_delay
+            totalstorage_pre = self.var.prevSnowCover + w1_pre + w2_pre + w3_pre + topwater_pre + interceptStor_pre + self.var.runoff_delay_pre
 
             self.model.waterbalance_module.waterBalanceCheck(
                 how='cellwise',
-                influxes=[self.var.precipitation_m_day, self.var.actual_irrigation_consumption, capillar],
+                influxes=[self.var.precipitation_m_day, self.var.actual_irrigation_consumption, capillar], 
                 outfluxes=[
                     directRunoff, interflow, groundwater_recharge,
                     self.var.actTransTotal, self.var.actBareSoilEvap, openWaterEvap,
