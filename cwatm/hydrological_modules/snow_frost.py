@@ -225,7 +225,7 @@ class snow_frost(object):
             SnowMeltS = np.maximum(SnowMeltS, self.var.full_compressed(0, dtype=np.float32))
 
             # for which layer the ice melt is calcultated with the middle temp.
-            # for the others it is calculate d with the corrected temp
+            # for the others it is calculated with the corrected temp
             # this is to mimic glacier transport to lower zones
             if i <= self.var.glaciertransportZone:
                 IceMeltS = tas_C * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
@@ -241,7 +241,6 @@ class snow_frost(object):
             Snow += SnowS
             self.var.Rain += RainS
             self.var.SnowMelt += SnowMeltS
-
 
 
             if self.var.extfrostindex:
@@ -265,9 +264,6 @@ class snow_frost(object):
         Snow /= self.var.numberSnowLayersFloat
         self.var.Rain /= self.var.numberSnowLayersFloat
         self.var.SnowMelt /= self.var.numberSnowLayersFloat
-        self.snowmelt = self.var.SnowMelt
-
-
         # all in pixel
 
         # DEBUG Snow
@@ -297,8 +293,6 @@ class snow_frost(object):
         # SnowWaterEquivalent taken as 0.45
         # Afrost, (daily decay coefficient) is taken as 0.97 (Handbook of Hydrology, p. 7.28)
         # Kfrost, (snow depth reduction coefficient) is taken as 0.57 [1/cm], (HH, p. 7.28) -> from Molnau taken as 0.5 for t> 0 and 0.08 for T<0
-
-        return (self.snowmelt)
 
         """
         if self.var.extfrostindex:

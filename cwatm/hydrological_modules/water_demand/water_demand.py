@@ -210,7 +210,7 @@ class water_demand:
             assert (domestic_water_demand >= 0).all()
             assert (industry_water_demand >= 0).all()
             assert (livestock_water_demand >= 0).all()
-            #assert (pot_irrConsumption >= 0).all()
+            assert (pot_irrConsumption >= 0).all()
 
             available_channel_storage_m3, available_reservoir_storage_m3, available_groundwater_m, groundwater_head = self.get_available_water()
             available_groundwater_m3 = self.model.data.grid.MtoM3(available_groundwater_m)

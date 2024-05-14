@@ -157,7 +157,7 @@ The coefficients α and β are calculated by putting in Manning's equation
 | v: velocity [m/s]
 | n: Manning's roughness coefficient
 | P: wetted perimeter of a cross-section of the surface flow [m]
-| R: hydraulic Radius R=A/P 
+| R: hydraulic Radius R=A/P
 
 Solving this for α and β gives:
 
