@@ -81,9 +81,18 @@ class waterdemand_irrigation:
         # Paddy irrigation -> No = 2
         # Non paddy irrigation -> No = 3
 
-        # a function of cropKC (evaporation and transpiration) and available water see Wada et al. 2014 p. 19       
+        # a function of cropKC (evaporation and transpiration) and available water see Wada et al. 2014 p. 19        
+        paddy_irrigated_land = np.where(self.var.land_use_type == 2)
+        pot_irrConsumption[paddy_irrigated_land] = np.where(
+            self.var.cropKC[paddy_irrigated_land] > 0.75,
+            np.maximum(
+                0.,
+                (self.var.maxtopwater - (self.var.topwater[paddy_irrigated_land] + self.var.natural_available_water_infiltration[paddy_irrigated_land]))
+            ), 
+            0.)
+        assert not np.isnan(pot_irrConsumption).any()
 
-        nonpaddy_irrigated_land = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
+        nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
 
         # Infiltration capacity
         #  ========================================
@@ -144,15 +153,6 @@ class waterdemand_irrigation:
         assert not np.isnan(pot_irrConsumption).any()
         # should not be bigger than infiltration capacity
         pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity)
-        if np.isnan(pot_irrConsumption).any():
-            # Define the replacement value
-            replacement_value = 0 # Replace negative values with this value
-
-            # Create a mask for negative values
-            neg_mask = np.isnan(pot_irrConsumption)
-
-            # Replace negative values with the replacement value
-            pot_irrConsumption[neg_mask] = np.nanmean(pot_irrConsumption)
         
         assert not np.isnan(pot_irrConsumption).any()
         return pot_irrConsumption

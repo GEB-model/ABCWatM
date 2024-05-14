@@ -529,11 +529,6 @@ class soil(object):
         rws2 = np.maximum(np.minimum(1.0, rws2), 0.0) * self.var.adjRoot[1][bioarea]
         rws3 = np.maximum(np.minimum(1.0, rws3), 0.0) * self.var.adjRoot[2][bioarea]
 
-        #correction for transpiration
-        potTranspiration[self.var.indicesDeciduous] = potTranspiration[self.var.indicesDeciduous] * 0.655
-        potTranspiration[self.var.indicesConifer] = potTranspiration[self.var.indicesConifer] * 0.84
-        potTranspiration[self.var.indicesMixed] = potTranspiration[self.var.indicesMixed] * 0.735
-
         TaMax = potTranspiration[bioarea] * (rws1 + rws2 + rws3)
 
         del potTranspiration
@@ -751,26 +746,10 @@ class soil(object):
         # Infiltration capacity
         #  ========================================
         # first 2 soil layers to estimate distribution between runoff and infiltration
-
-        bioarea = np.where(self.var.land_use_type < 6)
-        
         soilWaterStorage = self.var.w1[bioarea] + self.var.w2[bioarea]
         soilWaterStorageCap = self.var.ws1[bioarea] + self.var.ws2[bioarea]
         relSat = soilWaterStorage / soilWaterStorageCap
         relSat = np.minimum(relSat, 1.0)
-        print(np.nanmean(relSat))
-
-        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
-        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
-        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
-        self.soilwaterstorage_forest =  self.var.w1[land_use_indices_forest] + self.var.w2[land_use_indices_forest] + self.var.w3[land_use_indices_forest]
-        self.soilwaterstorage_grassland =  self.var.w1[land_use_indices_grassland] + self.var.w2[land_use_indices_grassland] + self.var.w3[land_use_indices_grassland]
-        self.soilwaterstorage_agriculture =  self.var.w1[land_use_indices_agriculture] + self.var.w2[land_use_indices_agriculture] + self.var.w3[land_use_indices_agriculture]
-        print("soilwaterstoragecap forest:" + str(np.nanmean(soilWaterStorageCap[land_use_indices_forest]+ self.var.ws3[land_use_indices_forest])))
-        print("soilwaterstoragecap grassland:" +  str(np.nanmean(soilWaterStorageCap[land_use_indices_grassland]+ self.var.ws3[land_use_indices_grassland])))
-        print("soilwaterstoragecap agriculture:" +  str(np.nanmean(soilWaterStorageCap[land_use_indices_agriculture]+ self.var.ws3[land_use_indices_agriculture])))
-    
-        
 
         del soilWaterStorage
 
@@ -782,14 +761,14 @@ class soil(object):
 
         store = soilWaterStorageCap / (self.var.arnoBeta[bioarea] + 1)
         potBeta = (self.var.arnoBeta[bioarea] + 1) / self.var.arnoBeta[bioarea]
-        potInf = store - store * (1 - (1 - (satAreaFrac) ** potBeta))
+        potInf = store - store * (1 - (1 - satAreaFrac) ** potBeta)
 
-        #infiltration_multiplier = (
-        #    self.model.agents.farmers.infiltration_multiplier.by_field(
-        #        self.model.data.HRU.land_owners, nofieldvalue=1
-        #    )
-        #)
-        #potInf *= infiltration_multiplier[bioarea]
+        infiltration_multiplier = (
+            self.model.agents.farmers.infiltration_multiplier.by_field(
+                self.model.data.HRU.land_owners, nofieldvalue=1
+            )
+        )
+        potInf *= infiltration_multiplier[bioarea]
 
         del satAreaFrac
         del potBeta
@@ -811,7 +790,6 @@ class soil(object):
 
         prefFlow[bioarea] = prefFlow[bioarea] * (1 - self.var.capriseindex[bioarea])
 
-
         # ---------------------------------------------------------
         # calculate infiltration
         # infiltration, limited with KSat1 and available water in topWaterLayer
@@ -819,23 +797,12 @@ class soil(object):
         infiltration[bioarea] = np.minimum(
             potInf, availWaterInfiltration[bioarea] - prefFlow[bioarea]
         )
-        
-        self.infiltration_forest =  infiltration[land_use_indices_forest]
-        self.infiltration_grassland =  infiltration[land_use_indices_grassland]
-        self.infiltration_agriculture = infiltration[land_use_indices_agriculture]
-        self.potentialinfiltration_forest =  potInf[land_use_indices_forest]
-        self.potentialinfiltration_grassland =  potInf[land_use_indices_grassland]
-        self.potentialinfiltration_agriculture = potInf[land_use_indices_agriculture]
-
-
         del potInf
         infiltration[bioarea] = np.where(
             self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold,
             0.0,
             infiltration[bioarea],
         )
-
-        bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
 
         directRunoff = self.var.full_compressed(0, dtype=np.float32)
         directRunoff[bioarea] = np.maximum(
@@ -880,8 +847,6 @@ class soil(object):
         )  # now w2 could be over-saturated
         self.var.w1[bioarea] = np.minimum(self.var.ws1[bioarea], self.var.w1[bioarea])
 
-        
-       
         del infiltration
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
@@ -1054,8 +1019,8 @@ class soil(object):
 
         # Initialize top- to subsoil flux (accumulated value for all sub-steps)
         # Initialize fluxes out of subsoil (accumulated value for all sub-steps)
-        perc1to2 = self.var.full_compressed(0, dtype=np.float32)
-        perc2to3 = self.var.full_compressed(0, dtype=np.float32)
+        perc1to2 = self.var.zeros(bioarea.size, dtype=np.float32)
+        perc2to3 = self.var.zeros(bioarea.size, dtype=np.float32)
         perc3toGW = self.var.full_compressed(0, dtype=np.float32)
 
         assert (self.var.w1 >= 0).all()
@@ -1141,37 +1106,32 @@ class soil(object):
                 )
 
             # Flux from top- to subsoil
-            subperc1to2 = self.var.full_compressed(0, dtype=np.float32)
-            subperc2to3 = self.var.full_compressed(0, dtype=np.float32)
-            subperc3toGW  = self.var.full_compressed(0, dtype=np.float32)
-
-
-            subperc1to2[bioarea] = np.minimum(
+            subperc1to2 = np.minimum(
                 availWater1, np.minimum(kUnSat1 * DtSub, capLayer2)
             )
-            subperc2to3[bioarea] = np.minimum(
+            subperc2to3 = np.minimum(
                 availWater2, np.minimum(kUnSat2 * DtSub, capLayer3)
             )
-            subperc3toGW[bioarea] = np.minimum(
+            subperc3toGW = np.minimum(
                 availWater3, np.minimum(kUnSat3 * DtSub, availWater3)
             ) * (1 - self.var.capriseindex[bioarea])
 
             # When the soil is frozen (frostindex larger than threshold), no perc1 and 2
-            subperc1to2[bioarea] = np.where(
+            subperc1to2 = np.where(
                 self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold,
                 0,
-                subperc1to2[bioarea],
+                subperc1to2,
             )
-            subperc2to3[bioarea] = np.where(
+            subperc2to3 = np.where(
                 self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold,
                 0,
-                subperc2to3[bioarea],
+                subperc2to3,
             )
 
             # Update water balance for all layers
-            availWater1 = availWater1 - subperc1to2[bioarea]
-            availWater2 = availWater2 + subperc1to2[bioarea] - subperc2to3[bioarea]
-            availWater3 = availWater3 + subperc2to3[bioarea] - subperc3toGW[bioarea]
+            availWater1 = availWater1 - subperc1to2
+            availWater2 = availWater2 + subperc1to2 - subperc2to3
+            availWater3 = availWater3 + subperc2to3 - subperc3toGW
             # Update WTemp1 and WTemp2
 
             wtemp1 = availWater1 + self.var.wres1[bioarea]
@@ -1184,15 +1144,11 @@ class soil(object):
 
             perc1to2 += subperc1to2
             perc2to3 += subperc2to3
-            perc3toGW[bioarea] += subperc3toGW[bioarea]
+            perc3toGW[bioarea] += subperc3toGW
 
             assert not np.isnan(perc1to2).any()
             assert not np.isnan(perc2to3).any()
             assert not np.isnan(perc3toGW[bioarea]).any()
-
-            self.percolation_forest = perc1to2[land_use_indices_forest] + perc2to3[land_use_indices_forest] + perc3toGW[land_use_indices_forest]
-            self.percolation_agriculture = perc1to2[land_use_indices_agriculture] + perc2to3[land_use_indices_agriculture] + perc3toGW[land_use_indices_agriculture]
-            self.percolation_grassland = perc1to2[land_use_indices_grassland] + perc2to3[land_use_indices_grassland] + perc3toGW[land_use_indices_grassland]
 
             del subperc1to2
             del subperc2to3
@@ -1219,11 +1175,11 @@ class soil(object):
 
         # Update soil moisture
         assert (self.var.w1 >= 0).all()
-        self.var.w1[bioarea] = self.var.w1[bioarea] - perc1to2[bioarea]
+        self.var.w1[bioarea] = self.var.w1[bioarea] - perc1to2
         assert (self.var.w1 >= 0).all()
-        self.var.w2[bioarea] = self.var.w2[bioarea] + perc1to2[bioarea] - perc2to3[bioarea]
+        self.var.w2[bioarea] = self.var.w2[bioarea] + perc1to2 - perc2to3
         assert (self.var.w2 >= 0).all()
-        self.var.w3[bioarea] = self.var.w3[bioarea] + perc2to3[bioarea] - perc3toGW[bioarea]
+        self.var.w3[bioarea] = self.var.w3[bioarea] + perc2to3 - perc3toGW[bioarea]
         assert (self.var.w3 >= 0).all()
 
         assert not np.isnan(self.var.w1).any()
@@ -1253,18 +1209,6 @@ class soil(object):
             + openWaterEvap[bioarea]
             + self.var.actTransTotal[bioarea]
         )
-
-        self.et_forest =  self.var.actualET[land_use_indices_forest]
-        self.et_agriculture =  self.var.actualET[land_use_indices_agriculture]
-        self.et_grassland =  self.var.actualET[land_use_indices_grassland]
-        self.baresoil_forest =  self.var.actBareSoilEvap[land_use_indices_forest]
-        self.baresoil_agriculture =  self.var.actBareSoilEvap[land_use_indices_agriculture]
-        self.baresoil_grassland =  self.var.actBareSoilEvap[land_use_indices_grassland]
-
-        self.transpiration_decid =  self.var.actTransTotal[land_use_indices_forest]
-        self.transpiration_conifer =  self.var.actTransTotal[land_use_indices_agriculture]
-        self.transpiration_mixed=  self.var.actTransTotal[land_use_indices_grassland]
-
 
         #  actual evapotranspiration can be bigger than pot, because openWater is taken from pot open water evaporation, therefore self.var.totalPotET[No] is adjusted
         # totalPotET[bioarea] = np.maximum(totalPotET[bioarea], self.var.actualET[bioarea])
@@ -1357,25 +1301,4 @@ class soil(object):
             perc3toGW,
             prefFlow,
             openWaterEvap,
-            self.et_forest,
-            self.et_grassland,
-            self.et_agriculture,
-            self.soilwaterstorage_forest,
-            self.soilwaterstorage_grassland,
-            self.soilwaterstorage_agriculture,
-            self.infiltration_forest,
-            self.infiltration_grassland,
-            self.infiltration_agriculture,
-            self.potentialinfiltration_forest,
-            self.potentialinfiltration_grassland,
-            self.potentialinfiltration_agriculture,
-            self.transpiration_decid,
-            self.transpiration_conifer,
-            self.transpiration_mixed,
-            self.percolation_forest,
-            self.percolation_agriculture,
-            self.percolation_grassland,
-            self.baresoil_forest,
-            self.baresoil_agriculture,
-            self.baresoil_grassland
         )
