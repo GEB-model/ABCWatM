@@ -529,6 +529,10 @@ class soil(object):
         rws2 = np.maximum(np.minimum(1.0, rws2), 0.0) * self.var.adjRoot[1][bioarea]
         rws3 = np.maximum(np.minimum(1.0, rws3), 0.0) * self.var.adjRoot[2][bioarea]
 
+        potTranspiration[self.var.indicesDeciduous] = potTranspiration[self.var.indicesDeciduous] * 0.655
+        potTranspiration[self.var.indicesConifer] = potTranspiration[self.var.indicesConifer] * 0.84
+        potTranspiration[self.var.indicesMixed] = potTranspiration[self.var.indicesMixed] * 0.735
+
         TaMax = potTranspiration[bioarea] * (rws1 + rws2 + rws3)
 
         del potTranspiration
