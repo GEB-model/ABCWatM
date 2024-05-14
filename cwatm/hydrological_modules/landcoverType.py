@@ -210,29 +210,95 @@ class landcoverType(object):
         rootFraction1 = self.var.full_compressed(np.nan, dtype=np.float32)
         maxRootDepth = self.var.full_compressed(np.nan, dtype=np.float32)
         soildepth_factor = loadmap('soildepth_factor')
+
+        #mask = ((self.var.land_use_type == 1) & (self.var.land_owners != -1)) #change land use type grassland to agriculture where land owners are
+        #self.var.land_use_type[mask] = 3
+
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change": #self.model.config["general"]["name"] == "spinup"
+                # Create a mask for areas with value 1 in the raster, everything else = 0 
+                to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/forested_grassland_and_agricultural_land.tif", masked = True)
+
+        elif self.model.config["general"]["name"] == "restoration opportunities":
+                to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/reclass_and_reprojected_restoration_opportunities.tif", masked = True)
+
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change" or self.model.config["general"]["name"] == "restoration opportunities" :
+                forest_mask_3d = np.where(to_forest.values == 1,1,0)
+                forest_mask_3d_boolean = forest_mask_3d == 1
+                forest_mask = forest_mask_3d_boolean[0, :, :]
+
+                HRU_indices = self.var.decompress(
+                    np.arange(self.model.data.HRU.land_use_type.size)
+                )
+                HRUs_to_forest = np.unique(HRU_indices[forest_mask])
+                HRUs_to_forest = HRUs_to_forest[HRUs_to_forest != -1]
+                HRUs_to_forest = HRUs_to_forest[
+                    (self.var.land_use_type[HRUs_to_forest] >= 1) & 
+                    (self.var.land_use_type[HRUs_to_forest] <= 3)
+                ]  # select HRUs which are grassland or agricultural land 
+                
+                self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
+                
+                # Define the range of values
+                range_values = range(6)  # Values from 0 to 5
+
+                # Initialize a dictionary to store counts for each value
+                counts = {}
+
+                # Count occurrences of each value
+                for value in range_values:
+                    counts[value] = np.count_nonzero(self.var.land_use_type == value)
+
+                # Calculate percentage for each value
+                total_elements = self.var.land_use_type.size
+                percentages = {value: (count / total_elements) * 100 for value, count in counts.items()}
+
+                # Print the results
+                for value, percentage in percentages.items():
+                    print(f"The percentage of {value} occurring in the array is: {percentage:.2f}%")
+
+                # Change values of 2 and 3 to 0
+                #self.var.land_use_type[self.var.land_use_type == 2] = 0
+                #self.var.land_use_type[self.var.land_use_type == 3] = 0
+
+        #extract land use types for land use map
+
+        #self.var.decompress(
+                   # np.arange(self.model.data.HRU.land_use_type.size)
+                #)
+        # transform = Affine.from_gdal(*self.model.data.HRU.gt)
+        # self.model.industry_water_consumption_ds.rio.transform().to_gdal()
+ 
+                # Create a new mask that includes the areas to be converted to forest
+                #forest_mask = geometry_mask(
+                 #   [geom for geom in to_forest.geometry],
+                  #  transform=transform,
+                   # out_shape=self.model.data.HRU.mask.shape,
+                    #invert=True,
+                    #all_touched=True,
+                #)
+
+        
+
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
+            land_use_indices = np.where(self.var.land_use_type == coverNum) 
             rootFraction1[land_use_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_rootFraction1"), fn=None)[land_use_indices]
             maxRootDepth[land_use_indices] = self.model.data.to_HRU(data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None)[land_use_indices]
 
         self.var.rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.rootDepth3 = self.var.full_compressed(np.nan, dtype=np.float32)
+       # land_use_type == 1 (= grassland of agriculture)  self.model.data.HRU.land_owners == -1 (=geen eigenaar),
+
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
             # calculate rootdepth for each soillayer and each land cover class
             self.var.rootDepth1[land_use_indices] = self.var.soildepth[0][land_use_indices]  # 0.05 m
-            if coverNum in (0, 2, 3):  # forest, paddy irrigated, non-paddy irrigated
-                # soil layer 1 = root max of land cover - first soil layer
-                h1 = np.maximum(self.var.soildepth[1][land_use_indices], maxRootDepth[land_use_indices] - self.var.soildepth[0][land_use_indices])
-                #
-                self.var.rootDepth2[land_use_indices] = np.minimum(self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - 0.05, h1)
-                # soil layer is minimum 0.05 m
-                self.var.rootDepth3[land_use_indices] = np.maximum(0.05, self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - self.var.rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
-            else:
-                assert coverNum == 1  # grassland
-                self.var.rootDepth2[land_use_indices] = self.var.soildepth[1][land_use_indices]
-                self.var.rootDepth3[land_use_indices] = self.var.soildepth[2][land_use_indices]
+            # soil layer 1 = root max of land cover - first soil layer
+            h1 = np.maximum(self.var.soildepth[1][land_use_indices], maxRootDepth[land_use_indices] - self.var.soildepth[0][land_use_indices])
+            #
+            self.var.rootDepth2[land_use_indices] = np.minimum(self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - 0.05, h1)
+            # soil layer is minimum 0.05 m
+            self.var.rootDepth3[land_use_indices] = np.maximum(0.05, self.var.soildepth[1][land_use_indices] + self.var.soildepth[2][land_use_indices] - self.var.rootDepth2[land_use_indices]) # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
 
         self.var.KSat1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.KSat2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -250,29 +316,106 @@ class landcoverType(object):
         thetar2 = self.var.full_compressed(np.nan, dtype=np.float32)
         thetar3 = self.var.full_compressed(np.nan, dtype=np.float32)
 
-        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
-            # for forest there is a special map, for the other land use types the same map is used
-            if coverType == 'forest':
-                pre = "forest_"
-            else:
-                pre = ""
-            # ksat in cm/d-1 -> m/dm
-            self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
-            self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
-            alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
-            alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
-            alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
-            self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
-            self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
-            self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
-            thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
-            thetas2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
-            thetas3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
-            thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
-            thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
-            thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
+        if (self.model.config["general"]["name"] == "100 infiltration change" or \
+        self.model.config["general"]["name"] == "infiltration change no lulc" or \
+        self.model.config["general"]["name"] == "restoration opportunities"):
+
+            for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
+                land_use_indices = np.where(self.var.land_use_type == coverNum)
+                if coverType == 'forest':
+                    # for forest there is a special map, for the other land use types the same map is used
+                        # ksat in cm/d-1 -> m/dm
+                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat1")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat2")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat3")/100, fn=None)[land_use_indices]  # checked
+                    alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha1"), fn=None)[land_use_indices]  # checked
+                    alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha2"), fn=None)[land_use_indices]  # checked
+                    alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha3"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda1"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda2"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda3"), fn=None)[land_use_indices]  # checked
+                    thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas1"), fn=None)[land_use_indices]  # checked
+                    thetas2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas2"), fn=None)[land_use_indices]  # checked
+                    thetas3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas3"), fn=None)[land_use_indices]  # checked
+                    thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar1"), fn=None)[land_use_indices]  # checked
+                    thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar2"), fn=None)[land_use_indices]  # checked
+                    thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar3"), fn=None)[land_use_indices]  # checked
+
+                else:
+                    pre = ""                  
+                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat2")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat3")/100, fn=None)[land_use_indices]  # checked
+                    alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
+                    alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
+                    alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
+                    thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
+                    thetas2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas2"), fn=None)[land_use_indices]  # checked
+                    thetas3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas3"), fn=None)[land_use_indices]  # checked
+                    thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar1"), fn=None)[land_use_indices]  # checked
+                    thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar2"), fn=None)[land_use_indices]  # checked
+                    thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetar3"), fn=None)[land_use_indices]  # checked
+
+                if coverType == 'grassland':
+                    data_ksat2 = self.model.data.to_HRU(data=loadmap("grs_fao_ksat2")/100, fn=None)
+                    nonzero_mask = data_ksat2 != 0
+                    true_locations = np.where(nonzero_mask[land_use_indices])[0]
+                    data = self.model.data.to_HRU(data=loadmap("grs_fao_ksat2")/100, fn=None)[land_use_indices]
+                    grs_ksat = self.var.KSat2[land_use_indices]
+                    grs_ksat[true_locations] = data[true_locations]
+                    self.var.KSat2[land_use_indices] = grs_ksat
+
+                if coverType == 'irrNonPaddy':
+                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat1")/100, fn=None)[land_use_indices] 
+                    #values filled in fao polygons are filled for every parameter, without transferring polygons which are 0 in fao map to the rest of the values; essentially not overwriting all values already filled in by the original data above
+                    parameters = ["KSat1", "KSat2", "KSat3", "alpha1", "alpha2", "alpha3", "lambda1", "lambda2", "lambda3", "thetas1", "thetas2", "thetas3", "thetar1", "thetar2", "thetar3"]
+                    for param in parameters:
+                        # Load data and create a boolean mask for non-zero values
+                        data_param = self.model.data.to_HRU(data=loadmap("agr_fao_" + param), fn=None)
+                        nonzero_mask = data_param != 0
+
+                        # Find indices where both land_use_indices and nonzero_mask are True
+                        true_locations = np.where(nonzero_mask[land_use_indices])[0]
+
+                        # Get the data and current parameter values corresponding to land_use_indices
+                        data = self.model.data.to_HRU(data=loadmap("agr_fao_" + param), fn=None)[land_use_indices]
+                        param_values = getattr(self.var, param)[land_use_indices] if hasattr(self.var, param) else locals()[param][land_use_indices]
+
+                        # Check if the parameter is KSat1, KSat2, or KSat3 and divide the data by 100 if true
+                        if param.startswith("KSat"):
+                            data /= 100
+
+                        # Update parameter values at true_locations
+                        param_values[true_locations] = data[true_locations]
+
+                        # Assign updated parameter values back to the class attribute or local variable
+                        if hasattr(self.var, param):
+                            getattr(self.var, param)[land_use_indices] = param_values
+                        else:
+                            locals()[param][land_use_indices] = param_values
+
+                            
+        else:
+                for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
+                    land_use_indices = np.where(self.var.land_use_type == coverNum)          
+                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat1")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat2")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat3")/100, fn=None)[land_use_indices]  # checked
+                    alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha1"), fn=None)[land_use_indices]  # checked
+                    alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha2"), fn=None)[land_use_indices]  # checked
+                    alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha3"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda1"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda2"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda3"), fn=None)[land_use_indices]  # checked
+                    thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetas1"), fn=None)[land_use_indices]  # checked
+                    thetas2[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetas2"), fn=None)[land_use_indices]  # checked
+                    thetas3[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetas3"), fn=None)[land_use_indices]  # checked
+                    thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar1"), fn=None)[land_use_indices]  # checked
+                    thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar2"), fn=None)[land_use_indices]  # checked
+                    thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar3"), fn=None)[land_use_indices]  # checked
             
         self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -293,7 +436,7 @@ class landcoverType(object):
         self.var.kunSatFC23 = self.var.full_compressed(np.nan, dtype=np.float32)
 
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
+            land_use_indices = np.where(self.var.land_use_type == coverNum) 
             self.var.ws1[land_use_indices] = thetas1[land_use_indices] * self.var.rootDepth1[land_use_indices]
             self.var.ws2[land_use_indices] = thetas2[land_use_indices] * self.var.rootDepth2[land_use_indices]
             self.var.ws3[land_use_indices] = thetas3[land_use_indices] * self.var.rootDepth3[land_use_indices]
@@ -320,6 +463,27 @@ class landcoverType(object):
             kUnSat3FC = self.var.KSat3[land_use_indices] * np.sqrt(satTerm3FC) * np.square(1 - (1 - satTerm3FC ** (1 / (self.var.lambda3[land_use_indices] / (self.var.lambda3[land_use_indices] + 1)))) ** (self.var.lambda3[land_use_indices] / (self.var.lambda3[land_use_indices] + 1)))
             self.var.kunSatFC12[land_use_indices] = np.sqrt(kUnSat1FC * kUnSat2FC)
             self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
+
+            # Print means of computed variables
+            print("Mean of ws1:", np.mean(self.var.ws1[land_use_indices]))
+            print("Mean of ws2:", np.mean(self.var.ws2[land_use_indices]))
+            print("Mean of ws3:", np.mean(self.var.ws3[land_use_indices]))
+            print("Mean of wres1:", np.mean(self.var.wres1[land_use_indices]))
+            print("Mean of wres2:", np.mean(self.var.wres2[land_use_indices]))
+            print("Mean of wres3:", np.mean(self.var.wres3[land_use_indices]))
+            print("Mean of wfc1:", np.mean(self.var.wfc1[land_use_indices]))
+            print("Mean of wfc2:", np.mean(self.var.wfc2[land_use_indices]))
+            print("Mean of wfc3:", np.mean(self.var.wfc3[land_use_indices]))
+            print("Mean of wwp1:", np.mean(self.var.wwp1[land_use_indices]))
+            print("Mean of wwp2:", np.mean(self.var.wwp2[land_use_indices]))
+            print("Mean of wwp3:", np.mean(self.var.wwp3[land_use_indices]))
+            print("Mean of kunsat1:", np.mean(kUnSat1FC))
+            print("Mean of kunsat2:", np.mean(kUnSat2FC))
+            print("Mean of kunsat3:", np.mean(kUnSat3FC))
+            print("Mean of satterm1", np.mean(satTerm1FC))
+            print("Mean of satterm2:", np.mean(satTerm2FC))
+            print("Mean of satterm 3", np.mean(satTerm3FC))
+
 
         # for paddy irrigation flooded paddy fields
         self.var.topwater = self.model.data.HRU.load_initial("topwater", default=self.var.full_compressed(0, dtype=np.float32))
