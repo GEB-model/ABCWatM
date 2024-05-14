@@ -85,5 +85,5 @@ class evaporation(object):
         ## potTranspiration: Transpiration for each land cover class
         potTranspiration = np.maximum(0., totalPotET - potBareSoilEvap - self.var.snowEvap)
 
-        return potTranspiration, potBareSoilEvap
-      #, totalPotET, self.potET_forest,self.potET_grassland,self.potET_agriculture
+        return potTranspiration, potBareSoilEvap, totalPotET
+      # self.potET_forest,self.potET_grassland,self.potET_agriculture
