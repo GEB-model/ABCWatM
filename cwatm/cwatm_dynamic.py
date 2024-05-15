@@ -66,7 +66,7 @@ class CWATModel_dyn(DynamicModel):
         # ***** READ land use fraction maps***************************
 
         # *********  Soil splitted in different land cover fractions *************
-        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic()
+        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow, self.soilwaterstorage_forest, self.soilwaterstorage_relsat, self.soilwaterstorage_full = self.landcoverType_module.dynamic()
         timemeasure("Soil main")  # 5. timing
 
         self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)

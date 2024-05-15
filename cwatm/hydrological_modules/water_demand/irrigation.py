@@ -145,8 +145,6 @@ class waterdemand_irrigation:
         # should not be bigger than infiltration capacity
         pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity)
         if np.isnan(pot_irrConsumption).any():
-            # Define the replacement value
-            replacement_value = 0 # Replace negative values with this value
 
             # Create a mask for negative values
             neg_mask = np.isnan(pot_irrConsumption)

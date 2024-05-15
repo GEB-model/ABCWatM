@@ -214,14 +214,50 @@ class landcoverType(object):
         mask = ((self.var.land_use_type == 1) & (self.var.land_owners != -1)) #change land use type grassland to agriculture where land owners are
         self.var.land_use_type[mask] = 3
 
-        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change": #self.model.config["general"]["name"] == "spinup"
+                   #extract land use types for land use map
+
+  
+        import rasterio
+        from rasterio.transform import Affine
+        from rasterio.crs import CRS
+        transform = Affine.from_gdal(*self.model.data.HRU.gt)
+                # Define the CRS (EPSG code)
+        crs = CRS.from_epsg(4302)
+
+        # Output raster file path
+        output_raster = 'C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/land_use_map_from_GEB.tif'
+
+        data=    self.var.decompress(
+                    np.arange(self.model.data.HRU.land_use_type.size)
+                )
+
+        # Writing the data to a raster file
+        with rasterio.open(
+            output_raster,
+            'w',
+            driver='GTiff',
+            height=data.shape[0],
+            width=data.shape[1],
+            count=1,  # number of bands
+            dtype=data.dtype,
+            crs=crs,
+            transform=transform
+        ) as dst:
+            dst.write(data, 1)
+        
+
+
+
+
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change": #or self.model.config["general"]["name"] == "spinup":
                 # Create a mask for areas with value 1 in the raster, everything else = 0 
                 to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/forested_grassland_and_agricultural_land.tif", masked = True)
 
         elif self.model.config["general"]["name"] == "restoration opportunities":
                 to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/reclass_and_reprojected_restoration_opportunities.tif", masked = True)
 
-        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change" or self.model.config["general"]["name"] == "restoration opportunities" :
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change" or self.model.config["general"]["name"] == "restoration opportunities": #or self.model.config["general"]["name"] == "spinup":
+                self.var.pre_agriculture = np.where(self.var.land_use_type == 3)
                 forest_mask_3d = np.where(to_forest.values == 1,1,0)
                 forest_mask_3d_boolean = forest_mask_3d == 1
                 forest_mask = forest_mask_3d_boolean[0, :, :]
@@ -229,13 +265,15 @@ class landcoverType(object):
                 HRU_indices = self.var.decompress(
                     np.arange(self.model.data.HRU.land_use_type.size)
                 )
-                HRUs_to_forest = np.unique(HRU_indices[forest_mask])
+                HRUs_to_forest = np.unique(HRU_indices[forest_mask])   
                 HRUs_to_forest = HRUs_to_forest[HRUs_to_forest != -1]
+                 
                 HRUs_to_forest = HRUs_to_forest[
                     (self.var.land_use_type[HRUs_to_forest] >= 1) & 
                     (self.var.land_use_type[HRUs_to_forest] <= 3)
                 ]  # select HRUs which are grassland or agricultural land 
-                
+
+                self.var.HRUs_to_forest = HRUs_to_forest  
                 self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
                 
                 # Define the range of values
@@ -256,27 +294,13 @@ class landcoverType(object):
                 for value, percentage in percentages.items():
                     print(f"The percentage of {value} occurring in the array is: {percentage:.2f}%")
 
+                self.var.indices_agriculture_land_use_change = np.where(self.var.land_use_type == 3)
+
                 # Change values of 2 and 3 to 0
                 #self.var.land_use_type[self.var.land_use_type == 2] = 0
                 #self.var.land_use_type[self.var.land_use_type == 3] = 0
 
-        #extract land use types for land use map
-
-        #self.var.decompress(
-                   # np.arange(self.model.data.HRU.land_use_type.size)
-                #)
-        # transform = Affine.from_gdal(*self.model.data.HRU.gt)
-        # self.model.industry_water_consumption_ds.rio.transform().to_gdal()
- 
-                # Create a new mask that includes the areas to be converted to forest
-                #forest_mask = geometry_mask(
-                 #   [geom for geom in to_forest.geometry],
-                  #  transform=transform,
-                   # out_shape=self.model.data.HRU.mask.shape,
-                    #invert=True,
-                    #all_touched=True,
-                #)
-
+     
         
 
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
@@ -287,7 +311,7 @@ class landcoverType(object):
         self.var.rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.rootDepth3 = self.var.full_compressed(np.nan, dtype=np.float32)
-       # land_use_type == 1 (= grassland of agriculture)  self.model.data.HRU.land_owners == -1 (=geen eigenaar),
+
 
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
@@ -318,7 +342,7 @@ class landcoverType(object):
 
         if (self.model.config["general"]["name"] == "100 infiltration change" or \
         self.model.config["general"]["name"] == "infiltration change no lulc" or \
-        self.model.config["general"]["name"] == "restoration opportunities"):
+        self.model.config["general"]["name"] == "restoration opportunities" or self.model.config["general"]["name"] == "spinup"):
 
             for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
                 land_use_indices = np.where(self.var.land_use_type == coverNum)
@@ -732,7 +756,7 @@ class landcoverType(object):
         capillar = self.model.data.to_HRU(data=self.model.data.grid.capillar, fn=None)
         del self.model.data.grid.capillar
 
-        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap= self.model.soil_module.dynamic(
+        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap, self.soilwaterstorage_forest, self.soilwaterstorage_relsat, self.soilwaterstorage_full= self.model.soil_module.dynamic(
             capillar,
             openWaterEvap,
             potTranspiration,
@@ -746,11 +770,11 @@ class landcoverType(object):
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
 
         if self.model.current_timestep == 1:
-            self.var.runoff_delay = self.var.full_compressed(0, dtype=np.float32)
-            self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
-            self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
-            self.var.runoff_delay_pre = self.var.runoff_delay.copy()
-            directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
+           self.var.runoff_delay = self.var.full_compressed(0, dtype=np.float32)
+           self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
+           self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
+           self.var.runoff_delay_pre = self.var.runoff_delay.copy()
+           directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
         else:
             self.var.runoff_delay_pre = self.var.runoff_delay.copy()
             directRunoff[land_use_indices_forest] = directRunoff[land_use_indices_forest] + self.var.runoff_delay_pre[land_use_indices_forest]
@@ -803,12 +827,12 @@ class landcoverType(object):
                     self.var.actTransTotal, self.var.actBareSoilEvap, openWaterEvap
                 ],
                 prestorages=[w1_pre, w2_pre, w3_pre, topwater_pre],
-                poststorages=[self.var.w1, self.var.w2, self.var.w3, self.var.topwater, self.var.runoff_delay],
+                poststorages=[self.var.w1, self.var.w2, self.var.w3, self.var.topwater],
                 tollerance=1e-6
             )
 
-            totalstorage = np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat + self.var.interceptStor + self.var.w1 + self.var.w2 + self.var.w3 + self.var.topwater +self.var.runoff_delay
-            totalstorage_pre = self.var.prevSnowCover + w1_pre + w2_pre + w3_pre + topwater_pre + interceptStor_pre + self.var.runoff_delay_pre
+            totalstorage = np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat + self.var.interceptStor + self.var.w1 + self.var.w2 + self.var.w3 + self.var.topwater
+            totalstorage_pre = self.var.prevSnowCover + w1_pre + w2_pre + w3_pre + topwater_pre + interceptStor_pre
 
             self.model.waterbalance_module.waterBalanceCheck(
                 how='cellwise',
@@ -836,5 +860,6 @@ class landcoverType(object):
             groundwater_abstaction, 
             channel_abstraction_m, 
             openWaterEvap, 
-            returnFlow
+            returnFlow,
+            self.soilwaterstorage_forest, self.soilwaterstorage_relsat, self.soilwaterstorage_full
         )

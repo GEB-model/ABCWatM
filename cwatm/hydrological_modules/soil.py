@@ -377,6 +377,15 @@ class soil(object):
             self.var.natural_available_water_infiltration
             + self.var.actual_irrigation_consumption
         )
+        if np.isnan(availWaterInfiltration).any():
+            # Define the replacement value
+            replacement_value = 0  # Replace negative values with this value
+
+            # Create a mask for negative values
+            neg_mask = np.isnan(availWaterInfiltration, 0)
+
+            # Replace negative values with the replacement value
+            availWaterInfiltration[neg_mask] = replacement_value
         assert (availWaterInfiltration + 1e-6 >= 0).all()
         availWaterInfiltration[availWaterInfiltration < 0] = 0
 
@@ -754,6 +763,15 @@ class soil(object):
         soilWaterStorageCap = self.var.ws1[bioarea] + self.var.ws2[bioarea]
         relSat = soilWaterStorage / soilWaterStorageCap
         relSat = np.minimum(relSat, 1.0)
+
+        print(np.nanmean(relSat))
+
+        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
+        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
+        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
+        self.soilwaterstorage_forest =  self.var.w1[land_use_indices_forest] + self.var.w2[land_use_indices_forest] + self.var.w3[land_use_indices_forest]
+        self.soilwaterstorage_relsat =  relSat
+        self.soilwaterstorage_full =  self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea]
 
         del soilWaterStorage
 
@@ -1305,4 +1323,7 @@ class soil(object):
             perc3toGW,
             prefFlow,
             openWaterEvap,
+            self.soilwaterstorage_forest,
+            self.soilwaterstorage_relsat,
+             self.soilwaterstorage_full
         )

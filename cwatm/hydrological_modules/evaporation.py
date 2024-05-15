@@ -53,6 +53,14 @@ class evaporation(object):
         # get crop coefficient
         # to get ETc from ET0 x kc factor  ((see http://www.fao.org/docrep/X0490E/x0490e04.htm#TopOfPage figure 4:)
         # crop coefficient read for forest and grassland from file
+        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
+        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
+        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3)) 
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "restoration opportunities":
+            if self.var.indices_agriculture_land_use_change[0].size != land_use_indices_agriculture[0].size:
+                import rioxarray
+                HRUs_to_forest = self.var.HRUs_to_forest
+                self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
 
         potBareSoilEvap = self.var.cropCorrect * self.var.minCropKC * ETRef 
 
@@ -62,9 +70,7 @@ class evaporation(object):
 
         # calculate potential ET
         ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m] 
-        land_use_indices_forest = np.where(self.var.land_use_type == 0) 
-        land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
-        land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3)) 
+
 
         if np.isnan(self.var.cropKC[land_use_indices_agriculture]).any():
             # Replace NaN values with the replacement value
