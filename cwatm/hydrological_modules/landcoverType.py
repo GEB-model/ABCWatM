@@ -227,8 +227,8 @@ class landcoverType(object):
         # Output raster file path
         output_raster = 'C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/land_use_map_from_GEB.tif'
 
-        data=    self.var.decompress(
-                    np.arange(self.model.data.HRU.land_use_type.size)
+        data= self.var.decompress(
+                    self.var.land_use_type
                 )
 
         # Writing the data to a raster file
