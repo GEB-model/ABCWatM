@@ -373,7 +373,7 @@ class landcoverType(object):
                     alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha1"), fn=None)[land_use_indices]  # checked
                     alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha2"), fn=None)[land_use_indices]  # checked
                     alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "alpha3"), fn=None)[land_use_indices]  # checked
-                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda1"), fn=None)[land_use_indices] # checked
                     self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda2"), fn=None)[land_use_indices]  # checked
                     self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "lambda3"), fn=None)[land_use_indices]  # checked
                     thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "thetas1"), fn=None)[land_use_indices]  # checked
@@ -746,7 +746,7 @@ class landcoverType(object):
         
         if self.model.config['general']['simulate_forest']:
             print('check whether this is correct with plantFATE implementation')
-        potTranspiration = self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the intercepted water.
+        potTranspiration, self.interceptevap_forest, self.interceptevap_grassland,  self.interceptevap_agriculture, self.rain_forest,  self.rain_agriculture,  self.rain_grassland= self.model.interception_module.dynamic(potTranspiration)  # first thing that evaporates is the intercepted water.
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = self.model.waterdemand_module.dynamic(totalPotET)
@@ -756,7 +756,7 @@ class landcoverType(object):
         capillar = self.model.data.to_HRU(data=self.model.data.grid.capillar, fn=None)
         del self.model.data.grid.capillar
 
-        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap, self.soilwaterstorage_forest, self.soilwaterstorage_relsat, self.soilwaterstorage_full= self.model.soil_module.dynamic(
+        interflow, directRunoff, groundwater_recharge, perc3toGW, prefFlow, openWaterEvap, self.soilwaterstorage_forest,  self.soilwaterstorage_agriculture,self.soilwaterstorage_grassland,  self.soilwaterstorage_relsat_forest,self.soilwaterstorage_relsat_agriculture,self.soilwaterstorage_relsat_grassland, self.soilwaterstorage_full, self.infiltration_forest, self.infiltration_grassland, self.infiltration_agriculture, self.percolation_forest,self.percolation_agriculture,self.percolation_grassland= self.model.soil_module.dynamic(
             capillar,
             openWaterEvap,
             potTranspiration,
@@ -861,5 +861,11 @@ class landcoverType(object):
             channel_abstraction_m, 
             openWaterEvap, 
             returnFlow,
-            self.soilwaterstorage_forest, self.soilwaterstorage_relsat, self.soilwaterstorage_full
-        )
+            self.interceptevap_forest, self.interceptevap_grassland,  self.interceptevap_agriculture, self.rain_forest,  self.rain_agriculture,  self.rain_grassland,
+            self.infiltration_forest,
+            self.infiltration_grassland,
+            self.infiltration_agriculture,
+            self.percolation_forest,
+            self.percolation_agriculture,
+            self.percolation_grassland, 
+            self.directrunoff_forest, self.directrunoff_agriculture, self.directrunoff_grassland,  self.soilwaterstorage_forest,  self.soilwaterstorage_agriculture,self.soilwaterstorage_grassland,  self.soilwaterstorage_relsat_forest,self.soilwaterstorage_relsat_agriculture,self.soilwaterstorage_relsat_grassland, self.soilwaterstorage_full, self.infiltration_forest, self.infiltration_grassland, self.infiltration_agriculture, self.percolation_forest,self.percolation_agriculture,self.percolation_grassland)

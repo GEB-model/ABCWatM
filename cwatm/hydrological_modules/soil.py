@@ -151,6 +151,10 @@ class soil(object):
         # ------------ SOIL DEPTH ----------------------------------------------------------
         # soil thickness and storage
 
+        bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
+        self.soilwaterstorage_relsat_average = self.var.zeros(bioarea.size, dtype=np.float32)
+        self.soilwaterstorage_average = self.var.full_compressed(0, dtype=np.float32)
+
         self.var.soildepth = np.tile(
             self.var.full_compressed(np.nan, dtype=np.float32), (3, 1)
         )
@@ -770,8 +774,19 @@ class soil(object):
         land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
         land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3))
         self.soilwaterstorage_forest =  self.var.w1[land_use_indices_forest] + self.var.w2[land_use_indices_forest] + self.var.w3[land_use_indices_forest]
-        self.soilwaterstorage_relsat =  relSat
+        self.soilwaterstorage_grassland =  self.var.w1[land_use_indices_grassland] + self.var.w2[land_use_indices_grassland] + self.var.w3[land_use_indices_grassland]
+        self.soilwaterstorage_agriculture =  self.var.w1[land_use_indices_agriculture] + self.var.w2[land_use_indices_agriculture] + self.var.w3[land_use_indices_agriculture]
+        self.soilwaterstorage_relsat_forest =  (self.var.w1[land_use_indices_forest] + self.var.w2[land_use_indices_forest] + self.var.w3[land_use_indices_forest])/ (self.var.ws1[land_use_indices_forest] + self.var.ws2[land_use_indices_forest] + self.var.ws3[land_use_indices_forest])
+        self.soilwaterstorage_relsat_grassland =  (self.var.w1[land_use_indices_grassland] + self.var.w2[land_use_indices_grassland] + self.var.w3[land_use_indices_grassland])/ (self.var.ws1[land_use_indices_grassland] + self.var.ws2[land_use_indices_grassland] + self.var.ws3[land_use_indices_grassland])
+        self.soilwaterstorage_relsat_agriculture =  (self.var.w1[land_use_indices_agriculture] + self.var.w2[land_use_indices_agriculture] + self.var.w3[land_use_indices_agriculture])/ (self.var.ws1[land_use_indices_agriculture] + self.var.ws2[land_use_indices_agriculture] + self.var.ws3[land_use_indices_agriculture])
         self.soilwaterstorage_full =  self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea]
+ 
+        
+
+        self.soilwaterstorage_relsat_average += relSat
+        self.soilwaterstorage_average += (self.var.w1 + self.var.w2 + self.var.w3)
+        
+    
 
         del soilWaterStorage
 
@@ -868,6 +883,10 @@ class soil(object):
             0,
         )  # now w2 could be over-saturated
         self.var.w1[bioarea] = np.minimum(self.var.ws1[bioarea], self.var.w1[bioarea])
+
+        self.infiltration_forest =  infiltration[land_use_indices_forest]
+        self.infiltration_grassland =  infiltration[land_use_indices_grassland]
+        self.infiltration_agriculture = infiltration[land_use_indices_agriculture]
 
         del infiltration
         assert (self.var.w1 >= 0).all()
@@ -1168,6 +1187,10 @@ class soil(object):
             perc2to3 += subperc2to3
             perc3toGW[bioarea] += subperc3toGW
 
+            self.percolation_forest = perc1to2 + perc2to3 + perc3toGW[bioarea]
+            self.percolation_agriculture = perc1to2 + perc2to3 + perc3toGW[bioarea]
+            self.percolation_grassland = perc1to2 + perc2to3 + perc3toGW[bioarea]
+
             assert not np.isnan(perc1to2).any()
             assert not np.isnan(perc2to3).any()
             assert not np.isnan(perc3toGW[bioarea]).any()
@@ -1323,7 +1346,6 @@ class soil(object):
             perc3toGW,
             prefFlow,
             openWaterEvap,
-            self.soilwaterstorage_forest,
-            self.soilwaterstorage_relsat,
-             self.soilwaterstorage_full
+             self.soilwaterstorage_forest,  self.soilwaterstorage_agriculture,self.soilwaterstorage_grassland,  self.soilwaterstorage_relsat_forest,self.soilwaterstorage_relsat_agriculture,self.soilwaterstorage_relsat_grassland, self.soilwaterstorage_full, self.infiltration_forest, self.infiltration_grassland, self.infiltration_agriculture, self.percolation_forest,self.percolation_agriculture,self.percolation_grassland
+
         )

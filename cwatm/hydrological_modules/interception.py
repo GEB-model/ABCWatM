@@ -78,6 +78,7 @@ class interception(object):
             self.interception_ds[land_cover] = xr.open_dataset(
                 self.model.model_structure['forcing'][f'landcover/{land_cover}/interceptCap{land_cover.title()}_10days']
             )[f'interceptCap{land_cover.title()}_10days']
+        self.var.rain_average = self.var.full_compressed(0, dtype=np.float32)
 
     def dynamic(self, potTranspiration):
         """
@@ -199,6 +200,7 @@ class interception(object):
         interceptCap[self.var.indicesConifer] = interceptCap[self.var.indicesConifer] *2.63
         interceptCap[self.var.indicesMixed] = interceptCap[self.var.indicesMixed] * 2
         interceptCap[land_use_indices_agriculture] = np.nanmean(interceptCap[land_use_indices_grassland])
+        
 
         
 
@@ -269,6 +271,10 @@ class interception(object):
          # Mask the values where rain is zero
            # Mask the values where rain is zero
         self.rain_forest = self.var.Rain[land_use_indices_forest]
+        self.var.rain_average += self.var.Rain
+
+
+
         masked_rain = np.where(self.rain_forest != 0, self.rain_forest, np.nan)
         ratio = self.var.interceptEvap[land_use_indices_forest]/(masked_rain)*100
         ratio_clipped = np.where(np.isnan(ratio), np.nan, np.clip(ratio, 0, 100))
@@ -277,7 +283,7 @@ class interception(object):
 
         self.rain_agriculture = self.var.Rain[land_use_indices_agriculture]
         masked_rain = np.where(self.rain_agriculture != 0, self.rain_agriculture, np.nan)
-        ratio = self.var.interceptEvap[land_use_indices_agriculture]/(masked_rain)*100
+        ratio = self.var.interceptEvap[land_use_indices_agriculture]/(masked_rain) * 100
         ratio_clipped = np.clip(ratio, 0, 100)
         self.interceptevap_agriculture = self.var.interceptEvap[land_use_indices_agriculture]
 
@@ -309,5 +315,5 @@ class interception(object):
         # deciduous, coniferous, mixed for forest, grassland, agriculture
 
 
-        return potTranspiration
+        return potTranspiration, self.interceptevap_forest, self.interceptevap_grassland,  self.interceptevap_agriculture, self.rain_forest,  self.rain_agriculture,  self.rain_grassland
         #self.interceptcap_forest, self.interceptcap_grassland,  self.interceptcap_agriculture, self.interceptevap_forest, self.interceptevap_grassland,  self.interceptevap_agriculture,  self.rain_forest,  self.rain_agriculture,  self.rain_grassland

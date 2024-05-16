@@ -56,9 +56,9 @@ class evaporation(object):
         land_use_indices_forest = np.where(self.var.land_use_type == 0) 
         land_use_indices_grassland = np.where(self.var.land_use_type == 1) 
         land_use_indices_agriculture = np.where((self.var.land_use_type == 2) | (self.var.land_use_type == 3)) 
-        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "restoration opportunities":
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "restoration opportunities": 
             if self.var.indices_agriculture_land_use_change[0].size != land_use_indices_agriculture[0].size:
-                import rioxarray
+                import rioxarray 
                 HRUs_to_forest = self.var.HRUs_to_forest
                 self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
 
