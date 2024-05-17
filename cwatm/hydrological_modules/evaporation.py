@@ -55,6 +55,11 @@ class evaporation(object):
         # crop coefficient read for forest and grassland from file
 
         # calculate potential bare soil evaporation
+        if np.isnan(self.var.cropKC[self.var.land_use_indices_agriculture]).any():
+            # Replace NaN values with the replacement value
+            self.var.cropKC[self.var.land_use_indices_agriculture] = np.nanmean(self.var.cropKC[self.var.land_use_indices_grassland])
+
+
         potBareSoilEvap = self.var.cropCorrect * self.var.minCropKC * ETRef
         # calculate snow evaporation
         self.var.snowEvap =  np.minimum(self.var.SnowMelt, potBareSoilEvap)
@@ -67,5 +72,21 @@ class evaporation(object):
 
         ## potTranspiration: Transpiration for each land cover class
         potTranspiration = np.maximum(0., totalPotET - potBareSoilEvap - self.var.snowEvap)
+        
+        self.potET_forest = self.var.full_compressed(np.nan, dtype=np.float32)
+        self.potET_grassland =self.var.full_compressed(np.nan, dtype=np.float32)
+        self.potET_agriculture =self.var.full_compressed(np.nan, dtype=np.float32)
+        self.cropkc_forest =self.var.full_compressed(np.nan, dtype=np.float32)
+        self.cropkc_grassland =self.var.full_compressed(np.nan, dtype=np.float32)
+        self.cropkc_agriculture =self.var.full_compressed(np.nan, dtype=np.float32)
 
-        return potTranspiration, potBareSoilEvap, totalPotET
+        self.potET_forest[:] = sum(totalPotET[self.var.land_use_indices_forest] * self.var.area_forest_ref)
+        self.potET_grassland[:] = sum(totalPotET[self.var.land_use_indices_grassland] * self.var.area_grassland_ref)
+        self.potET_agriculture[:] = sum(totalPotET[self.var.land_use_indices_agriculture] * self.var.area_agriculture_ref)
+        self.cropkc_forest[:] = sum(self.var.cropKC[self.var.land_use_indices_forest] *self.var.area_forest_ref)
+        self.cropkc_grassland[:] = sum(self.var.cropKC[self.var.land_use_indices_grassland] * self.var.area_grassland_ref)
+        self.cropkc_agriculture[:] = sum(self.var.cropKC[self.var.land_use_indices_agriculture]* self.var.area_agriculture_ref)
+
+
+
+        return potTranspiration, potBareSoilEvap, totalPotET, self.potET_forest,self.potET_grassland,self.potET_agriculture, self.cropkc_forest, self.cropkc_grassland, self.cropkc_agriculture

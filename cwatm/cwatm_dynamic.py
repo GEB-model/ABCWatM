@@ -47,7 +47,7 @@ class CWATModel_dyn(DynamicModel):
         # self.readmeteo_module.dynamic()
         # timemeasure("Read meteo") # 1. timing after read input maps
 
-        self.evaporationPot_module.dynamic()
+        self.ETref_forest, self.ETref_agriculture, self.ETref_grassland, self.averagetemp_forest, self.averagetemp_agriculture, self.averagetemp_grassland, self.humidity_forest,self.humidity_agriculture,self.humidity_grassland= self.evaporationPot_module.dynamic()
         timemeasure("ET pot") # 2. timing after read input maps
 
         #if Flags['check']: return  # if check than finish here
@@ -66,7 +66,10 @@ class CWATModel_dyn(DynamicModel):
         # ***** READ land use fraction maps***************************
 
         # *********  Soil splitted in different land cover fractions *************
-        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow = self.landcoverType_module.dynamic()
+        interflow, directRunoff, groundwater_recharge, groundwater_abstraction, channel_abstraction, openWaterEvap, returnFlow,self.potET_forest,self.potET_grassland,self.potET_agriculture, self.cropkc_forest, self.cropkc_grassland, self.cropkc_agriculture,\
+            self.interceptcap_forest, self.interceptcap_grassland,  self.interceptcap_agriculture, self.interceptevap_forest, self.interceptevap_grassland,  self.interceptevap_agriculture,  self.rain_forest,  self.rain_agriculture,  self.rain_grassland,\
+            self.et_forest, self.et_grassland, self.et_agriculture, self.soilwaterstorage_forest,self.soilwaterstorage_grassland, self.soilwaterstorage_agriculture, self.infiltration_forest, self.infiltration_grassland, self.infiltration_agriculture, self.potentialinfiltration_forest, self.potentialinfiltration_grassland, self.potentialinfiltration_agriculture, self.transpiration_decid, self.transpiration_conifer, self.transpiration_mixed, self.percolation_forest,self.percolation_agriculture,self.percolation_grassland,self.baresoil_forest,self.baresoil_agriculture, self.baresoil_grassland, self.interflow_forest, self.interflow_agriculture, self.interflow_grassland, self.directrunoff_forest, self.directrunoff_agriculture, self.directrunoff_grassland, self.soilwaterstorage_relsat_forest, self.soilwaterstorage_relsat_grassland, self.soilwaterstorage_relsat_agriculture, self.soilwaterstorage_full\
+        = self.landcoverType_module.dynamic()
         timemeasure("Soil main")  # 5. timing
 
         self.groundwater_modflow_module.dynamic(groundwater_recharge, groundwater_abstraction)
