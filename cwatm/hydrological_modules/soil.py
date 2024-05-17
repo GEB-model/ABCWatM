@@ -152,7 +152,7 @@ class soil(object):
         # soil thickness and storage
 
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
-        self.soilwaterstorage_relsat_average = self.var.zeros(bioarea.size, dtype=np.float32)
+        self.soilwaterstorage_relsat_average = self.var.full_compressed(0, dtype=np.float32)
         self.soilwaterstorage_average = self.var.full_compressed(0, dtype=np.float32)
 
         self.var.soildepth = np.tile(
@@ -779,11 +779,11 @@ class soil(object):
         self.soilwaterstorage_relsat_forest =  (self.var.w1[land_use_indices_forest] + self.var.w2[land_use_indices_forest] + self.var.w3[land_use_indices_forest])/ (self.var.ws1[land_use_indices_forest] + self.var.ws2[land_use_indices_forest] + self.var.ws3[land_use_indices_forest])
         self.soilwaterstorage_relsat_grassland =  (self.var.w1[land_use_indices_grassland] + self.var.w2[land_use_indices_grassland] + self.var.w3[land_use_indices_grassland])/ (self.var.ws1[land_use_indices_grassland] + self.var.ws2[land_use_indices_grassland] + self.var.ws3[land_use_indices_grassland])
         self.soilwaterstorage_relsat_agriculture =  (self.var.w1[land_use_indices_agriculture] + self.var.w2[land_use_indices_agriculture] + self.var.w3[land_use_indices_agriculture])/ (self.var.ws1[land_use_indices_agriculture] + self.var.ws2[land_use_indices_agriculture] + self.var.ws3[land_use_indices_agriculture])
-        self.soilwaterstorage_full =  self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea]
+        self.soilwaterstorage_full =  (self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea])/ (self.var.ws1[bioarea] + self.var.ws2[bioarea] + self.var.ws3[bioarea])
  
         
 
-        self.soilwaterstorage_relsat_average += relSat
+        self.soilwaterstorage_relsat_average += (self.var.w1+self.var.w2+self.var.w3)/(self.var.ws1+self.var.ws2+self.var.ws3)
         self.soilwaterstorage_average += (self.var.w1 + self.var.w2 + self.var.w3)
         
     
@@ -822,6 +822,7 @@ class soil(object):
             prefFlow[bioarea],
         )
         prefFlow[paddy_irrigated_land] = 0
+
 
         del relSat
 
@@ -887,6 +888,7 @@ class soil(object):
         self.infiltration_forest =  infiltration[land_use_indices_forest]
         self.infiltration_grassland =  infiltration[land_use_indices_grassland]
         self.infiltration_agriculture = infiltration[land_use_indices_agriculture]
+
 
         del infiltration
         assert (self.var.w1 >= 0).all()
