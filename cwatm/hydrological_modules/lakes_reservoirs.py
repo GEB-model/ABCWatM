@@ -453,6 +453,7 @@ class lakes_reservoirs(object):
         """
 
         self.var.resVolumeC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
+        self.var.reservoirOutflow = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
         self.var.resVolumeC[self.var.waterBodyTypC == 2] = (
             self.reservoir_operators.reservoir_volume
         )
@@ -497,6 +498,10 @@ class lakes_reservoirs(object):
         )
         np.put(self.var.lakeStorage, self.var.decompress_LR, self.var.lakeStorageC)
         np.put(self.var.resStorage, self.var.decompress_LR, self.var.resStorageC)
+
+        # Tryout code for comparing old and new reservoir module.
+        self.old_res_release = []
+        self.new_res_release = []
 
     def dynamic(self):
         """
@@ -743,26 +748,41 @@ class lakes_reservoirs(object):
             _, _, totalPotET = self.evaporation.dynamic(ETref)
             pot_irrConsumption_m = self.irrigation.dynamic(totalPotET)
 
-            reservoirOutflow_new[self.var.waterBodyTypC == 2] = (
-                self.model.agents.reservoir_operators.new_reservoir_management(
-                    inflowC[self.var.waterBodyTypC == 2],
-                    pot_irrConsumption_m,
-                    #self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
-                )
-            )
+            # reservoirOutflow_new[self.var.waterBodyTypC == 2] = (
+            #     self.model.agents.reservoir_operators.new_reservoir_management(
+            #         inflowC[self.var.waterBodyTypC == 2],
+            #         pot_irrConsumption_m,
+            #         #self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+            #     )
+            # )
             
             """""""""""""""""""""""""""""""""""
             Original reservoir management approach
             """""""""""""""""""""""""""""""""""
-            reservoirOutflow[self.var.waterBodyTypC == 2] = (
-                self.model.agents.reservoir_operators.regulate_reservoir_outflow(
+            # reservoirOutflow[self.var.waterBodyTypC == 2] = (
+            #     self.model.agents.reservoir_operators.regulate_reservoir_outflow(
+            #         self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
+            #         inflowC[self.var.waterBodyTypC == 2],
+            #         self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+            #     )
+            # )
+
+            self.var.reservoirOutflow[self.var.waterBodyTypC == 2] = (
+                self.model.agents.reservoir_operators.determine_outflow_module(
                     self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
                     inflowC[self.var.waterBodyTypC == 2],
                     self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+                    pot_irrConsumption_m,
+                    NoRoutingExecuted
                 )
             )
 
-            qResOutM3DtC = reservoirOutflow * self.var.dtRouting
+            # Code for comparing old and new reservoir release
+            # self.old_res_release.append(reservoirOutflow)
+            # self.new_res_release.append(reservoirOutflow_new)
+
+            
+            qResOutM3DtC = self.var.reservoirOutflow * self.var.dtRouting
 
             # Reservoir outflow in [m3] per sub step
             qResOutM3DtC = np.where(
