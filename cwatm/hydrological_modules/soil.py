@@ -409,6 +409,7 @@ class soil(object):
             self.var.natural_available_water_infiltration
             + self.var.actual_irrigation_consumption
         )
+        
         assert (availWaterInfiltration + 1e-6 >= 0).all()
         availWaterInfiltration[availWaterInfiltration < 0] = 0
 
@@ -787,13 +788,13 @@ class soil(object):
         relSat = soilWaterStorage / soilWaterStorageCap
         relSat = np.minimum(relSat, 1.0)
 
-        self.soilwaterstorage_forest[:] =  sum(self.var.w1[self.var.land_use_indices_forest] + self.var.w2[self.var.land_use_indices_forest] + self.var.w3[self.var.land_use_indices_forest]*self.var.area_forest_ref)
+        self.soilwaterstorage_forest[:] =  sum(self.var.w1[self.var.bioarea] + self.var.w2[self.var.bioarea] + self.var.w3[self.var.bioarea]*self.var.area_bioarea_ref)
         self.soilwaterstorage_grassland[:] =  sum(self.var.w1[self.var.land_use_indices_grassland] + self.var.w2[self.var.land_use_indices_grassland] + self.var.w3[self.var.land_use_indices_grassland]*self.var.area_grassland_ref)
         self.soilwaterstorage_agriculture[:] =  sum(self.var.w1[self.var.land_use_indices_agriculture] + self.var.w2[self.var.land_use_indices_agriculture] + self.var.w3[self.var.land_use_indices_agriculture]*self.var.area_agriculture_ref)
         self.soilwaterstorage_relsat_forest[:] =  sum((self.var.w1[self.var.land_use_indices_forest] + self.var.w2[self.var.land_use_indices_forest] + self.var.w3[self.var.land_use_indices_forest])/ (self.var.ws1[self.var.land_use_indices_forest] + self.var.ws2[self.var.land_use_indices_forest] + self.var.ws3[self.var.land_use_indices_forest]) *self.var.area_forest_ref)
         self.soilwaterstorage_relsat_grassland[:] =  sum((self.var.w1[self.var.land_use_indices_grassland] + self.var.w2[self.var.land_use_indices_grassland] + self.var.w3[self.var.land_use_indices_grassland])/ (self.var.ws1[self.var.land_use_indices_grassland] + self.var.ws2[self.var.land_use_indices_grassland] + self.var.ws3[self.var.land_use_indices_grassland])*self.var.area_grassland_ref)
         self.soilwaterstorage_relsat_agriculture[:] =  sum((self.var.w1[self.var.land_use_indices_agriculture] + self.var.w2[self.var.land_use_indices_agriculture] + self.var.w3[self.var.land_use_indices_agriculture])/ (self.var.ws1[self.var.land_use_indices_agriculture] + self.var.ws2[self.var.land_use_indices_agriculture] + self.var.ws3[self.var.land_use_indices_agriculture])* self.var.area_agriculture_ref)
-        self.soilwaterstorage_full[:] =  sum((self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea])/ (self.var.ws1[bioarea] + self.var.ws2[bioarea] + self.var.ws3[bioarea]) *self.var.bioarea_ref)
+        self.soilwaterstorage_full[:] =  sum((self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea])/ (self.var.ws1[bioarea] + self.var.ws2[bioarea] + self.var.ws3[bioarea]) *self.var.area_bioarea_ref)
 
         self.soilwaterstorage_relsat_average += (self.var.w1+self.var.w2+self.var.w3)/(self.var.ws1+self.var.ws2+self.var.ws3)
         self.soilwaterstorage_average += (self.var.w1 + self.var.w2 + self.var.w3)
@@ -852,10 +853,10 @@ class soil(object):
             infiltration[bioarea],
         )
 
-        self.infiltration_forest[:] = sum(infiltration[self.var.land_use_indices_forest] * self.var.area_forest_ref)
+        self.infiltration_forest[:] = sum(infiltration[self.var.bioarea] * self.var.area_bioarea_ref)
         self.infiltration_grassland[:] = sum(infiltration[self.var.land_use_indices_grassland]*self.var.area_grassland_ref)
         self.infiltration_agriculture[:] = sum(infiltration[self.var.land_use_indices_agriculture]* self.var.area_agriculture_ref)
-        self.potentialinfiltration_forest[:] = sum(potInf[self.var.land_use_indices_forest]* self.var.area_forest_ref)
+        self.potentialinfiltration_forest[:] = sum(potInf[self.var.bioarea]* self.var.area_bioarea_ref)
         self.potentialinfiltration_grassland[:] = sum(potInf[self.var.land_use_indices_grassland]* self.var.area_grassland_ref)
         self.potentialinfiltration_agriculture[:] = sum(potInf[self.var.land_use_indices_agriculture]* self.var.area_agriculture_ref)
         del potInf
@@ -1219,7 +1220,7 @@ class soil(object):
             del kUnSat2
             del kUnSat3
         
-        self.percolation_forest[:] = sum((perc1to2[self.var.land_use_indices_forest] + perc2to3[self.var.land_use_indices_forest] + perc3toGW[self.var.land_use_indices_forest])*self.var.area_forest_ref)
+        self.percolation_forest[:] = sum((perc1to2[self.var.bioarea] + perc2to3[self.var.bioarea] + perc3toGW[self.var.bioarea])*self.var.area_bioarea_ref)
         self.percolation_agriculture[:]= sum((perc1to2[self.var.land_use_indices_agriculture] + perc2to3[self.var.land_use_indices_agriculture] + perc3toGW[self.var.land_use_indices_agriculture])*self.var.area_agriculture_ref)
         self.percolation_grassland[:] = sum((perc1to2[self.var.land_use_indices_grassland] + perc2to3[self.var.land_use_indices_grassland] + perc3toGW[self.var.land_use_indices_grassland])*self.var.area_grassland_ref)
 
@@ -1276,7 +1277,7 @@ class soil(object):
             + self.var.actTransTotal[bioarea]
         )
         
-        self.et_forest[:]  = sum(self.var.actualET[self.var.land_use_indices_forest] * self.var.area_forest_ref)
+        self.et_forest[:]  = sum(self.var.actualET[self.var.bioarea] * self.var.area_bioarea_ref)
         self.et_agriculture[:]  = sum(self.var.actualET[self.var.land_use_indices_agriculture] * self.var.area_agriculture_ref)
         self.et_grassland[:]  = sum(self.var.actualET[self.var.land_use_indices_grassland]* self.var.area_grassland_ref)
         self.baresoil_forest[:]  = sum(self.var.actBareSoilEvap[self.var.land_use_indices_forest] * self.var.area_forest_ref)
@@ -1289,7 +1290,7 @@ class soil(object):
         self.transpiration_mixed=  self.var.full_compressed(np.nan, dtype=np.float32)
 
 
-        self.transpiration_decid[:] =  sum(self.var.actTransTotal[self.var.land_use_indices_forest]* self.var.area_forest_ref)
+        self.transpiration_decid[:] =  sum(self.var.actTransTotal[self.var.bioarea]* self.var.area_bioarea_ref)
         self.transpiration_conifer[:] =  sum(self.var.actTransTotal[self.var.land_use_indices_agriculture] *self.var.area_agriculture_ref)
         self.transpiration_mixed[:]=  sum(self.var.actTransTotal[self.var.land_use_indices_grassland]*self.var.area_grassland_ref)
 

@@ -100,10 +100,11 @@ class interception(object):
             # Change all zeros to 0.000186 (mean minimum value in forests in this dataset)
             interceptCap[self.var.land_use_indices_forest] = np.where(interceptCap[self.var.land_use_indices_forest] == 0, 0.000186, interceptCap[self.var.land_use_indices_forest])
 
+        #determine indices of forest types to apply different interception capacities and evaporation rates
         if self.model.current_timestep == 1:
 
 
-            forest_types = rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/landsurface/forest_types_mode_high_res.tif", masked=True)
+            forest_types = rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/landsurface/forest_types.tif", masked=True)
                         # 30'' grid of forests, with True/False. Here initialized as random data
 
 
@@ -135,21 +136,22 @@ class interception(object):
                     self.var.indicesDeciduous = indices_for_forest
                     # Create a mask indicating elements of land_use_indices_forest NOT present in indices_for_forest these can be used to filter land_use_indices_forest for mismatches between forest_types dataset and the original land use indices.
                     mask = np.isin(self.var.land_use_indices_forest, indices_for_forest)
-                    # Filter land_use_indices_forest using the mask
                     filtered_array = self.var.land_use_indices_forest[0][~mask[0]]
                 elif forest_type == 7:  # Coniferous
                     self.var.indicesConifer = indices_for_forest
                     mask = ~np.isin(filtered_array, indices_for_forest)
-                    # Filter filtered_array using the mask
                     filtered_array = filtered_array[mask]
                 elif forest_type == 8:  # Mixed
                     self.var.indicesMixed = indices_for_forest
                     mask = ~np.isin(filtered_array, indices_for_forest)
-                    # Filter land_use_indices_forest using the mask
                     filtered_array = filtered_array[mask]
                     self.var.indicesMismatched = filtered_array
+                    
+
+                    # the forest types are randomly distributed across the mismatched indices, according to the percentage they occur in in the Meuse, through the following function:
 
                     def random_forest_type(percentage_to_transfer):
+                        total_indices = self.var.indicesMismatched.size
 
                         # Calculate the number of indices to transfer
                         indices_to_transfer = int(total_indices * percentage_to_transfer / 100)
@@ -163,14 +165,48 @@ class interception(object):
                         self.var.indicesMismatched = self.var.indicesMismatched[mask] 
                         return random_forest
 
-                    total_indices = self.var.indicesMismatched.size
-                    deciduous_mismatch = random_forest_type(69.74) #percentage of forest to be deciduous in mismatched array, percentage is based on the percentage per forest in the Copernicus forest cover type dataset 2018
-                    conifer_mismatch = random_forest_type(17.01)
-                    mixed_mismatch = self.var.indicesMismatched
+                    #deciduous_mismatch = random_forest_type(69.74) #percentage of forest to be deciduous in mismatched array, percentage is based on the percentage per forest in the Copernicus forest cover type dataset 2018
+                    #conifer_mismatch = random_forest_type(17.01)
 
-                    self.var.indicesDeciduous = np.concatenate((self.var.indicesDeciduous, deciduous_mismatch))
-                    self.var.indicesConifer = np.concatenate((self.var.indicesConifer, conifer_mismatch))
-                    self.var.indicesMixed = np.concatenate((self.var.indicesMixed, mixed_mismatch))
+                    #the following function was only ones to to save the new HRUs to raster. 
+                    #After, the new raster was used to update the forest types through the code above the function random_forest_type and the function random_forest_type and the function save_HRU_to_raster were not needed anymore
+                    def save_HRU_to_raster(data):
+                        import rasterio
+                        from rasterio.transform import Affine
+                        from rasterio.crs import CRS
+                        transform = Affine.from_gdal(*self.model.data.HRU.gt)
+                        # Define the CRS (EPSG code)
+                        crs = CRS.from_epsg(4302)
+
+                        # Output raster file path
+                        output_raster = 'C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/landsurface/forest_types.tif'
+
+                        data= self.var.decompress(
+                        data
+                        )
+
+                        # Writing the data to a raster file
+                        with rasterio.open(
+                        output_raster,
+                        'w',
+                        driver='GTiff',
+                        height=data.shape[0],
+                        width=data.shape[1],
+                        count=1,  # number of bands
+                        dtype=data.dtype,
+                        crs=crs,
+                        transform=transform
+                        ) as dst:
+                            dst.write(data, 1)
+                    #self.var.land_use_type[self.var.indicesDeciduous] = 6
+                    #self.var.land_use_type[self.var.indicesConifer] = 7
+                    #self.var.land_use_type[self.var.indicesMixed] = 8
+                    #save_HRU_to_raster(self.var.land_use_type)
+
+                    #mixed_mismatch = self.var.indicesMismatched
+                    #self.var.indicesDeciduous = np.concatenate((self.var.indicesDeciduous, deciduous_mismatch))
+                    #self.var.indicesConifer = np.concatenate((self.var.indicesConifer, conifer_mismatch))
+                    #self.var.indicesMixed = np.concatenate((self.var.indicesMixed, mixed_mismatch))
 
         interceptCap[self.var.indicesDeciduous] = interceptCap[self.var.indicesDeciduous] *1.5
         interceptCap[self.var.indicesConifer] = interceptCap[self.var.indicesConifer] *2.63
@@ -242,7 +278,7 @@ class interception(object):
         self.interceptevap_forest[:] = sum(self.var.interceptEvap[self.var.land_use_indices_forest] * self.var.area_forest_ref)
         self.interceptevap_grassland[:] = sum(self.var.interceptEvap[self.var.land_use_indices_grassland] * self.var.area_grassland_ref)
         self.interceptevap_agriculture[:] = sum(self.var.interceptEvap[self.var.land_use_indices_agriculture] * self.var.area_agriculture_ref)
-        self.rain_forest[:] = sum(self.var.Rain[self.var.land_use_indices_forest] * self.var.area_forest_ref)
+        self.rain_forest[:] = sum(self.var.Rain[self.var.bioarea] * self.var.area_bioarea_ref)
         self.rain_agriculture[:] = sum(self.var.Rain[self.var.land_use_indices_agriculture] * self.var.area_agriculture_ref)
         self.rain_grassland[:]= sum(self.var.Rain[self.var.land_use_indices_grassland] * self.var.area_grassland_ref)
 

@@ -218,20 +218,16 @@ class evaporationPot(object):
         
 
         self.ETref_forest[:] = sum(self.var.ETRef[self.var.land_use_indices_forest] * self.model.data.HRU.cellArea[self.var.land_use_indices_forest]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_forest])
-        self.ETref_agriculture[:] = sum(self.var.ETRef[self.var.land_use_indices_agriculture] * self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture])
-        self.ETref_grassland[:] = sum(self.var.ETRef[self.var.land_use_indices_grassland] * self.model.data.HRU.cellArea[self.var.land_use_indices_grassland]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_grassland])
+        self.ETref_agriculture[:] = sum(self.var.ETRef[self.var.land_use_indices_agriculture] * 1)
+        self.ETref_grassland[:] = sum(self.var.ETRef[self.var.land_use_indices_grassland] * 1)
         self.averagetemp_forest[:] = sum(tas_C[self.var.land_use_indices_forest] * self.model.data.HRU.cellArea[self.var.land_use_indices_forest]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_forest])
-        self.averagetemp_agriculture[:] = sum(tas_C[self.var.land_use_indices_agriculture] * self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture])
-        self.averagetemp_grassland[:] = sum(tas_C[self.var.land_use_indices_grassland] * self.model.data.HRU.cellArea[self.var.land_use_indices_grassland]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_grassland])
+        self.averagetemp_agriculture[:] = sum(tas_C[self.var.land_use_indices_agriculture] * 1)
+        self.averagetemp_grassland[:] = sum(tas_C[self.var.land_use_indices_grassland] * 1)
         self.humidity_forest[:] = sum(hurs[self.var.land_use_indices_forest] * self.model.data.HRU.cellArea[self.var.land_use_indices_forest]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_forest])
-        self.humidity_agriculture[:] = sum(hurs[self.var.land_use_indices_agriculture] * self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture])
-        self.humidity_grassland[:] = sum(hurs[self.var.land_use_indices_grassland] * self.model.data.HRU.cellArea[self.var.land_use_indices_grassland]) / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_grassland])
+        self.humidity_agriculture[:] = sum(hurs[self.var.land_use_indices_agriculture] * 1)
+        self.humidity_grassland[:] = sum(hurs[self.var.land_use_indices_grassland] * 1)
         
 
-        self.var.area_forest_ref = self.model.data.HRU.cellArea[self.var.land_use_indices_forest] / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_forest])
-        self.var.area_agriculture_ref = self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture] / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_agriculture])
-        self.var.area_grassland_ref = self.model.data.HRU.cellArea[self.var.land_use_indices_grassland] / sum(self.model.data.HRU.cellArea[self.var.land_use_indices_grassland])
-        self.var.area_bioarea_ref = self.model.data.HRU.cellArea[self.var.bioarea_ref] / sum(self.model.data.HRU.cellArea[self.var.bioarea_ref])
 
 
         return self.ETref_forest, self.ETref_agriculture, self.ETref_grassland, self.averagetemp_forest, self.averagetemp_agriculture, self.averagetemp_grassland,self.humidity_forest,self.humidity_agriculture,self.humidity_grassland
