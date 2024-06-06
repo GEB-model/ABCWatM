@@ -136,6 +136,10 @@ class water_demand:
         self.reservoir_operators = model.agents.reservoir_operators
 
     def potential_irrigation_consumption(self, totalPotET):
+        """Calculate the potential irrigation consumption. Not that consumption
+        is not the same as withdrawal. Consumption is the amount of water that
+        is actually used by the farmers, while withdrawal is the amount of water
+        that is taken from the source. The difference is the return flow."""
         pot_irrConsumption = self.var.full_compressed(0, dtype=np.float32)
         # Paddy irrigation -> No = 2
         # Non paddy irrigation -> No = 3
@@ -276,8 +280,8 @@ class water_demand:
                         with rasterio.open(
                             cbinding("reservoir_command_areas"), "r"
                         ) as src:
-                            reservoir_command_areas = self.model.data.grid.compress(
-                                src.read(1)
+                            reservoir_command_areas = self.var.compress(
+                                src.read(1), method="last"
                             )
                             water_body_mapping = np.full(
                                 self.model.data.grid.waterBodyID.max() + 1,
@@ -297,8 +301,8 @@ class water_demand:
                             reservoir_command_areas_mapped[
                                 reservoir_command_areas == -1
                             ] = -1
-                            self.var.reservoir_command_areas = self.model.data.to_HRU(
-                                data=reservoir_command_areas_mapped
+                            self.var.reservoir_command_areas = (
+                                reservoir_command_areas_mapped
                             )
 
                 self.var.using_lift_command_areas = False
