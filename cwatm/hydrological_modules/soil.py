@@ -11,6 +11,7 @@
 import numpy as np
 from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption
 from pathlib import Path
+from geb.workflows import TimingModule
 
 
 class soil(object):
@@ -358,10 +359,7 @@ class soil(object):
         Dependend on soil depth, soil hydraulic parameters
         """
 
-        from time import time
-
-        t0 = time()
-
+        timer = TimingModule("Soil")
         if checkOption("calcWaterBalance"):
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
@@ -444,6 +442,7 @@ class soil(object):
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
 
+        timer.new_split("Various")
         # ---------------------------------------------------------
         # calculate transpiration
         # ***** SOIL WATER STRESS ************************************
@@ -739,6 +738,8 @@ class soil(object):
 
         self.var.w1[bioarea] = self.var.w1[bioarea] - self.var.actBareSoilEvap[bioarea]
 
+        timer.new_split("Water stress")
+
         # Infiltration capacity
         #  ========================================
         # first 2 soil layers to estimate distribution between runoff and infiltration
@@ -840,6 +841,8 @@ class soil(object):
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
+
+        timer.new_split("Infiltration")
 
         # Available water in both soil layers [m]
         availWater1 = np.maximum(0.0, self.var.w1[bioarea] - self.var.wres1[bioarea])
@@ -1018,6 +1021,8 @@ class soil(object):
 
         # Start iterating
 
+        timer.new_split("Fluxes - setup")
+
         for i in range(self.model.NoSubSteps):
             if i > 0:
                 # Saturation term in Van Genuchten equation
@@ -1191,6 +1196,8 @@ class soil(object):
 
         # This relates to deficit conditions, and calculating the ratio of actual to potential transpiration
 
+        timer.new_split("Fluxes")
+
         # total actual evaporation + transpiration
         self.var.actualET[bioarea] = (
             self.var.actualET[bioarea]
@@ -1281,7 +1288,9 @@ class soil(object):
                 tollerance=1e-6,
             )
 
-        # print(time() - t0)
+        timer.new_split("Finalizing")
+        if self.model.timing:
+            print(timer)
 
         return (
             interflow,
