@@ -101,15 +101,6 @@ class groundwater_modflow:
     @property
     def available_groundwater_m_modflow(self):
         groundwater_storage_available_m = (
-            self.modflow.decompress(self.modflow.head)
-            - (self.layer_boundaries[0] - self.max_groundwater_abstraction_depth)
-        ) * self.porosity[0]
-        groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
-        return groundwater_storage_available_m
-
-    @property
-    def total_groundwater_m_modflow(self):
-        groundwater_storage_available_m = (
             self.modflow.decompress(self.modflow.head) - self.layer_boundaries[1]
         ) * self.porosity[0]
         groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
@@ -341,10 +332,6 @@ class groundwater_modflow:
             default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
         )
 
-        self.max_groundwater_abstraction_depth = int(
-            cbinding("max_groundwater_abstraction_depth")
-        )
-
         self.modflow = ModFlowSimulation(
             self.model,
             "transient",
@@ -387,7 +374,7 @@ class groundwater_modflow:
         assert (groundwater_abstraction <= self.available_groundwater_m + 1e-7).all()
 
         groundwater_storage_pre = np.nansum(
-            self.total_groundwater_m_modflow * self.modflow_cell_area
+            self.available_groundwater_m_modflow * self.modflow_cell_area
         )
 
         groundwater_recharge_modflow = self.CWATM2modflow(
@@ -434,7 +421,7 @@ class groundwater_modflow:
         assert (groundwater_outflow >= 0).all()
 
         groundwater_storage_post = np.nansum(
-            self.total_groundwater_m_modflow * self.modflow_cell_area
+            self.available_groundwater_m_modflow * self.modflow_cell_area
         )
         storage_change = groundwater_storage_post - groundwater_storage_pre
         outflow = (
