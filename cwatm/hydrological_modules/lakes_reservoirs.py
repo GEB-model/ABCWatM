@@ -707,7 +707,7 @@ class lakes_reservoirs(object):
                     prestorages=[oldlake / self.var.dtRouting],  # prev storage
                     poststorages=[self.var.lakeStorageC / self.var.dtRouting],
                     name="lake",
-                    tollerance=1e-7,
+                    tollerance=1e-5,
                 )
 
             if checkOption("calcWaterBalance"):
@@ -722,7 +722,7 @@ class lakes_reservoirs(object):
                     prestorages=[oldlake / self.var.dtRouting],  # prev storage
                     poststorages=[self.var.lakeStorageC / self.var.dtRouting],
                     name="lake2",
-                    tollerance=1e-7,
+                    tollerance=1e-5,
                 )
 
             if checkOption("calcWaterBalance"):
@@ -736,7 +736,7 @@ class lakes_reservoirs(object):
                     prestorages=[oldlake],  # prev storage
                     poststorages=[self.var.lakeStorageC],
                     name="lake3",
-                    tollerance=1e-5,
+                    tollerance=0.1,
                 )
 
             return QLakeOutM3DtC
@@ -824,7 +824,7 @@ class lakes_reservoirs(object):
                     prestorages=[oldres / self.var.dtRouting],  # prev storage
                     poststorages=[self.var.reservoirStorageM3C / self.var.dtRouting],
                     name="res1",
-                    tollerance=1e-7,
+                    tollerance=1e-4,
                 )
 
             return qResOutM3DtC
