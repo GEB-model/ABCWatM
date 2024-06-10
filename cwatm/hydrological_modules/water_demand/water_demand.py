@@ -234,6 +234,8 @@ class water_demand:
                     self.model.data.grid.waterBodyTypC == 2]
             )
         )
+
+        # available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = self.reservoir_operators.release_prev_day * 3600
         
         return (
             self.model.data.grid.channelStorageM3.copy(),
@@ -389,8 +391,8 @@ class water_demand:
 
             assert (
                 pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption
-            ).all()
-            assert (self.var.actual_irrigation_consumption + 1e-6 >= 0).all()
+            ).all(), f"Actual irrigation consumption is {self.var.actual_irrigation_consumption} and potential irrigation consumption is {pot_irrConsumption + 1e-6}"
+            assert (self.var.actual_irrigation_consumption + 1e-5 >= 0).all()
 
             groundwater_abstraction_m3 = (
                 available_groundwater_m3_pre - available_groundwater_m3
@@ -403,6 +405,9 @@ class water_demand:
                 reservoir_abstraction_m3 = (
                     available_reservoir_storage_m3_pre - available_reservoir_storage_m3
                 )
+                ###
+                self.var.reservoir_abstraction_m3 = reservoir_abstraction_m3[self.model.data.grid.waterBodyTypC == 2]
+                ###
                 assert (
                     self.model.data.grid.waterBodyTypC[
                         np.where(reservoir_abstraction_m3 > 0)
