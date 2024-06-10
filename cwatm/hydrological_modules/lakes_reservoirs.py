@@ -458,6 +458,8 @@ class lakes_reservoirs(object):
             self.reservoir_operators.reservoir_volume
         )
 
+        self.var.irrigation_demand = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32) # Is irrigation demand per command area, only relevant for new reservoir module.
+
         reservoirStorageIni = self.var.load_initial("reservoirStorage")
         if not (isinstance(reservoirStorageIni, np.ndarray)):
             self.var.reservoirFillC = np.zeros(
@@ -734,9 +736,6 @@ class lakes_reservoirs(object):
             self.var.reservoirStorageM3C = (
                 self.var.reservoirStorageM3C - self.var.resEvapWaterBodyC
             )
-
-            reservoirOutflow = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
-            reservoirOutflow_new = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
             
             """""""""""""""""""""""""""""""""""
             New reservoir management approach.
@@ -744,18 +743,23 @@ class lakes_reservoirs(object):
             # First load the reference evapotranspiration and calculate the total potential evapotranspiration
             # Then calculate the potential irrigation consumption from the evaporation rate.
             # Potential irrigation consumption is input to the reservoir management model.
+
+            # Load potential irrigation consumption per farmer
             ETref = self.evaporationPot.var.ETRef
             _, _, totalPotET = self.evaporation.dynamic(ETref)
             pot_irrConsumption_m = self.irrigation.dynamic(totalPotET)
-
-            # reservoirOutflow_new[self.var.waterBodyTypC == 2] = (
-            #     self.model.agents.reservoir_operators.new_reservoir_management(
-            #         inflowC[self.var.waterBodyTypC == 2],
-            #         pot_irrConsumption_m,
-            #         #self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
-            #     )
-            # )
             
+            # Calculate the reservoir outflow using the new reservoir management approach
+            self.var.reservoirOutflow[self.var.waterBodyTypC == 2], self.var.irrigation_demand = (
+                self.model.agents.reservoir_operators.determine_outflow_module(
+                    self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
+                    inflowC[self.var.waterBodyTypC == 2],
+                    self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+                    pot_irrConsumption_m,
+                    NoRoutingExecuted
+                )
+            )
+
             """""""""""""""""""""""""""""""""""
             Original reservoir management approach
             """""""""""""""""""""""""""""""""""
@@ -766,20 +770,6 @@ class lakes_reservoirs(object):
             #         self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
             #     )
             # )
-
-            self.var.reservoirOutflow[self.var.waterBodyTypC == 2] = (
-                self.model.agents.reservoir_operators.determine_outflow_module(
-                    self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
-                    inflowC[self.var.waterBodyTypC == 2],
-                    self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
-                    pot_irrConsumption_m,
-                    NoRoutingExecuted
-                )
-            )
-
-            # Code for comparing old and new reservoir release
-            # self.old_res_release.append(reservoirOutflow)
-            # self.new_res_release.append(reservoirOutflow_new)
 
             
             qResOutM3DtC = self.var.reservoirOutflow * self.var.dtRouting
