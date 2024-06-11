@@ -791,7 +791,8 @@ class lakes_reservoirs(object):
             self.var.reservoirStorageM3C = np.maximum(0.0, self.var.reservoirStorageM3C)
 
             # New reservoir storage [m3]
-            self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC
+            self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC            
+            
             # New reservoir fill
 
             # if  (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
