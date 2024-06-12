@@ -226,35 +226,4 @@ class evaporationPot(object):
         if self.model.timing:
             print(timer)
 
-        water_deficit_day_m3 = (
-            self.model.data.HRU.ETRef - self.model.data.HRU.pr
-        ) * self.model.data.HRU.cellArea
-        water_deficit_day_m3[water_deficit_day_m3 < 0] = 0
-
-        water_deficit_day_m3_per_farmer = np.bincount(
-            self.var.land_owners[self.var.land_owners != -1],
-            weights=water_deficit_day_m3[self.var.land_owners != -1],
-        )
-
-        if self.model.current_day_of_year == 1:
-            self.model.agents.crop_farmers.cumulative_water_deficit_m3[
-                :, self.model.current_day_of_year - 1
-            ] = water_deficit_day_m3_per_farmer
-        else:
-            self.model.agents.crop_farmers.cumulative_water_deficit_m3[
-                :, self.model.current_day_of_year - 1
-            ] = (
-                self.model.agents.crop_farmers.cumulative_water_deficit_m3[
-                    :, self.model.current_day_of_year - 2
-                ]
-                + water_deficit_day_m3_per_farmer
-            )
-            # if this is the last day of the year, but not a leap year, the virtual
-            # 366th day of the year is the same as the 365th day of the year
-            # this avoids complications with the leap year
-            if self.model.current_day_of_year == 365 and not calendar.isleap(
-                self.model.current_time.year
-            ):
-                self.model.agents.crop_farmers.cumulative_water_deficit_m3[:, 365] = (
-                    self.model.agents.crop_farmers.cumulative_water_deficit_m3[:, 364]
-                )
+        self.model.agents.crop_farmers.save_water_deficit()
