@@ -333,14 +333,6 @@ class lakes_reservoirs(object):
 
             self.reservoir_operators = self.model.agents.reservoir_operators
 
-            if (
-                "routing/lakesreservoirs/command_areas"
-                in self.model.model_structure["grid"]
-            ):
-                self.var.area_command_area_in_study_area = water_body_data.loc[
-                    self.var.waterBodyIDC
-                ]["relative_area_in_region"].values
-
             # ================================
             # Lakes
 
