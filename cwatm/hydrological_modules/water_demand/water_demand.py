@@ -231,12 +231,13 @@ class water_demand:
         available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = (
             self.reservoir_operators.get_available_water_reservoir_command_areas(
                 self.model.data.grid.reservoirStorageM3C[
-                    self.model.data.grid.waterBodyTypC == 2]
+                    self.model.data.grid.waterBodyTypC == 2
+                ]
             )
         )
 
         # available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = self.reservoir_operators.release_prev_day * 3600
-        
+
         return (
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
@@ -406,7 +407,7 @@ class water_demand:
                     available_reservoir_storage_m3_pre - available_reservoir_storage_m3
                 )
                 ###
-                self.var.reservoir_abstraction_m3 = reservoir_abstraction_m3[self.model.data.grid.waterBodyTypC == 2]
+
                 ###
                 assert (
                     self.model.data.grid.waterBodyTypC[
@@ -415,15 +416,11 @@ class water_demand:
                     == 2
                 ).all()
                 # print('reservoir_abs_ratio_sum', round(reservoir_abstraction_m3[[self.model.data.grid.waterBodyTypC == 2]].sum() / self.model.data.grid.reservoirStorageM3C[[self.model.data.grid.waterBodyTypC == 2]].sum(), 3))
-                reservoir_abstraction_m3[reservoir_abstraction_m3 > 0] = (
-                    reservoir_abstraction_m3[reservoir_abstraction_m3 > 0]
-                    / self.model.data.grid.area_command_area_in_study_area[
-                        reservoir_abstraction_m3 > 0
-                    ]
-                )
-                reservoir_abstraction_m3 = np.minimum(
-                    available_reservoir_storage_m3_pre, reservoir_abstraction_m3
-                )
+
+                # Set the abstraction for the reservoir module
+                self.var.reservoir_abstraction_m3 = reservoir_abstraction_m3[
+                    self.model.data.grid.waterBodyTypC == 2
+                ]
 
                 # Abstract water from reservoir
                 self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3

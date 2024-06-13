@@ -17,6 +17,7 @@ from cwatm.hydrological_modules.water_demand.irrigation import waterdemand_irrig
 from cwatm.hydrological_modules.evaporation import evaporation
 from cwatm.hydrological_modules.evaporationPot import evaporationPot
 
+
 class lakes_reservoirs(object):
     r"""
     LAKES AND RESERVOIRS
@@ -442,6 +443,8 @@ class lakes_reservoirs(object):
 
         # lake storage ini
         self.var.lakeLevelC = self.var.lakeVolumeM3C / self.var.lakeAreaC
+        self.var.outflow_sum = 0
+        self.var.inflow_sum = 0
 
     def initial_reservoirs(self):
         """
@@ -453,12 +456,16 @@ class lakes_reservoirs(object):
         """
 
         self.var.resVolumeC = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
-        self.var.reservoirOutflow = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32)
+        self.var.reservoirOutflow = np.zeros(
+            self.var.waterBodyTypC.size, dtype=np.float32
+        )
         self.var.resVolumeC[self.var.waterBodyTypC == 2] = (
             self.reservoir_operators.reservoir_volume
         )
 
-        self.var.irrigation_demand = np.zeros(self.var.waterBodyTypC.size, dtype=np.float32) # Is irrigation demand per command area, only relevant for new reservoir module.
+        self.var.irrigation_demand = np.zeros(
+            self.var.waterBodyTypC.size, dtype=np.float32
+        )  # Is irrigation demand per command area, only relevant for new reservoir module.
 
         reservoirStorageIni = self.var.load_initial("reservoirStorage")
         if not (isinstance(reservoirStorageIni, np.ndarray)):
@@ -736,10 +743,10 @@ class lakes_reservoirs(object):
             self.var.reservoirStorageM3C = (
                 self.var.reservoirStorageM3C - self.var.resEvapWaterBodyC
             )
-            
-            """""""""""""""""""""""""""""""""""
+
+            """""" """""" """""" """""" """""" """""
             New reservoir management approach.
-            """""""""""""""""""""""""""""""""""
+            """ """""" """""" """""" """""" """""" ""
             # First load the reference evapotranspiration and calculate the total potential evapotranspiration
             # Then calculate the potential irrigation consumption from the evaporation rate.
             # Potential irrigation consumption is input to the reservoir management model.
@@ -748,21 +755,22 @@ class lakes_reservoirs(object):
             ETref = self.evaporationPot.var.ETRef
             _, _, totalPotET = self.evaporation.dynamic(ETref)
             pot_irrConsumption_m = self.irrigation.dynamic(totalPotET)
-            
+
             # Calculate the reservoir outflow using the new reservoir management approach
-            self.var.reservoirOutflow[self.var.waterBodyTypC == 2], self.var.irrigation_demand = (
-                self.model.agents.reservoir_operators.determine_outflow_module(
-                    self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
-                    inflowC[self.var.waterBodyTypC == 2],
-                    self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
-                    pot_irrConsumption_m,
-                    NoRoutingExecuted
-                )
+            (
+                self.var.reservoirOutflow[self.var.waterBodyTypC == 2],
+                self.var.irrigation_demand,
+            ) = self.model.agents.reservoir_operators.determine_outflow_module(
+                self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
+                inflowC[self.var.waterBodyTypC == 2],
+                self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
+                pot_irrConsumption_m,
+                NoRoutingExecuted,
             )
 
-            """""""""""""""""""""""""""""""""""
+            """""" """""" """""" """""" """""" """""
             Original reservoir management approach
-            """""""""""""""""""""""""""""""""""
+            """ """""" """""" """""" """""" """""" ""
             # reservoirOutflow[self.var.waterBodyTypC == 2] = (
             #     self.model.agents.reservoir_operators.regulate_reservoir_outflow(
             #         self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
@@ -771,7 +779,6 @@ class lakes_reservoirs(object):
             #     )
             # )
 
-            
             qResOutM3DtC = self.var.reservoirOutflow * self.var.dtRouting
 
             # Reservoir outflow in [m3] per sub step
@@ -791,8 +798,48 @@ class lakes_reservoirs(object):
             self.var.reservoirStorageM3C = np.maximum(0.0, self.var.reservoirStorageM3C)
 
             # New reservoir storage [m3]
-            self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC            
-            
+            self.var.reservoirFillC = self.var.reservoirStorageM3C / self.var.resVolumeC
+
+            if NoRoutingExecuted == 23:
+                self.var.outflow_sum += qResOutM3DtC[self.var.waterBodyTypC == 2]
+                self.var.inflow_sum += inflowC[
+                    self.var.waterBodyTypC == 2
+                ]  # Add inflow sum update
+                # print(
+                #     "inflow in lakes_reservoirs",
+                #     (
+                #         (
+                #             self.var.inflow_sum
+                #             / 24
+                #             / self.var.resVolumeC[self.var.resVolumeC > 0]
+                #         )
+                #         * 100
+                #     ).round(2),
+                # )
+                # print(
+                #     "outflow in lakes_reservoirs",
+                #     (
+                #         (
+                #             self.var.outflow_sum
+                #             / self.var.resVolumeC[self.var.resVolumeC > 0]
+                #         )
+                #         * 100
+                #     ).round(2),
+                # )
+
+                print(
+                    f"Reservoir fill is {((self.var.reservoirFillC[self.var.waterBodyTypC == 2]) * 100).round(2)}%"
+                )
+
+                self.var.outflow_sum = 0
+                self.var.inflow_sum = 0  # Reset inflow sum
+                pass
+            else:
+                self.var.outflow_sum += qResOutM3DtC[self.var.waterBodyTypC == 2]
+                self.var.inflow_sum += inflowC[
+                    self.var.waterBodyTypC == 2
+                ]  # Add inflow sum update
+
             # New reservoir fill
 
             # if  (self.var.noRoutingSteps == (NoRoutingExecuted + 1)):
