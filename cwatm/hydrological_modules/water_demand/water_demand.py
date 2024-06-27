@@ -392,7 +392,7 @@ class water_demand:
             assert (
                 pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption
             ).all(), f"Actual irrigation consumption is {self.var.actual_irrigation_consumption} and potential irrigation consumption is {pot_irrConsumption + 1e-6}"
-            assert (self.var.actual_irrigation_consumption + 1e-5 >= 0).all()
+            assert (self.var.actual_irrigation_consumption + 1e-5 >= 0).all(), f"Actual irrigation consumption is {self.var.actual_irrigation_consumption} and potential irrigation consumption is {pot_irrConsumption + 1e-6}"
 
             groundwater_abstraction_m3 = (
                 available_groundwater_m3_pre - available_groundwater_m3
