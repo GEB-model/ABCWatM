@@ -14,6 +14,42 @@ from pathlib import Path
 from geb.workflows import TimingModule
 
 
+def get_critical_soil_moisture(p, wfc, wwp):
+    return (1 - p) * (wfc - wwp) + wwp
+
+
+def get_available_water(w, wwp):
+    return np.maximum(0.0, w - wwp)
+
+
+def get_maximum_water_content(wfc, wwp):
+    return wfc - wwp
+
+
+def get_critical_water_level(p, wfc, wwp):
+    return np.maximum(get_critical_soil_moisture(p, wfc, wwp) - wwp, 0)
+
+
+def get_transpiration_factor(w, wwp, wcrit):
+    factor = np.clip((w - wwp) / (wcrit - wwp), 0, 1)
+    return np.nan_to_num(factor)
+
+
+def get_root_ratios(
+    root_depth,
+    soil_layer_height,
+):
+    remaining_root_depth = root_depth.copy()
+    root_ratios = np.zeros_like(soil_layer_height)
+    for layer in range(soil_layer_height.shape[0]):
+        mask = remaining_root_depth > 0
+        root_ratios[layer, mask] = np.minimum(
+            remaining_root_depth[mask] / soil_layer_height[layer, mask], 1
+        )
+        remaining_root_depth[mask] -= soil_layer_height[layer, mask]
+    return root_ratios
+
+
 class soil(object):
     """
     **SOIL**
@@ -37,10 +73,7 @@ class soil(object):
     potTranspiration      Potential transpiration (after removing of evaporation)                           m
     actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
     soilLayers            Number of soil layers                                                             --
-    fracVegCover          Fraction of area covered by the corresponding landcover type
     rootDepth
-    soildepth             Thickness of the first soil layer                                                 m
-    soildepth12           Total thickness of layer 2 and 3                                                  m
     KSat1
     KSat2
     KSat3
@@ -72,7 +105,6 @@ class soil(object):
     w3                    Simulated water storage in the layer 3                                            m
     topwater              quantity of water above the soil (flooding)                                       m
     arnoBeta
-    adjRoot
     maxtopwater           maximum heigth of topwater                                                        m
     directRunoff          Simulated surface runoff                                                          m
     interflow             Simulated flow reaching runoff instead of groundwater                             m
@@ -95,9 +127,6 @@ class soil(object):
     perc1to2              Simulated water flow from soil layer 1 to soil layer 2                            m
     perc2to3              Simulated water flow from soil layer 2 to soil layer 3                            m
     perc3toGW             Simulated water flow from soil layer 3 to groundwater                             m
-    theta1                fraction of water in soil compartment 1 for each land use class                   --
-    theta2                fraction of water in soil compartment 2 for each land use class                   --
-    theta3                fraction of water in soil compartment 3 for each land use class                   --
     actTransTotal_forest
     actTransTotal_grassl
     actTransTotal_paddy
@@ -159,20 +188,11 @@ class soil(object):
         # first soil layer = 5 cm
         self.var.soildepth[0] = self.var.full_compressed(0.05, dtype=np.float32)
         # second soil layer minimum 5cm
-        stordepth1 = self.model.data.to_HRU(data=loadmap("StorDepth1"), fn=None)
-        self.var.soildepth[1] = np.maximum(0.05, stordepth1 - self.var.soildepth[0])
+        soildepth1 = self.model.data.to_HRU(data=loadmap("StorDepth1"), fn=None)
+        self.var.soildepth[1] = np.maximum(0.05, soildepth1 - self.var.soildepth[0])
 
-        stordepth2 = self.model.data.to_HRU(data=loadmap("StorDepth2"), fn=None)
-        self.var.soildepth[2] = np.maximum(0.05, stordepth2)
-
-        # Calibration
-        soildepth_factor = loadmap("soildepth_factor")
-        self.var.soildepth[1] = self.var.soildepth[1] * soildepth_factor
-        self.var.soildepth[2] = self.var.soildepth[2] * soildepth_factor
-
-        self.model.data.grid.soildepth_12 = self.model.data.to_grid(
-            HRU_data=self.var.soildepth[1] + self.var.soildepth[2], fn="weightedmean"
-        )
+        soildepth2 = self.model.data.to_HRU(data=loadmap("StorDepth2"), fn=None)
+        self.var.soildepth[2] = np.maximum(0.05, soildepth2)
 
         def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
             out_dir = self.model.simulation_root / "plantFATE" / f"cell_{idx}"
@@ -492,53 +512,75 @@ class soil(object):
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
         # p is closer to 0 if evapo is bigger and cropgroup is smaller
 
-        wCrit1 = (
-            (1 - p) * (self.var.wfc1[bioarea] - self.var.wwp1[bioarea])
-        ) + self.var.wwp1[bioarea]
-        wCrit2 = (
-            (1 - p) * (self.var.wfc2[bioarea] - self.var.wwp2[bioarea])
-        ) + self.var.wwp2[bioarea]
-        wCrit3 = (
-            (1 - p) * (self.var.wfc3[bioarea] - self.var.wwp3[bioarea])
-        ) + self.var.wwp3[bioarea]
+        root_ratios = get_root_ratios(
+            self.var.trueRoothDepth[bioarea],
+            self.var.soil_layer_height[:, bioarea],
+        )
+
+        critical_soil_moisture1 = (
+            get_critical_soil_moisture(
+                p, self.var.wfc1[bioarea], self.var.wwp1[bioarea]
+            )
+            * root_ratios[0]
+        )
+        critical_soil_moisture2 = (
+            get_critical_soil_moisture(
+                p, self.var.wfc2[bioarea], self.var.wwp2[bioarea]
+            )
+            * root_ratios[1]
+        )
+        critical_soil_moisture3 = (
+            get_critical_soil_moisture(
+                p, self.var.wfc3[bioarea], self.var.wwp3[bioarea]
+            )
+            * root_ratios[2]
+        )
+
+        critical_soil_moisture = (
+            critical_soil_moisture1 + critical_soil_moisture2 + critical_soil_moisture3
+        )
 
         del p
 
-        # Transpiration reduction factor (in case of water stress)
-        rws1 = divideValues(
-            (self.var.w1[bioarea] - self.var.wwp1[bioarea]),
-            (wCrit1 - self.var.wwp1[bioarea]),
-            default=1.0,
+        rsw = get_transpiration_factor(
+            self.var.w1[bioarea] * root_ratios[0]
+            + self.var.w2[bioarea] * root_ratios[1]
+            + self.var.w3[bioarea] * root_ratios[2],
+            self.var.wwp1[bioarea] * root_ratios[0]
+            + self.var.wwp2[bioarea] * root_ratios[1]
+            + self.var.wwp3[bioarea] * root_ratios[2],
+            critical_soil_moisture,
         )
-        rws2 = divideValues(
-            (self.var.w2[bioarea] - self.var.wwp2[bioarea]),
-            (wCrit2 - self.var.wwp2[bioarea]),
-            default=1.0,
-        )
-        rws3 = divideValues(
-            (self.var.w3[bioarea] - self.var.wwp3[bioarea]),
-            (wCrit3 - self.var.wwp3[bioarea]),
-            default=1.0,
-        )
-        del wCrit1
-        del wCrit2
-        del wCrit3
 
-        rws1 = np.maximum(np.minimum(1.0, rws1), 0.0) * self.var.adjRoot[0][bioarea]
-        rws2 = np.maximum(np.minimum(1.0, rws2), 0.0) * self.var.adjRoot[1][bioarea]
-        rws3 = np.maximum(np.minimum(1.0, rws3), 0.0) * self.var.adjRoot[2][bioarea]
+        rsw_per_layer = np.zeros_like(root_ratios)
 
-        TaMax = potTranspiration[bioarea] * (rws1 + rws2 + rws3)
+        rsw_per_layer[0] = get_transpiration_factor(
+            self.var.w1[bioarea] * root_ratios[0],
+            self.var.wwp1[bioarea] * root_ratios[0],
+            critical_soil_moisture1,
+        )
+        rsw_per_layer[1] = get_transpiration_factor(
+            self.var.w2[bioarea] * root_ratios[1],
+            self.var.wwp2[bioarea] * root_ratios[1],
+            critical_soil_moisture2,
+        )
+        rsw_per_layer[2] = get_transpiration_factor(
+            self.var.w3[bioarea] * root_ratios[2],
+            self.var.wwp3[bioarea] * root_ratios[2],
+            critical_soil_moisture3,
+        )
+
+        del critical_soil_moisture1
+        del critical_soil_moisture2
+        del critical_soil_moisture3
+
+        TaMax = potTranspiration[bioarea] * rsw
 
         del potTranspiration
-        del rws1
-        del rws2
-        del rws3
+        del rsw
 
-        # transpiration is 0 when soil is frozen
-        TaMax = np.where(
-            self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold, 0.0, TaMax
-        )
+        # set transpiration to 0 when soil is frozen
+        TaMax[self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold] = 0.0
 
         self.model.data.grid.vapour_pressure_deficit = (
             self.calculate_vapour_pressure_deficit_kPa(
@@ -554,7 +596,9 @@ class soil(object):
             self.var.w1 + self.var.w2 + self.var.w3,  # [m]
             self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
             self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
-            self.var.rootDepth1 + self.var.rootDepth2 + self.var.rootDepth3,  # [m]
+            self.var.soil_layer_height[0]
+            + self.var.soil_layer_height[1]
+            + self.var.soil_layer_height[2],  # [m]
             wilting_point=-1500,  # kPa
             field_capacity=-33,  # kPa
         )
@@ -612,23 +656,25 @@ class soil(object):
                             _,
                         ) = self.model.plantFATE[forest_RU_idx].step(**plantFATE_data)
 
+            print("ADJUST FOR ROOT DEPTH")
+
             ta1 = np.maximum(
                 np.minimum(
-                    TaMax * self.var.adjRoot[0][bioarea],
+                    TaMax,  # * self.var.adjRoot[0][bioarea],
                     self.var.w1[bioarea] - self.var.wwp1[bioarea],
                 ),
                 0.0,
             )
             ta2 = np.maximum(
                 np.minimum(
-                    TaMax * self.var.adjRoot[1][bioarea],
+                    TaMax,  # * self.var.adjRoot[1][bioarea],
                     self.var.w2[bioarea] - self.var.wwp2[bioarea],
                 ),
                 0.0,
             )
             ta3 = np.maximum(
                 np.minimum(
-                    TaMax * self.var.adjRoot[2][bioarea],
+                    TaMax,  # * self.var.adjRoot[2][bioarea],
                     self.var.w3[bioarea] - self.var.wwp3[bioarea],
                 ),
                 0.0,
@@ -679,43 +725,37 @@ class soil(object):
             # )
 
         else:
-            ta1 = np.maximum(
-                np.minimum(
-                    TaMax * self.var.adjRoot[0][bioarea],
-                    self.var.w1[bioarea] - self.var.wwp1[bioarea],
-                ),
-                0.0,
+            root_distribution_per_layer_non_normalized = (
+                self.var.soil_layer_height[:, bioarea] * root_ratios
             )
-            ta2 = np.maximum(
-                np.minimum(
-                    TaMax * self.var.adjRoot[1][bioarea],
-                    self.var.w2[bioarea] - self.var.wwp2[bioarea],
-                ),
-                0.0,
+            assert np.array_equal(
+                self.var.trueRoothDepth[bioarea],
+                root_distribution_per_layer_non_normalized.sum(axis=0),
             )
-            ta3 = np.maximum(
-                np.minimum(
-                    TaMax * self.var.adjRoot[2][bioarea],
-                    self.var.w3[bioarea] - self.var.wwp3[bioarea],
-                ),
-                0.0,
+
+            root_distribution_per_layer_rws_corrected_non_normalized = (
+                root_distribution_per_layer_non_normalized * rsw_per_layer
             )
+            root_distribution_per_layer_rws_corrected = (
+                root_distribution_per_layer_rws_corrected_non_normalized
+                / root_distribution_per_layer_rws_corrected_non_normalized.sum(axis=0)
+            )
+
+            ta = TaMax * root_distribution_per_layer_rws_corrected
 
         del TaMax
 
-        self.var.w1[bioarea] = self.var.w1[bioarea] - ta1
-        self.var.w2[bioarea] = self.var.w2[bioarea] - ta2
-        self.var.w3[bioarea] = self.var.w3[bioarea] - ta3
+        self.var.w1[bioarea] = self.var.w1[bioarea] - ta[0]
+        self.var.w2[bioarea] = self.var.w2[bioarea] - ta[1]
+        self.var.w3[bioarea] = self.var.w3[bioarea] - ta[2]
 
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
 
-        self.var.actTransTotal[bioarea] = ta1 + ta2 + ta3
+        self.var.actTransTotal[bioarea] = ta.sum(axis=0)
 
-        del ta1
-        del ta2
-        del ta3
+        del ta
 
         # Actual potential bare soil evaporation - upper layer
         self.var.actBareSoilEvap[bioarea] = np.minimum(
@@ -940,14 +980,16 @@ class soil(object):
         capLayer2 = self.var.ws2[bioarea] - self.var.w2[bioarea]
         capLayer3 = self.var.ws3[bioarea] - self.var.w3[bioarea]
 
-        satTerm1 = availWater1 / (self.var.ws1[bioarea] - self.var.wres1[bioarea])
-        satTerm2 = availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea])
-        satTerm3 = availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea])
-
         # Saturation term in Van Genuchten equation (always between 0 and 1)
-        satTerm1 = np.maximum(np.minimum(satTerm1, 1.0), 0)
-        satTerm2 = np.maximum(np.minimum(satTerm2, 1.0), 0)
-        satTerm3 = np.maximum(np.minimum(satTerm3, 1.0), 0)
+        satTerm1 = np.clip(
+            availWater1 / (self.var.ws1[bioarea] - self.var.wres1[bioarea]), 0, 1
+        )
+        satTerm2 = np.clip(
+            availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea]), 0, 1
+        )
+        satTerm3 = np.clip(
+            availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea]), 0, 1
+        )
 
         # Unsaturated conductivity
         kUnSat1 = (
@@ -999,8 +1041,8 @@ class soil(object):
             )
         )
 
-        self.model.NoSubSteps = 3
-        DtSub = 1.0 / self.model.NoSubSteps
+        NoSubSteps = 3
+        DtSub = 1.0 / NoSubSteps
 
         # Copy current value of W1 and W2 to temporary variables,
         # because computed fluxes may need correction for storage
@@ -1023,7 +1065,7 @@ class soil(object):
 
         timer.new_split("Fluxes - setup")
 
-        for i in range(self.model.NoSubSteps):
+        for i in range(NoSubSteps):
             if i > 0:
                 # Saturation term in Van Genuchten equation
                 satTerm1 = np.maximum(0.0, wtemp1 - self.var.wres1[bioarea]) / (
@@ -1182,10 +1224,6 @@ class soil(object):
 
         del perc1to2
         del perc2to3
-
-        # self.var.theta1[bioarea] = self.var.w1[bioarea] / rootDepth1[bioarea]
-        # self.var.theta2[bioarea] = self.var.w2[bioarea] / rootDepth2[bioarea]
-        # self.var.theta3[bioarea] = self.var.w3[bioarea] / rootDepth3[bioarea]
 
         # ---------------------------------------------------------------------------------------------
         # Calculate interflow

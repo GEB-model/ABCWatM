@@ -219,56 +219,13 @@ class landcoverType(object):
 
         self.var.minCropKC = loadmap("minCropKC")
 
-        rootFraction1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        maxRootDepth = self.var.full_compressed(np.nan, dtype=np.float32)
-        soildepth_factor = loadmap("soildepth_factor")
-        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
-            rootFraction1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(coverType + "_rootFraction1"), fn=None
-            )[land_use_indices]
-            maxRootDepth[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(coverType + "_maxRootDepth") * soildepth_factor, fn=None
-            )[land_use_indices]
-
-        self.var.rootDepth1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.rootDepth2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.rootDepth3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
-            # calculate rootdepth for each soillayer and each land cover class
-            self.var.rootDepth1[land_use_indices] = self.var.soildepth[0][
-                land_use_indices
-            ]  # 0.05 m
-            if coverNum in (0, 2, 3):  # forest, paddy irrigated, non-paddy irrigated
-                # soil layer 1 = root max of land cover - first soil layer
-                h1 = np.maximum(
-                    self.var.soildepth[1][land_use_indices],
-                    maxRootDepth[land_use_indices]
-                    - self.var.soildepth[0][land_use_indices],
-                )
-                #
-                self.var.rootDepth2[land_use_indices] = np.minimum(
-                    self.var.soildepth[1][land_use_indices]
-                    + self.var.soildepth[2][land_use_indices]
-                    - 0.05,
-                    h1,
-                )
-                # soil layer is minimum 0.05 m
-                self.var.rootDepth3[land_use_indices] = np.maximum(
-                    0.05,
-                    self.var.soildepth[1][land_use_indices]
-                    + self.var.soildepth[2][land_use_indices]
-                    - self.var.rootDepth2[land_use_indices],
-                )  # What is the motivation of this pushing the roodDepth[1] to the maxRotDepth
-            else:
-                assert coverNum == 1  # grassland
-                self.var.rootDepth2[land_use_indices] = self.var.soildepth[1][
-                    land_use_indices
-                ]
-                self.var.rootDepth3[land_use_indices] = self.var.soildepth[2][
-                    land_use_indices
-                ]
+        self.var.soil_layer_height = np.tile(
+            self.var.full_compressed(np.nan, dtype=np.float32),
+            (self.var.soilLayers, 1),
+        )
+        self.var.soil_layer_height[0] = 0.05  # the top soil layer always is 5 cm.
+        self.var.soil_layer_height[1] = 0.95  # middle layer extends to 100 cm
+        self.var.soil_layer_height[2] = 2.00  # bottom layer extends to 300 cm
 
         self.var.KSat1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.KSat2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -391,23 +348,29 @@ class landcoverType(object):
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)
             self.var.ws1[land_use_indices] = (
-                thetas1[land_use_indices] * self.var.rootDepth1[land_use_indices]
+                thetas1[land_use_indices]
+                * self.var.soil_layer_height[0, land_use_indices]
             )
             self.var.ws2[land_use_indices] = (
-                thetas2[land_use_indices] * self.var.rootDepth2[land_use_indices]
+                thetas2[land_use_indices]
+                * self.var.soil_layer_height[1, land_use_indices]
             )
             self.var.ws3[land_use_indices] = (
-                thetas3[land_use_indices] * self.var.rootDepth3[land_use_indices]
+                thetas3[land_use_indices]
+                * self.var.soil_layer_height[2, land_use_indices]
             )
 
             self.var.wres1[land_use_indices] = (
-                thetar1[land_use_indices] * self.var.rootDepth1[land_use_indices]
+                thetar1[land_use_indices]
+                * self.var.soil_layer_height[0, land_use_indices]
             )
             self.var.wres2[land_use_indices] = (
-                thetar2[land_use_indices] * self.var.rootDepth2[land_use_indices]
+                thetar2[land_use_indices]
+                * self.var.soil_layer_height[1, land_use_indices]
             )
             self.var.wres3[land_use_indices] = (
-                thetar3[land_use_indices] * self.var.rootDepth3[land_use_indices]
+                thetar3[land_use_indices]
+                * self.var.soil_layer_height[2, land_use_indices]
             )
 
             # Soil moisture at field capacity (pF2, 100 cm) [mm water slice]    # Mualem equation (van Genuchten, 1980)
@@ -574,9 +537,6 @@ class landcoverType(object):
         self.var.topwater = self.model.data.HRU.load_initial(
             "topwater", default=self.var.full_compressed(0, dtype=np.float32)
         )
-        self.var.adjRoot = np.tile(
-            self.var.full_compressed(np.nan, dtype=np.float32), (self.var.soilLayers, 1)
-        )
 
         self.var.arnoBeta = self.var.full_compressed(np.nan, dtype=np.float32)
 
@@ -612,15 +572,12 @@ class landcoverType(object):
             ),
         )
 
+        # this is an old CWatM option that was removed. Assert that it was not configured.
+        assert "rootFrac" not in binding
+
+        self.var.trueRoothDepth = self.var.full_compressed(0.3, dtype=np.float32)
+
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            # other paramater values
-            # b coefficient of soil water storage capacity distribution
-            # self.var.minCropKC.append(loadmap(coverType + "_minCropKC"))
-
-            # self.var.minInterceptCap.append(loadmap(coverType + "_minInterceptCap"))
-            # self.var.cropDeplFactor.append(loadmap(coverType + "_cropDeplFactor"))
-            # parameter values
-
             land_use_indices = np.where(self.var.land_use_type == coverNum)[0]
 
             arnoBeta = self.model.data.to_HRU(
@@ -639,56 +596,36 @@ class landcoverType(object):
             # In such a case, it may be better to turn off the root fractioning feature, as there is limited depth
             # in the third soil layer to hold water, while having a significant fraction of the rootss.
             # TODO: Extend soil depths to match maximum root depths
+            # fractionroot12 = self.var.soil_layer_height1[land_use_indices] / (
+            #     self.var.soil_layer_height1[land_use_indices]
+            #     + self.var.soil_layer_height[land_use_indices]
+            # )
+            # self.var.adjRoot[0][land_use_indices] = (
+            #     fractionroot12 * rootFraction1[land_use_indices]
+            # )
+            # self.var.adjRoot[1][land_use_indices] = (
+            #     1 - fractionroot12
+            # ) * rootFraction1[land_use_indices]
+            # self.var.adjRoot[2][land_use_indices] = (
+            #     1.0 - rootFraction1[land_use_indices]
+            # )
 
-            rootFrac = np.tile(
-                self.var.full_compressed(np.nan, dtype=np.float32),
-                (self.var.soilLayers, 1),
-            )
-            fractionroot12 = self.var.rootDepth1[land_use_indices] / (
-                self.var.rootDepth1[land_use_indices]
-                + self.var.rootDepth2[land_use_indices]
-            )
-            rootFrac[0][land_use_indices] = (
-                fractionroot12 * rootFraction1[land_use_indices]
-            )
-            rootFrac[1][land_use_indices] = (1 - fractionroot12) * rootFraction1[
-                land_use_indices
-            ]
-            rootFrac[2][land_use_indices] = 1.0 - rootFraction1[land_use_indices]
+        # assert np.logical_or(
+        #     np.isclose(self.var.adjRoot.sum(axis=0), 1.0, rtol=0, atol=1e-5),
+        #     np.isnan(self.var.adjRoot.sum(axis=0)),
+        # ).all()
 
-            if "rootFrac" in binding:
-                if not checkOption("rootFrac"):
-                    root_depth_sum = (
-                        self.var.rootDepth[0][land_use_indices]
-                        + self.var.rootDepth[1][land_use_indices]
-                        + self.var.rootDepth[2][land_use_indices]
-                    )
-                    for layer in range(3):
-                        rootFrac[layer] = (
-                            self.var.rootDepth[layer][land_use_indices] / root_depth_sum
-                        )
+        self.var.maxtopwater = loadmap("irrPaddy_maxtopwater")
 
-            for soilLayer in range(self.var.soilLayers):
-                self.var.adjRoot[soilLayer][land_use_indices] = (
-                    rootFrac[soilLayer][land_use_indices]
-                    / np.sum(rootFrac, axis=0)[land_use_indices]
-                )
-
-        # for maximum of topwater flooding (default = 0.05m)
-        if "irrPaddy_maxtopwater" in binding:
-            self.var.maxtopwater = loadmap("irrPaddy_maxtopwater")
-        else:
-            self.var.maxtopwater = 0.05
-
-        # for irrigation of non paddy -> No =3
-        totalWaterPlant1 = np.maximum(
-            0.0, self.var.wfc1 - self.var.wwp1
-        )  # * self.var.rootDepth[0][3]
-        totalWaterPlant2 = np.maximum(
-            0.0, self.var.wfc2 - self.var.wwp2
-        )  # * self.var.rootDepth[1][3]
-        # totalWaterPlant3 = np.maximum(0., self.var.wfc3[3] - self.var.wwp3[3]) * self.var.rootDepth[2][3]  # Why is this turned off? MS
-        self.var.totAvlWater = totalWaterPlant1 + totalWaterPlant2  # + totalWaterPlant3
+        # # for irrigation of non paddy -> No =3
+        # totalWaterPlant1 = np.maximum(
+        #     0.0, self.var.wfc1 - self.var.wwp1
+        # )  # * self.var.rootDepth[0][3]
+        # totalWaterPlant2 = np.maximum(
+        #     0.0, self.var.wfc2 - self.var.wwp2
+        # )  # * self.var.rootDepth[1][3]
+        # # totalWaterPlant3 = np.maximum(0., self.var.wfc3[3] - self.var.wwp3[3]) * self.var.rootDepth[2][3]  # Why is this turned off? MS
+        # self.var.totAvlWater = totalWaterPlant1 + totalWaterPlant2  # + totalWaterPlant3
 
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
@@ -936,7 +873,10 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[
             self.var.land_use_type == 0
         ]
-        self.var.cropKC[self.var.land_use_type == 1] = self.var.minCropKC
+        assert (self.var.crop_map[self.var.land_use_type == 1] == -1).all()
+        self.var.cropKC[self.var.land_use_type == 1] = (
+            self.var.minCropKC
+        )  # this is always grassland. All land is in principle irrigated, but farmers often don't have the required irrigation equipment.
 
         self.var.potTranspiration, potBareSoilEvap, totalPotET = (
             self.model.evaporation_module.dynamic(self.var.ETRef)
@@ -944,7 +884,7 @@ class landcoverType(object):
 
         potTranspiration_minus_interception_evaporation = (
             self.model.interception_module.dynamic(self.var.potTranspiration)
-        )  # first thing that evaporates is the water intercepted water.
+        )  # first thing that evaporates is the intercepted water.
         timer.new_split("Transpiration")
 
         # *********  WATER Demand   *************************
@@ -987,6 +927,12 @@ class landcoverType(object):
                 self.var.crop_map != -1
             ] += self.var.potTranspiration.get()[self.var.crop_map != -1]
         else:
+            # print(
+            #     "act",
+            #     self.var.actTransTotal[self.var.crop_map != -1].mean(),
+            #     self.var.actTransTotal[self.var.crop_map != -1].min(),
+            #     self.var.actTransTotal[self.var.crop_map != -1].max(),
+            # )
             self.var.actual_transpiration_crop[
                 self.var.crop_map != -1
             ] += self.var.actTransTotal[self.var.crop_map != -1]
