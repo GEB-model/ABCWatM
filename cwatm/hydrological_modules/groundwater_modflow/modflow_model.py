@@ -7,7 +7,6 @@ import flopy
 import json
 import hashlib
 import platform
-from cwatm.management_modules.globals import outDir
 
 
 @contextmanager
@@ -188,6 +187,7 @@ class ModFlowSimulation:
                 drainage[:, 3] = drainage_elevation[
                     drainage_locations
                 ]  # This one should not be an integer
+                # the 0-th layer is the top layer, so the conductivity is the same as the top layer
                 drainage[:, 4] = (
                     hydraulic_conductivity[0, self.basin_mask == False]
                     * self.row_resolution

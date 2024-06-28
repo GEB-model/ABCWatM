@@ -339,10 +339,6 @@ class water_demand:
             self.model.data.grid.full_compressed(0, dtype=np.float32),
         )
 
-        self.model.data.grid.gwstorage_full = (
-            float(cbinding("poro")) * float(cbinding("thickness")) + globals.inZero
-        )
-
     def get_available_water(self, potential_irrigation_consumption_m):
         assert (
             self.model.data.grid.waterBodyIDC.size

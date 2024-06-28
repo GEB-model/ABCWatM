@@ -169,8 +169,11 @@ class groundwater_modflow:
             ],
             "r",
         ) as src:
-            self.hydraulic_conductivity = src.read(1).astype(np.float32)
-            self.hydraulic_conductivity[self.modflow_basin_mask == True] = np.nan
+            self.hydraulic_conductivity = src.read().astype(np.float32)
+            self.hydraulic_conductivity[:, self.modflow_basin_mask == True] = np.nan
+
+        assert self.hydraulic_conductivity.ndim == 3
+        assert self.hydraulic_conductivity.shape[0] == nlay
 
         # load specific yield
         with rasterio.open(
@@ -179,8 +182,11 @@ class groundwater_modflow:
             ],
             "r",
         ) as src:
-            self.specific_yield = src.read(1).astype(np.float32)
-            self.specific_yield[self.modflow_basin_mask == True] = np.nan
+            self.specific_yield = src.read().astype(np.float32)
+            self.specific_yield[:, self.modflow_basin_mask == True] = np.nan
+
+        assert self.specific_yield.ndim == 3
+        assert self.specific_yield.shape[0] == nlay
 
         modflow_x = np.load(
             self.model.model_structure["binary"]["groundwater/modflow/x_modflow"]
@@ -266,10 +272,8 @@ class groundwater_modflow:
             ]
         )
 
-        print("should this not include layer 0?")
-        self.model.data.grid.soildepth_12 = self.model.data.to_grid(
-            HRU_data=self.model.data.HRU.soildepth[1]
-            + self.model.data.HRU.soildepth[2],
+        self.model.data.grid.total_soil_depth = self.model.data.to_grid(
+            HRU_data=self.model.data.HRU.soildepth.sum(axis=0),
             fn="weightedmean",
         )
 
@@ -282,13 +286,14 @@ class groundwater_modflow:
                 waterBodyID_temp = loadmap("waterBodyID").astype(np.int64)
                 soil_depth_temp = np.where(
                     waterBodyID_temp != 0,
-                    np.nanmedian(self.var.soildepth_12) - loadmap("depth_underlakes"),
-                    self.var.soildepth_12,
+                    np.nanmedian(self.var.total_soil_depth)
+                    - loadmap("depth_underlakes"),
+                    self.var.total_soil_depth,
                 )
                 soil_depth_temp = np.where(
-                    self.var.soildepth_12 < 0.4,
-                    np.nanmedian(self.var.soildepth_12),
-                    self.var.soildepth_12,
+                    self.var.total_soil_depth < 0.4,
+                    np.nanmedian(self.var.total_soil_depth),
+                    self.var.total_soil_depth,
                 )  # some cells around lake have small soil depths
                 soildepth_modflow = self.CWATM2modflow(
                     self.var.decompress(soil_depth_temp)
@@ -296,7 +301,7 @@ class groundwater_modflow:
                 soildepth_modflow[np.isnan(soildepth_modflow)] = 0
             else:
                 soildepth_modflow = self.CWATM2modflow(
-                    self.var.decompress(self.var.soildepth_12)
+                    self.var.decompress(self.var.total_soil_depth)
                 )
                 soildepth_modflow[np.isnan(soildepth_modflow)] = 0
         else:  # topographic map is used as groundwater upper boundary
@@ -320,7 +325,7 @@ class groundwater_modflow:
                 )
 
         soildepth_modflow = self.CWATM2modflow(
-            self.var.decompress(self.var.soildepth_12)
+            self.var.decompress(self.var.total_soil_depth)
         )
         soildepth_modflow[np.isnan(soildepth_modflow)] = 0
 
@@ -333,12 +338,9 @@ class groundwater_modflow:
         self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
         self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
 
-        self.model.data.modflow.head = (
-            self.model.data.modflow.load_initial(
-                "head",
-                default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
-            )
-            - 50
+        self.model.data.modflow.head = self.model.data.modflow.load_initial(
+            "head",
+            default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
         )
 
         self.modflow = ModFlowSimulation(
