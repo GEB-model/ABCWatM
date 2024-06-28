@@ -15,6 +15,12 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 import rasterio
+from cwatm.hydrological_modules.soil import (
+    get_root_ratios,
+    get_maximum_water_content,
+    get_critical_water_level,
+    get_available_water,
+)
 from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import (
     option,
@@ -135,69 +141,32 @@ class water_demand:
         self.households = model.agents.households
         self.reservoir_operators = model.agents.reservoir_operators
 
-    def potential_irrigation_consumption(self, totalPotET):
+    def get_potential_irrigation_consumption(self, totalPotET):
         """Calculate the potential irrigation consumption. Not that consumption
         is not the same as withdrawal. Consumption is the amount of water that
         is actually used by the farmers, while withdrawal is the amount of water
         that is taken from the source. The difference is the return flow."""
-        pot_irrConsumption = self.var.full_compressed(0, dtype=np.float32)
+        potential_irrigation_consumption = self.var.full_compressed(0, dtype=np.float32)
         # Paddy irrigation -> No = 2
         # Non paddy irrigation -> No = 3
 
         # a function of cropKC (evaporation and transpiration) and available water see Wada et al. 2014 p. 19
         paddy_irrigated_land = np.where(self.var.land_use_type == 2)
-        pot_irrConsumption[paddy_irrigated_land] = np.where(
-            self.var.cropKC[paddy_irrigated_land] > 0.75,
-            np.maximum(
-                0.0,
-                (
-                    self.var.maxtopwater
-                    - (
-                        self.var.topwater[paddy_irrigated_land]
-                        + self.var.natural_available_water_infiltration[
-                            paddy_irrigated_land
-                        ]
-                    )
-                ),
-            ),
+        potential_irrigation_consumption[paddy_irrigated_land] = np.maximum(
             0.0,
+            (
+                self.var.maxtopwater
+                - (
+                    self.var.topwater[paddy_irrigated_land]
+                    + self.var.natural_available_water_infiltration[
+                        paddy_irrigated_land
+                    ]
+                )
+            ),
         )
-        assert not np.isnan(pot_irrConsumption).any()
+        assert not np.isnan(potential_irrigation_consumption).any()
 
         nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
-
-        # Infiltration capacity
-        #  ========================================
-        # first 2 soil layers to estimate distribution between runoff and infiltration
-        soilWaterStorage = (
-            self.var.w1[nonpaddy_irrigated_land] + self.var.w2[nonpaddy_irrigated_land]
-        )
-        soilWaterStorageCap = (
-            self.var.ws1[nonpaddy_irrigated_land]
-            + self.var.ws2[nonpaddy_irrigated_land]
-        )
-        relSat = soilWaterStorage / soilWaterStorageCap
-        satAreaFrac = 1 - (1 - relSat) ** self.var.arnoBeta[nonpaddy_irrigated_land]
-        satAreaFrac = np.maximum(np.minimum(satAreaFrac, 1.0), 0.0)
-
-        store = soilWaterStorageCap / (self.var.arnoBeta[nonpaddy_irrigated_land] + 1)
-        potBeta = (self.var.arnoBeta[nonpaddy_irrigated_land] + 1) / self.var.arnoBeta[
-            nonpaddy_irrigated_land
-        ]
-        potInfiltrationCapacity = store - store * (1 - (1 - satAreaFrac) ** potBeta)
-        # ----------------------------------------------------------
-        availWaterPlant1 = np.maximum(
-            0.0,
-            self.var.w1[nonpaddy_irrigated_land]
-            - self.var.wwp1[nonpaddy_irrigated_land],
-        )  # * self.var.rootDepth[0][No]  should not be multiplied again with soildepth
-        availWaterPlant2 = np.maximum(
-            0.0,
-            self.var.w2[nonpaddy_irrigated_land]
-            - self.var.wwp2[nonpaddy_irrigated_land],
-        )  # * self.var.rootDepth[1][No]
-        # availWaterPlant3 = np.maximum(0., self.var.w3[No] - self.var.wwp3[No])  #* self.var.rootDepth[2][No]
-        readAvlWater = availWaterPlant1 + availWaterPlant2  # + availWaterPlant3
 
         # calculate   ****** SOIL WATER STRESS ************************************
 
@@ -219,50 +188,127 @@ class water_demand:
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
         # p is closer to 0 if evapo is bigger and cropgroup is smaller
 
-        wCrit1 = (
-            (1 - p)
-            * (
-                self.var.wfc1[nonpaddy_irrigated_land]
-                - self.var.wwp1[nonpaddy_irrigated_land]
-            )
-        ) + self.var.wwp1[nonpaddy_irrigated_land]
-        wCrit2 = (
-            (1 - p)
-            * (
-                self.var.wfc2[nonpaddy_irrigated_land]
-                - self.var.wwp2[nonpaddy_irrigated_land]
-            )
-        ) + self.var.wwp2[nonpaddy_irrigated_land]
-        # wCrit3 = ((1 - p) * (self.var.wfc3[No] - self.var.wwp3[No])) + self.var.wwp3[No]
+        root_ratios = get_root_ratios(
+            self.var.root_depth[nonpaddy_irrigated_land],
+            self.var.soil_layer_height[:, nonpaddy_irrigated_land],
+        )
 
-        critWaterPlant1 = np.maximum(
-            0.0, wCrit1 - self.var.wwp1[nonpaddy_irrigated_land]
-        )  # * self.var.rootDepth[0][No]
-        critWaterPlant2 = np.maximum(
-            0.0, wCrit2 - self.var.wwp2[nonpaddy_irrigated_land]
-        )  # * self.var.rootDepth[1][No]
-        # critWaterPlant3 = np.maximum(0., wCrit3 - self.var.wwp3[No]) # * self.var.rootDepth[2][No]
-        critAvlWater = critWaterPlant1 + critWaterPlant2  # + critWaterPlant3
+        max_water_content1 = (
+            get_maximum_water_content(
+                self.var.wfc1[nonpaddy_irrigated_land],
+                self.var.wwp1[nonpaddy_irrigated_land],
+            )
+            * root_ratios[0]
+        )
+        max_water_content2 = (
+            get_maximum_water_content(
+                self.var.wfc2[nonpaddy_irrigated_land],
+                self.var.wwp2[nonpaddy_irrigated_land],
+            )
+            * root_ratios[1]
+        )
+        max_water_content3 = (
+            get_maximum_water_content(
+                self.var.wfc3[nonpaddy_irrigated_land],
+                self.var.wwp3[nonpaddy_irrigated_land],
+            )
+            * root_ratios[2]
+        )
+        max_water_content = max_water_content1 + max_water_content2 + max_water_content3
 
-        pot_irrConsumption[nonpaddy_irrigated_land] = np.where(
-            self.var.cropKC[nonpaddy_irrigated_land] > 0.20,
-            np.where(
-                readAvlWater < critAvlWater,
-                np.maximum(
-                    0.0, self.var.totAvlWater[nonpaddy_irrigated_land] - readAvlWater
-                ),
-                0.0,
-            ),
+        critical_water_level1 = (
+            get_critical_water_level(
+                p,
+                self.var.wfc1[nonpaddy_irrigated_land],
+                self.var.wwp1[nonpaddy_irrigated_land],
+            )
+            * root_ratios[0]
+        )
+        critical_water_level2 = (
+            get_critical_water_level(
+                p,
+                self.var.wfc2[nonpaddy_irrigated_land],
+                self.var.wwp2[nonpaddy_irrigated_land],
+            )
+            * root_ratios[1]
+        )
+        critical_water_level3 = (
+            get_critical_water_level(
+                p,
+                self.var.wfc3[nonpaddy_irrigated_land],
+                self.var.wwp3[nonpaddy_irrigated_land],
+            )
+            * root_ratios[2]
+        )
+        critical_water_level = (
+            critical_water_level1 + critical_water_level2 + critical_water_level3
+        )
+
+        readily_available_water1 = (
+            get_available_water(
+                self.var.w1[nonpaddy_irrigated_land],
+                self.var.wwp1[nonpaddy_irrigated_land],
+            )
+            * root_ratios[0]
+        )
+        readily_available_water2 = (
+            get_available_water(
+                self.var.w2[nonpaddy_irrigated_land],
+                self.var.wwp2[nonpaddy_irrigated_land],
+            )
+            * root_ratios[1]
+        )
+        readily_available_water3 = (
+            get_available_water(
+                self.var.w3[nonpaddy_irrigated_land],
+                self.var.wwp3[nonpaddy_irrigated_land],
+            )
+            * root_ratios[2]
+        )
+        readily_available_water = (
+            readily_available_water1
+            + readily_available_water2
+            + readily_available_water3
+        )
+
+        potential_irrigation_consumption[nonpaddy_irrigated_land] = np.where(
+            readily_available_water
+            < critical_water_level,  # if there is not enough water
+            max_water_content
+            - readily_available_water,  # irrigate to field capacity (if possible)
             0.0,
         )
-        assert not np.isnan(pot_irrConsumption).any()
+        assert not np.isnan(potential_irrigation_consumption).any()
+        assert (potential_irrigation_consumption >= 0).all()
+
         # should not be bigger than infiltration capacity
-        pot_irrConsumption[nonpaddy_irrigated_land] = np.minimum(
-            pot_irrConsumption[nonpaddy_irrigated_land], potInfiltrationCapacity
+
+        # first 2 soil layers to estimate distribution between runoff and infiltration
+        soilWaterStorage = (
+            self.var.w1[nonpaddy_irrigated_land] + self.var.w2[nonpaddy_irrigated_land]
+        )
+        soilWaterStorageCap = (
+            self.var.ws1[nonpaddy_irrigated_land]
+            + self.var.ws2[nonpaddy_irrigated_land]
+        )
+        relSat = soilWaterStorage / soilWaterStorageCap
+        satAreaFrac = 1 - (1 - relSat) ** self.var.arnoBeta[nonpaddy_irrigated_land]
+        satAreaFrac = np.maximum(np.minimum(satAreaFrac, 1.0), 0.0)
+
+        store = soilWaterStorageCap / (self.var.arnoBeta[nonpaddy_irrigated_land] + 1)
+        potBeta = (self.var.arnoBeta[nonpaddy_irrigated_land] + 1) / self.var.arnoBeta[
+            nonpaddy_irrigated_land
+        ]
+        potential_infiltration_capacity = store - store * (
+            1 - (1 - satAreaFrac) ** potBeta
+        )
+        potential_irrigation_consumption[nonpaddy_irrigated_land] = np.minimum(
+            potential_irrigation_consumption[nonpaddy_irrigated_land],
+            potential_infiltration_capacity,
         )
 
-        assert not np.isnan(pot_irrConsumption).any()
-        return pot_irrConsumption
+        assert not np.isnan(potential_irrigation_consumption).any()
+        return potential_irrigation_consumption
 
     def initial(self):
         """
@@ -387,7 +433,7 @@ class water_demand:
                 self.livestock_farmers.water_demand()
             )
             timer.new_split("Livestock")
-            pot_irrConsumption = self.potential_irrigation_consumption(totalPotET)
+            pot_irrConsumption = self.get_potential_irrigation_consumption(totalPotET)
 
             assert (domestic_water_demand >= 0).all()
             assert (industry_water_demand >= 0).all()
@@ -459,6 +505,9 @@ class water_demand:
                 livestock_withdrawal_m3 * (1 - livestock_water_efficiency)
             )
             timer.new_split("Water withdrawal")
+
+            self.var.pot_irrConsumption_pre = pot_irrConsumption.copy()
+            self.var.pot_irrConsumption_post = pot_irrConsumption
 
             # 4. irrigation (surface + reservoir + ground)
             (

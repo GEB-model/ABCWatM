@@ -267,6 +267,13 @@ class groundwater_modflow:
             ]
         )
 
+        print("should this not include layer 0?")
+        self.model.data.grid.soildepth_12 = self.model.data.to_grid(
+            HRU_data=self.model.data.HRU.soildepth[1]
+            + self.model.data.HRU.soildepth[2],
+            fn="weightedmean",
+        )
+
         if returnBool(
             "use_soildepth_as_GWtop"
         ):  # topographic minus soil depth map is used as groundwater upper boundary
@@ -327,9 +334,12 @@ class groundwater_modflow:
         self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
         self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
 
-        self.model.data.modflow.head = self.model.data.modflow.load_initial(
-            "head",
-            default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
+        self.model.data.modflow.head = (
+            self.model.data.modflow.load_initial(
+                "head",
+                default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
+            )
+            - 50
         )
 
         self.modflow = ModFlowSimulation(
