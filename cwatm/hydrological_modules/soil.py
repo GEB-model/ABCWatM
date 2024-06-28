@@ -63,7 +63,6 @@ class soil(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    modflow               Flag: True if modflow_coupling = True in settings file                            --
     storGroundwater       simulated groundwater storage                                                     m
     capRiseFrac           fraction of a grid cell where capillar rise may happen                            m
     cropKC                crop coefficient for each of the 4 different land cover types (forest, irrigated  --

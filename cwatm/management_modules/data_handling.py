@@ -26,10 +26,9 @@ from cwatm.management_modules.checks import *
 from cwatm.management_modules.timestep import *
 from cwatm.management_modules.messages import *
 
-import difflib  # to check the closest word in settingsfile, if an error occurs
 from cwatm.management_modules.dynamicModel import *
 
-from netCDF4 import Dataset, num2date, date2num
+from netCDF4 import Dataset, date2num
 
 from osgeo import osr, gdal, gdalconst
 import warnings
@@ -357,8 +356,7 @@ def loadmap(name, compress=True, local=False, cut=True):
         if Flags["check"]:
             checkmap(name, filename, mapnp, True, False, 0)
 
-    if checkOption("reducePrecision"):
-        mapC = reduce_precision(mapC)
+    mapC = reduce_precision(mapC)
     return mapC
 
 
@@ -1244,13 +1242,8 @@ def returnBool(inBinding):
     """
 
     b = cbinding(inBinding)
-    btrue = b.lower() in ("yes", "true", "t", "1")
-    bfalse = b.lower() in ("no", "false", "f", "0")
-    if btrue or bfalse:
-        return btrue
-    else:
-        msg = 'Value in: "' + inBinding + '" is not True or False! \nbut: ' + b
-        raise CWATMError(msg)
+    assert isinstance(b, bool)
+    return b
 
 
 def checkOptionOptinal(inBinding):
@@ -1277,36 +1270,7 @@ def checkOption(inBinding):
 
     :param inBinding: parameter in settings file
     """
-    lineclosest = ""
-    test = inBinding in option
-    if test:
-        return option[inBinding]
-    else:
-        close = difflib.get_close_matches(inBinding, list(option.keys()))
-        if close:
-            closest = close[0]
-            with open(settingsfile[0]) as f:
-                i = 0
-                for line in f:
-                    i += 1
-                    if closest in line:
-                        lineclosest = "Line No. " + str(i) + ": " + line
-
-            if not closest:
-                closest = ["- no match -"]
-        else:
-            closest = "- no match -"
-
-        msg = (
-            'No key with the name: "'
-            + inBinding
-            + '" in the settings file: "'
-            + settingsfile[0]
-            + '"\n'
-        )
-        msg += 'Closest key to the required one is: "' + closest + '"'
-        msg += lineclosest
-        raise CWATMError(msg)
+    return option[inBinding]
 
 
 def cbinding(inBinding):
@@ -1315,41 +1279,7 @@ def cbinding(inBinding):
 
     :param inBinding: parameter in settings file
     """
-
-    lineclosest = ""
-    test = inBinding in binding
-    if test:
-        return binding[inBinding]
-    else:
-        close = difflib.get_close_matches(inBinding, list(binding.keys()))
-        if close:
-            closest = close[0]
-
-            with open(settingsfile[0]) as f:
-                i = 0
-                for line in f:
-                    i += 1
-                    if closest in line:
-                        lineclosest = "Line No. " + str(i) + ": " + line
-
-            if not closest:
-                closest = "- no match -"
-        else:
-            closest = "- no match -"
-
-        msg = (
-            'No key with the name: "'
-            + inBinding
-            + '" in the settings file: "'
-            + settingsfile[0]
-            + '"\n'
-        )
-        msg += 'Closest key to the required one is: "' + closest + '"\n'
-        msg += lineclosest
-        raise CWATMError(msg)
-
-
-# --------------------------------------------------------------------------------------------
+    return binding[inBinding]
 
 
 def divideValues(x, y, default=0.0):

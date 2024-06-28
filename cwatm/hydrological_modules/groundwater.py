@@ -21,7 +21,6 @@ class groundwater(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    modflow               Flag: True if modflow_coupling = True in settings file                            --
     storGroundwater       simulated groundwater storage                                                     m
     specificYield         groundwater reservoir parameters (if ModFlow is not used) used to compute ground  m
     recessionCoeff        groundwater storage times this coefficient gives baseflow                         --

@@ -25,12 +25,10 @@ from cwatm.hydrological_modules.interception import interception
 from cwatm.hydrological_modules.runoff_concentration import runoff_concentration
 from cwatm.hydrological_modules.lakes_res_small import lakes_res_small
 from cwatm.hydrological_modules.waterbalance import waterbalance
-from cwatm.hydrological_modules.environflow import environflow
 from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
-from cwatm.hydrological_modules.waterquality1 import waterquality1
 from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
 from cwatm.management_modules.data_handling import (
@@ -68,7 +66,6 @@ class CWATModel_ini(DynamicModel):
         # include all the hydrological modules
         self.misc_module = miscInitial(self)
         self.waterbalance_module = waterbalance(self)
-        self.environflow_module = environflow(self)
         self.evaporationPot_module = evaporationPot(self)
         self.inflow_module = inflow(self)
         self.snowfrost_module = snow_frost(self)
@@ -83,12 +80,9 @@ class CWATModel_ini(DynamicModel):
         self.lakes_res_small_module = lakes_res_small(self)
         self.routing_kinematic_module = routing_kinematic(self)
         self.lakes_reservoirs_module = lakes_reservoirs(self)
-        self.waterquality1 = waterquality1(self)
 
-        # run intial misc to get all global variables
         self.misc_module.initial()
 
-        # self.readmeteo_module.initial()
         self.inflow_module.initial()
 
         self.evaporationPot_module.initial()
@@ -101,7 +95,6 @@ class CWATModel_ini(DynamicModel):
         self.soil_module.initial()
 
         self.groundwater_modflow_module.initial()
-        # groundwater before meteo, bc it checks steady state
 
         self.landcoverType_module.initial(ElevationStD)
         self.interception_module.initial()
@@ -110,23 +103,9 @@ class CWATModel_ini(DynamicModel):
         self.lakes_res_small_module.initial()
 
         self.routing_kinematic_module.initial()
-        if checkOption("includeWaterBodies"):
-            self.lakes_reservoirs_module.initWaterbodies()
-            self.lakes_reservoirs_module.initial_lakes()
-            self.lakes_reservoirs_module.initial_reservoirs()
+        self.lakes_reservoirs_module.initWaterbodies()
+        self.lakes_reservoirs_module.initial_lakes()
+        self.lakes_reservoirs_module.initial_reservoirs()
 
         self.waterdemand_module.initial()
         self.waterbalance_module.initial()
-        # calculate initial amount of water in the catchment
-
-        # self.output_module.initial()
-        self.environflow_module.initial()
-        self.waterquality1.initial()
-
-        # vars = [a for a in dir(self.HRU) if not a.startswith('__')]
-        # for varname in vars:
-        #     var = getattr(self.HRU, varname)
-        #     if isinstance(var, (cp.ndarray)):
-        #         print(var.shape, varname)
-        # for var in self.var:
-        #     print(var.dtype)

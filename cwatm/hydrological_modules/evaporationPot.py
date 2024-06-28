@@ -8,11 +8,12 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
-import warnings
-import calendar
 import numpy as np
-from cwatm.management_modules.data_handling import loadmap, returnBool, loadmap
-from cwatm.management_modules.messages import CWATMError
+from cwatm.management_modules.data_handling import (
+    loadmap,
+    loadmap,
+    cbinding,
+)
 
 from geb.workflows import TimingModule
 
@@ -35,7 +36,7 @@ class evaporationPot(object):
     ====================  ================================================================================  =========
     crop_factor_calibration_factor           calibrated factor of crop KC factor                                               --
     pet_modus             Flag: index which ETP approach is used e.g. 1 for Penman-Monteith                 --
-    AlbedoCanopy          Albedo of vegetation canopy (FAO,1998) default =0.23                              --
+    AlbedoCanopy          Albedo of vegetation canopy (FAO,1998) default = 0.23                              --
     AlbedoSoil            Albedo of bare soil surface (Supit et. al. 1994) default = 0.15                   --
     AlbedoWater           Albedo of water surface (Supit et. al. 1994) default = 0.05                       --
     co2
@@ -68,21 +69,11 @@ class evaporationPot(object):
         Initial part of evaporation type module
         Load inictial parameters
 
-        Note:
-            Only run if *calc_evaporation* is True
         """
+        self.var.crop_factor_calibration_factor = cbinding(
+            "crop_factor_calibration_factor"
+        )
 
-        # self.var.sumETRef = globals.inZero.copy()
-        try:
-            self.var.crop_factor_calibration_factor = loadmap(
-                "crop_factor_calibration_factor"
-            )
-        except CWATMError:
-            self.var.crop_factor_calibration_factor = loadmap("crop_correct")
-            warnings.warn(
-                "crop_factor_calibration_factor not found, using crop_correct instead. Please rename crop_correct to crop_factor_calibration_factor in CWatM initalization file.",
-                DeprecationWarning,
-            )
         self.var.crop_factor_calibration_factor = self.model.data.to_HRU(
             data=self.var.crop_factor_calibration_factor, fn=None
         )
@@ -129,11 +120,9 @@ class evaporationPot(object):
         # calculate vapor pressure
         # Fao 56 Page 36
         # calculate actual vapour pressure
-        if returnBool("useHuss"):
-            raise NotImplementedError
-        else:
-            actual_vapour_pressure = saturated_vapour_pressure * self.var.hurs / 100.0
-            # longwave radiation balance
+
+        actual_vapour_pressure = saturated_vapour_pressure * self.var.hurs / 100.0
+        # longwave radiation balance
 
         rlds_MJ_m2_day = self.var.rlds * 0.0864  # 86400 * 1E-6
         net_longwave_radation_MJ_m2_day = rlus_MJ_m2_day - rlds_MJ_m2_day

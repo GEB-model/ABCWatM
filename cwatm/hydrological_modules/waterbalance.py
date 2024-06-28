@@ -40,9 +40,6 @@ class waterbalance(object):
         self.var = model.data.grid
         self.model = model
 
-    # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
-
     def initial(self):
         """
         Initial part of the water balance module
@@ -53,33 +50,6 @@ class waterbalance(object):
             self.var.nonIrrReturnFlow = 0
             self.var.localQW = 0
             self.var.channelStorageM3Before = 0
-
-        """ store the initial storage volume of snow, soil etc.
-        """
-        if checkOption("sumWaterBalance"):
-            # variables of storage
-            self.var.sum_balanceStore = [
-                "SnowCover",
-                "sum_interceptStor",
-                "sum_topWaterLayer",
-            ]
-
-            # variable of fluxes
-            self.var.sum_balanceFlux = [
-                "Precipitation",
-                "SnowMelt",
-                "Rain",
-                "sum_interceptEvap",
-                "actualET",
-            ]
-
-            # for variable in self.var.sum_balanceStore:
-            # vars(self.var)["sumup_" + variable] =  vars(self.var)[variable]
-            for variable in self.var.sum_balanceFlux:
-                vars(self.var)["sumup_" + variable] = globals.inZero.copy()
-
-    # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
 
     def waterBalanceCheck(
         self,
@@ -230,20 +200,4 @@ class waterbalance(object):
             return balance[no]
 
     def dynamic(self):
-        """
-        Dynamic part of the water balance module
-        If option **sumWaterBalance** sum water balance for certain variables
-        """
-
-        # if checkOption('sumWaterBalance'):
-        #    i = 1
-
-        # sum up storage variables
-        # for variable in self.var.sum_balanceStore:
-        #   vars(self.var)["sumup_" + variable] =  vars(self.var)[variable].copy()
-
-        # sum up fluxes variables
-        for variable in self.var.sum_balanceFlux:
-            vars(self.var)["sumup_" + variable] = (
-                vars(self.var)["sumup_" + variable] + vars(self.var)[variable]
-            )
+        pass

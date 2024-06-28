@@ -75,12 +75,12 @@ class lakes_res_small(object):
         area, location, initial average discharge, type: reservoir or lake) etc.
         """
 
-        if checkOption("includeWaterBodies") and returnBool("useSmallLakes"):
+        if returnBool("useSmallLakes"):
 
             if returnBool("useResAndLakes") and returnBool("dynamicLakesRes"):
                 year = datetime.datetime(dateVar["currDate"].year, 1, 1)
             else:
-                year = datetime.datetime(int(binding["fixLakesResYear"]), 1, 1)
+                raise NotImplementedError
 
             # read which part of the cellarea is a lake/res catchment (sumed up for all lakes/res in a cell)
             self.var.smallpart = (
@@ -280,7 +280,7 @@ class lakes_res_small(object):
         # ---------------------------------------------------------------------------------------------
         # Small lake and reservoirs
 
-        if checkOption("includeWaterBodies") and returnBool("useSmallLakes"):
+        if returnBool("useSmallLakes"):
 
             # check years
             if dateVar["newStart"] or dateVar["newYear"]:

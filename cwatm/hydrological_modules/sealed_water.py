@@ -24,7 +24,6 @@ class sealed_water(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    modflow               Flag: True if modflow_coupling = True in settings file                            --
     EWRef                 potential evaporation rate from water surface                                     m
     capillar              Simulated flow from groundwater to the third CWATM soil layer                     m
     waterbalance_module

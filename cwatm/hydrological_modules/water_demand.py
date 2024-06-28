@@ -316,65 +316,32 @@ class water_demand:
 
         Set the water allocation
         """
-
-        if checkOption("includeWaterDemand"):
-            if checkOption("includeWaterBodies"):
-                self.var.using_reservoir_command_areas = False
-                if "using_reservoir_command_areas" in option:
-                    if checkOption("using_reservoir_command_areas"):
-                        self.var.using_reservoir_command_areas = True
-                        with rasterio.open(
-                            cbinding("reservoir_command_areas"), "r"
-                        ) as src:
-                            reservoir_command_areas = self.var.compress(
-                                src.read(1), method="last"
-                            )
-                            water_body_mapping = np.full(
-                                self.model.data.grid.waterBodyID.max() + 1,
-                                0,
-                                dtype=np.int32,
-                            )
-                            water_body_ids = np.compress(
-                                self.model.data.grid.compress_LR,
-                                self.model.data.grid.waterBodyID,
-                            )
-                            water_body_mapping[water_body_ids] = np.arange(
-                                0, water_body_ids.size, dtype=np.int32
-                            )
-                            reservoir_command_areas_mapped = water_body_mapping[
-                                reservoir_command_areas
-                            ]
-                            reservoir_command_areas_mapped[
-                                reservoir_command_areas == -1
-                            ] = -1
-                            self.var.reservoir_command_areas = (
-                                reservoir_command_areas_mapped
-                            )
-
-                self.var.using_lift_command_areas = False
-                if "using_lift_command_areas" in option:
-                    if checkOption("using_lift_command_areas"):
-                        self.var.using_lift_command_areas = True
-                        lift_command_areas = loadmap("lift_command_areas").astype(
-                            np.int
-                        )
-                        self.var.lift_command_areas = self.model.data.to_HRU(
-                            data=lift_command_areas, fn=None
-                        )
-            else:
-                self.var.reservoir_command_areas = self.var.full_compressed(
-                    -1, dtype=np.int32
-                )
-
-            if checkOption("canal_leakage"):
-                self.model.data.grid.leakageC = np.compress(
-                    self.model.data.grid.compress_LR,
-                    self.model.data.grid.full_compressed(0, dtype=np.float32),
-                )
-
-            self.model.data.grid.gwstorage_full = (
-                float(cbinding("poro")) * float(cbinding("thickness")) + globals.inZero
+        with rasterio.open(cbinding("reservoir_command_areas"), "r") as src:
+            reservoir_command_areas = self.var.compress(src.read(1), method="last")
+            water_body_mapping = np.full(
+                self.model.data.grid.waterBodyID.max() + 1,
+                0,
+                dtype=np.int32,
             )
+            water_body_ids = np.compress(
+                self.model.data.grid.compress_LR,
+                self.model.data.grid.waterBodyID,
+            )
+            water_body_mapping[water_body_ids] = np.arange(
+                0, water_body_ids.size, dtype=np.int32
+            )
+            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
+            reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
+            self.var.reservoir_command_areas = reservoir_command_areas_mapped
+
+        self.model.data.grid.leakageC = np.compress(
+            self.model.data.grid.compress_LR,
+            self.model.data.grid.full_compressed(0, dtype=np.float32),
+        )
+
+        self.model.data.grid.gwstorage_full = (
+            float(cbinding("poro")) * float(cbinding("thickness")) + globals.inZero
+        )
 
     def get_available_water(self, potential_irrigation_consumption_m):
         assert (
@@ -419,227 +386,215 @@ class water_demand:
 
         timer = TimingModule("Water demand")
 
-        if checkOption("includeWaterDemand"):
-            # WATER DEMAND
-            domestic_water_demand, domestic_water_efficiency = (
-                self.households.water_demand()
-            )
-            timer.new_split("Domestic")
-            industry_water_demand, industry_water_efficiency = (
-                self.industry.water_demand()
-            )
-            timer.new_split("Industry")
-            livestock_water_demand, livestock_water_efficiency = (
-                self.livestock_farmers.water_demand()
-            )
-            timer.new_split("Livestock")
-            pot_irrConsumption = self.get_potential_irrigation_consumption(totalPotET)
+        # WATER DEMAND
+        domestic_water_demand, domestic_water_efficiency = (
+            self.households.water_demand()
+        )
+        timer.new_split("Domestic")
+        industry_water_demand, industry_water_efficiency = self.industry.water_demand()
+        timer.new_split("Industry")
+        livestock_water_demand, livestock_water_efficiency = (
+            self.livestock_farmers.water_demand()
+        )
+        timer.new_split("Livestock")
+        pot_irrConsumption = self.get_potential_irrigation_consumption(totalPotET)
 
-            assert (domestic_water_demand >= 0).all()
-            assert (industry_water_demand >= 0).all()
-            assert (livestock_water_demand >= 0).all()
-            assert (pot_irrConsumption >= 0).all()
+        assert (domestic_water_demand >= 0).all()
+        assert (industry_water_demand >= 0).all()
+        assert (livestock_water_demand >= 0).all()
+        assert (pot_irrConsumption >= 0).all()
 
-            (
-                available_channel_storage_m3,
-                available_reservoir_storage_m3,
-                available_groundwater_m,
-                groundwater_head,
-            ) = self.get_available_water(pot_irrConsumption)
-            available_groundwater_m3 = self.model.data.grid.MtoM3(
-                available_groundwater_m
-            )
+        (
+            available_channel_storage_m3,
+            available_reservoir_storage_m3,
+            available_groundwater_m,
+            groundwater_head,
+        ) = self.get_available_water(pot_irrConsumption)
+        available_groundwater_m3 = self.model.data.grid.MtoM3(available_groundwater_m)
 
-            available_channel_storage_m3_pre = available_channel_storage_m3.copy()
-            available_reservoir_storage_m3_pre = available_reservoir_storage_m3.copy()
-            available_groundwater_m3_pre = available_groundwater_m3.copy()
+        available_channel_storage_m3_pre = available_channel_storage_m3.copy()
+        available_reservoir_storage_m3_pre = available_reservoir_storage_m3.copy()
+        available_groundwater_m3_pre = available_groundwater_m3.copy()
 
-            # water withdrawal
-            # 1. domestic (surface + ground)
-            domestic_water_demand = self.model.data.to_grid(
-                HRU_data=domestic_water_demand, fn="weightedmean"
-            )
-            domestic_water_demand_m3 = self.model.data.grid.MtoM3(domestic_water_demand)
-            del domestic_water_demand
+        # water withdrawal
+        # 1. domestic (surface + ground)
+        domestic_water_demand = self.model.data.to_grid(
+            HRU_data=domestic_water_demand, fn="weightedmean"
+        )
+        domestic_water_demand_m3 = self.model.data.grid.MtoM3(domestic_water_demand)
+        del domestic_water_demand
 
-            domestic_withdrawal_m3 = self.withdraw(
-                available_channel_storage_m3, domestic_water_demand_m3
-            )  # withdraw from surface water
-            domestic_withdrawal_m3 += self.withdraw(
-                available_groundwater_m3, domestic_water_demand_m3
-            )  # withdraw from groundwater
-            domestic_return_flow_m = self.model.data.grid.M3toM(
-                domestic_withdrawal_m3 * (1 - domestic_water_efficiency)
-            )
+        domestic_withdrawal_m3 = self.withdraw(
+            available_channel_storage_m3, domestic_water_demand_m3
+        )  # withdraw from surface water
+        domestic_withdrawal_m3 += self.withdraw(
+            available_groundwater_m3, domestic_water_demand_m3
+        )  # withdraw from groundwater
+        domestic_return_flow_m = self.model.data.grid.M3toM(
+            domestic_withdrawal_m3 * (1 - domestic_water_efficiency)
+        )
 
-            # 2. industry (surface + ground)
-            industry_water_demand = self.model.data.to_grid(
-                HRU_data=industry_water_demand, fn="weightedmean"
-            )
-            industry_water_demand_m3 = self.model.data.grid.MtoM3(industry_water_demand)
-            del industry_water_demand
+        # 2. industry (surface + ground)
+        industry_water_demand = self.model.data.to_grid(
+            HRU_data=industry_water_demand, fn="weightedmean"
+        )
+        industry_water_demand_m3 = self.model.data.grid.MtoM3(industry_water_demand)
+        del industry_water_demand
 
-            industry_withdrawal_m3 = self.withdraw(
-                available_channel_storage_m3, industry_water_demand_m3
-            )  # withdraw from surface water
-            industry_withdrawal_m3 += self.withdraw(
-                available_groundwater_m3, industry_water_demand_m3
-            )  # withdraw from groundwater
-            industry_return_flow_m = self.model.data.grid.M3toM(
-                industry_withdrawal_m3 * (1 - industry_water_efficiency)
-            )
+        industry_withdrawal_m3 = self.withdraw(
+            available_channel_storage_m3, industry_water_demand_m3
+        )  # withdraw from surface water
+        industry_withdrawal_m3 += self.withdraw(
+            available_groundwater_m3, industry_water_demand_m3
+        )  # withdraw from groundwater
+        industry_return_flow_m = self.model.data.grid.M3toM(
+            industry_withdrawal_m3 * (1 - industry_water_efficiency)
+        )
 
-            # 3. livestock (surface)
-            livestock_water_demand = self.model.data.to_grid(
-                HRU_data=livestock_water_demand, fn="weightedmean"
-            )
-            livestock_water_demand_m3 = self.model.data.grid.MtoM3(
-                livestock_water_demand
-            )
-            del livestock_water_demand
+        # 3. livestock (surface)
+        livestock_water_demand = self.model.data.to_grid(
+            HRU_data=livestock_water_demand, fn="weightedmean"
+        )
+        livestock_water_demand_m3 = self.model.data.grid.MtoM3(livestock_water_demand)
+        del livestock_water_demand
 
-            livestock_withdrawal_m3 = self.withdraw(
-                available_channel_storage_m3, livestock_water_demand_m3
-            )  # withdraw from surface water
-            livestock_return_flow_m = self.model.data.grid.M3toM(
-                livestock_withdrawal_m3 * (1 - livestock_water_efficiency)
-            )
-            timer.new_split("Water withdrawal")
+        livestock_withdrawal_m3 = self.withdraw(
+            available_channel_storage_m3, livestock_water_demand_m3
+        )  # withdraw from surface water
+        livestock_return_flow_m = self.model.data.grid.M3toM(
+            livestock_withdrawal_m3 * (1 - livestock_water_efficiency)
+        )
+        timer.new_split("Water withdrawal")
 
-            self.var.pot_irrConsumption_pre = pot_irrConsumption.copy()
-            self.var.pot_irrConsumption_post = pot_irrConsumption
+        self.var.pot_irrConsumption_pre = pot_irrConsumption.copy()
+        self.var.pot_irrConsumption_post = pot_irrConsumption
 
-            # 4. irrigation (surface + reservoir + ground)
-            (
-                irrigation_water_withdrawal_m,
-                irrigation_water_consumption_m,
-                return_flow_irrigation_m,
-                addtoevapotrans_m,
-            ) = self.crop_farmers.abstract_water(
-                cell_area=(
-                    self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea
-                ),
-                HRU_to_grid=self.var.HRU_to_grid,
-                totalPotIrrConsumption=(
-                    pot_irrConsumption.get()
-                    if self.model.use_gpu
-                    else pot_irrConsumption
-                ),
-                available_channel_storage_m3=available_channel_storage_m3,
-                available_groundwater_m3=available_groundwater_m3,
-                groundwater_head=groundwater_head,
-                groundwater_depth=self.model.data.grid.groundwater_depth,
-                available_reservoir_storage_m3=available_reservoir_storage_m3,
-                command_areas=(
-                    self.var.reservoir_command_areas.get()
-                    if self.model.use_gpu
-                    else self.var.reservoir_command_areas
-                ),
-            )
-            timer.new_split("Irrigation")
+        # 4. irrigation (surface + reservoir + ground)
+        (
+            irrigation_water_withdrawal_m,
+            irrigation_water_consumption_m,
+            return_flow_irrigation_m,
+            addtoevapotrans_m,
+        ) = self.crop_farmers.abstract_water(
+            cell_area=(
+                self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea
+            ),
+            HRU_to_grid=self.var.HRU_to_grid,
+            totalPotIrrConsumption=(
+                pot_irrConsumption.get() if self.model.use_gpu else pot_irrConsumption
+            ),
+            available_channel_storage_m3=available_channel_storage_m3,
+            available_groundwater_m3=available_groundwater_m3,
+            groundwater_head=groundwater_head,
+            groundwater_depth=self.model.data.grid.groundwater_depth,
+            available_reservoir_storage_m3=available_reservoir_storage_m3,
+            command_areas=(
+                self.var.reservoir_command_areas.get()
+                if self.model.use_gpu
+                else self.var.reservoir_command_areas
+            ),
+        )
+        timer.new_split("Irrigation")
 
-            if checkOption("calcWaterBalance"):
-                self.model.waterbalance_module.waterBalanceCheck(
-                    how="cellwise",
-                    influxes=[irrigation_water_withdrawal_m],
-                    outfluxes=[
-                        irrigation_water_consumption_m,
-                        addtoevapotrans_m,
-                        return_flow_irrigation_m,
-                    ],
-                    tollerance=1e-7,
-                )
-
-            if self.model.use_gpu:
-                # reservoir_abstraction = cp.asarray(reservoir_abstraction_m)
-                ## Water application
-                self.var.actual_irrigation_consumption = cp.asarray(
-                    irrigation_water_consumption_m
-                )
-                addtoevapotrans = cp.asarray(addtoevapotrans_m)
-            else:
-                self.var.actual_irrigation_consumption = irrigation_water_consumption_m
-                addtoevapotrans = addtoevapotrans_m
-
-            assert (
-                pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption
-            ).all()
-            assert (self.var.actual_irrigation_consumption + 1e-6 >= 0).all()
-
-            groundwater_abstraction_m3 = (
-                available_groundwater_m3_pre - available_groundwater_m3
-            )
-            channel_abstraction_m3 = (
-                available_channel_storage_m3_pre - available_channel_storage_m3
+        if checkOption("calcWaterBalance"):
+            self.model.waterbalance_module.waterBalanceCheck(
+                how="cellwise",
+                influxes=[irrigation_water_withdrawal_m],
+                outfluxes=[
+                    irrigation_water_consumption_m,
+                    addtoevapotrans_m,
+                    return_flow_irrigation_m,
+                ],
+                tollerance=1e-7,
             )
 
-            if checkOption("includeWaterBodies"):
-                reservoir_abstraction_m3 = (
-                    available_reservoir_storage_m3_pre - available_reservoir_storage_m3
-                )
-                assert (
-                    self.model.data.grid.waterBodyTypC[
-                        np.where(reservoir_abstraction_m3 > 0)
-                    ]
-                    == 2
-                ).all()
-
-                # Abstract water from reservoir
-                self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3
-                # assert (self.model.data.grid.lakeResStorageC >= 0).all()
-                self.model.data.grid.reservoirStorageM3C -= reservoir_abstraction_m3
-                # assert (self.model.data.grid.lakeResStorageC >= 0).all()
-
-                self.model.data.grid.lakeResStorage = (
-                    self.model.data.grid.full_compressed(0, dtype=np.float32)
-                )
-                np.put(
-                    self.model.data.grid.lakeResStorage,
-                    self.model.data.grid.decompress_LR,
-                    self.model.data.grid.lakeResStorageC,
-                )
-
-            returnFlow = (
-                self.model.data.to_grid(
-                    HRU_data=return_flow_irrigation_m, fn="weightedmean"
-                )
-                + domestic_return_flow_m
-                + industry_return_flow_m
-                + livestock_return_flow_m
+        if self.model.use_gpu:
+            # reservoir_abstraction = cp.asarray(reservoir_abstraction_m)
+            ## Water application
+            self.var.actual_irrigation_consumption = cp.asarray(
+                irrigation_water_consumption_m
             )
+            addtoevapotrans = cp.asarray(addtoevapotrans_m)
+        else:
+            self.var.actual_irrigation_consumption = irrigation_water_consumption_m
+            addtoevapotrans = addtoevapotrans_m
 
-            if checkOption("calcWaterBalance"):
-                self.model.waterbalance_module.waterBalanceCheck(
-                    how="sum",
-                    influxes=[],
-                    outfluxes=[
-                        domestic_withdrawal_m3,
-                        industry_withdrawal_m3,
-                        livestock_withdrawal_m3,
-                        (
-                            irrigation_water_withdrawal_m * self.var.cellArea.get()
-                            if self.model.use_gpu
-                            else self.var.cellArea
-                        ),
-                    ],
-                    prestorages=[
-                        available_channel_storage_m3_pre,
-                        available_reservoir_storage_m3_pre,
-                        available_groundwater_m3_pre,
-                    ],
-                    poststorages=[
-                        available_channel_storage_m3,
-                        available_reservoir_storage_m3,
-                        available_groundwater_m3,
-                    ],
-                    tollerance=10000,
-                )
-            if self.model.timing:
-                print(timer)
+        assert (
+            pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption
+        ).all()
+        assert (self.var.actual_irrigation_consumption + 1e-6 >= 0).all()
 
-            return (
-                groundwater_abstraction_m3 / self.model.data.grid.cellArea,
-                channel_abstraction_m3 / self.model.data.grid.cellArea,
-                addtoevapotrans,
-                returnFlow,
+        groundwater_abstraction_m3 = (
+            available_groundwater_m3_pre - available_groundwater_m3
+        )
+        channel_abstraction_m3 = (
+            available_channel_storage_m3_pre - available_channel_storage_m3
+        )
+
+        reservoir_abstraction_m3 = (
+            available_reservoir_storage_m3_pre - available_reservoir_storage_m3
+        )
+        assert (
+            self.model.data.grid.waterBodyTypC[np.where(reservoir_abstraction_m3 > 0)]
+            == 2
+        ).all()
+
+        # Abstract water from reservoir
+        self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3
+        # assert (self.model.data.grid.lakeResStorageC >= 0).all()
+        self.model.data.grid.reservoirStorageM3C -= reservoir_abstraction_m3
+        # assert (self.model.data.grid.lakeResStorageC >= 0).all()
+
+        self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(
+            0, dtype=np.float32
+        )
+        np.put(
+            self.model.data.grid.lakeResStorage,
+            self.model.data.grid.decompress_LR,
+            self.model.data.grid.lakeResStorageC,
+        )
+
+        returnFlow = (
+            self.model.data.to_grid(
+                HRU_data=return_flow_irrigation_m, fn="weightedmean"
             )
+            + domestic_return_flow_m
+            + industry_return_flow_m
+            + livestock_return_flow_m
+        )
+
+        if checkOption("calcWaterBalance"):
+            self.model.waterbalance_module.waterBalanceCheck(
+                how="sum",
+                influxes=[],
+                outfluxes=[
+                    domestic_withdrawal_m3,
+                    industry_withdrawal_m3,
+                    livestock_withdrawal_m3,
+                    (
+                        irrigation_water_withdrawal_m * self.var.cellArea.get()
+                        if self.model.use_gpu
+                        else self.var.cellArea
+                    ),
+                ],
+                prestorages=[
+                    available_channel_storage_m3_pre,
+                    available_reservoir_storage_m3_pre,
+                    available_groundwater_m3_pre,
+                ],
+                poststorages=[
+                    available_channel_storage_m3,
+                    available_reservoir_storage_m3,
+                    available_groundwater_m3,
+                ],
+                tollerance=10000,
+            )
+        if self.model.timing:
+            print(timer)
+
+        return (
+            groundwater_abstraction_m3 / self.model.data.grid.cellArea,
+            channel_abstraction_m3 / self.model.data.grid.cellArea,
+            addtoevapotrans,
+            returnFlow,
+        )

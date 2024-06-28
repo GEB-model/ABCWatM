@@ -50,13 +50,11 @@ import sys
 import time
 import datetime
 
-from cwatm.management_modules.configuration import (
+from cwatm.management_modules.globals import (
     globalFlags,
     settingsfile,
     versioning,
     platform1,
-    parse_configuration,
-    read_metanetcdf,
     CWATMRunInfo,
     timeMesSum,
     timeMesString,

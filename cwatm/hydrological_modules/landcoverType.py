@@ -88,7 +88,6 @@ class landcoverType(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    modflow               Flag: True if modflow_coupling = True in settings file                            --
     maxGWCapRise          influence of capillary rise above groundwater level                               m
     load_initial
     baseflow              simulated baseflow (= groundwater discharge to river)                             m
@@ -100,7 +99,6 @@ class landcoverType(object):
     SnowMelt              total snow melt from all layers                                                   m
     snowEvap              total evaporation from snow for a snow layers                                     m
     cellArea              Cell area [m²] of each simulated mesh
-    dynamicLandcover
     soilLayers            Number of soil layers                                                             --
     landcoverSum
     totalET               Total evapotranspiration for each cell including all landcover types              m
@@ -1011,10 +1009,7 @@ class landcoverType(object):
         groundwater_recharge = self.model.data.to_grid(
             HRU_data=groundwater_recharge, fn="weightedmean"
         )
-        if checkOption("usewaterbodyexchange"):
-            self.water_body_exchange(groundwater_recharge)
-        else:
-            self.model.data.grid.riverbedExchangeM3 = 0
+        # self.water_body_exchange(groundwater_recharge)
 
         timer.new_split("Waterbody exchange")
 

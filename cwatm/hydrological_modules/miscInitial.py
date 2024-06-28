@@ -59,36 +59,6 @@ class miscInitial(object):
         * conversion factors for precipitation and pot evaporation
         """
 
-        if checkOption("gridSizeUserDefined"):
-
-            # <lfoption name="gridSizeUserDefined" choice="1" default="0">
-            # If option gridsizeUserDefined is activated, users can specify grid size properties
-            # in separate maps. This is useful whenever this information cannot be derived from
-            # the location attributes of the base maps (e.g. lat/lon systems or non-equal-area
-            # projections)
-            # Limitation: always assumes square grid cells (not rectangles!). Size of grid cells
-            # may vary across map though
-
-            # Length of pixel [m]
-            # NOT needed only in routing
-
-            # Area of pixel [m2]
-            # self.var.cellArea = loadmap('CellArea')
-            # self.var.cell_area_uncompressed = loadmap('CellArea', compress=False)
-            # self.model.data.to_HRU(varname="cellArea", fn='mean', delete=False)  # checked
-            pass
-
-        else:
-            # Default behaviour: grid size is derived from location attributes of
-            # base maps. Requirements:
-            # - Maps are in some equal-area projection
-            # - Length units meters
-            # - All grid cells have the same size
-
-            # Area of pixel [m2]
-            self.var.cellArea = np.empty(maskinfo["mapC"])
-            self.var.cellArea.fill(self.var.cellLength * self.var.cellLength)
-
         #            self.var.PixelArea = spatial(self.var.PixelArea)
         # Convert to spatial expresion (otherwise this variable cannnot be
         # used in areatotal function)
@@ -116,7 +86,3 @@ class miscInitial(object):
         self.var.MtoMM = 0.001
         # Multiplier to convert water depths in meters to mm
         self.var.MtoMM = 1000
-
-        self.var.con_precipitation = loadmap("precipitation_coversion")
-
-        self.var.con_e = loadmap("evaporation_coversion")
