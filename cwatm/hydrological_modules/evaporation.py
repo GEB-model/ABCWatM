@@ -56,9 +56,7 @@ class evaporation(object):
         # crop coefficient read for forest and grassland from file
 
         # calculate potential bare soil evaporation
-        potBareSoilEvap = (
-            self.var.crop_factor_calibration_factor * self.var.minCropKC * ETRef
-        )
+        potBareSoilEvap = self.var.crop_factor_calibration_factor * 0.2 * ETRef
         # calculate snow evaporation
         self.var.snowEvap = np.minimum(self.var.SnowMelt, potBareSoilEvap)
         self.var.SnowMelt = self.var.SnowMelt - self.var.snowEvap

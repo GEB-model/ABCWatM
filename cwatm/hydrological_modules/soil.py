@@ -73,7 +73,6 @@ class soil(object):
     potTranspiration      Potential transpiration (after removing of evaporation)                           m
     actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
     soilLayers            Number of soil layers                                                             --
-    rootDepth
     KSat1
     KSat2
     KSat3
@@ -513,7 +512,7 @@ class soil(object):
         # p is closer to 0 if evapo is bigger and cropgroup is smaller
 
         root_ratios = get_root_ratios(
-            self.var.trueRoothDepth[bioarea],
+            self.var.root_depth[bioarea],
             self.var.soil_layer_height[:, bioarea],
         )
 
@@ -728,10 +727,6 @@ class soil(object):
             root_distribution_per_layer_non_normalized = (
                 self.var.soil_layer_height[:, bioarea] * root_ratios
             )
-            assert np.array_equal(
-                self.var.trueRoothDepth[bioarea],
-                root_distribution_per_layer_non_normalized.sum(axis=0),
-            )
 
             root_distribution_per_layer_rws_corrected_non_normalized = (
                 root_distribution_per_layer_non_normalized * rsw_per_layer
@@ -742,6 +737,7 @@ class soil(object):
             )
 
             ta = TaMax * root_distribution_per_layer_rws_corrected
+            ta[:, (TaMax == 0)] = 0
 
         del TaMax
 

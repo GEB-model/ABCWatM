@@ -189,7 +189,7 @@ class water_demand:
         # p is closer to 0 if evapo is bigger and cropgroup is smaller
 
         root_ratios = get_root_ratios(
-            self.var.trueRoothDepth[nonpaddy_irrigated_land],
+            self.var.root_depth[nonpaddy_irrigated_land],
             self.var.soil_layer_height[:, nonpaddy_irrigated_land],
         )
 
@@ -583,7 +583,6 @@ class water_demand:
                     ]
                     == 2
                 ).all()
-                print(reservoir_abstraction_m3.sum())
 
                 # Abstract water from reservoir
                 self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3

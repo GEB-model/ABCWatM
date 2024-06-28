@@ -26,15 +26,22 @@ from geb.workflows import TimingModule
 
 
 @njit(cache=True)
-def get_crop_kc(
-    crop_map, crop_age_days_map, crop_harvest_age_days, crop_stage_data, kc_crop_stage
+def get_crop_kc_and_root_depths(
+    crop_map,
+    crop_age_days_map,
+    crop_harvest_age_days,
+    irrigated_fields,
+    crop_stage_data,
+    kc_crop_stage,
+    rooth_depths,
+    init_root_depth=0.01,
 ):
 
-    shape = crop_map.shape
-    crop_map = crop_map.ravel()
-    crop_age_days_map = crop_age_days_map.ravel()
-
-    kc = np.full(crop_map.size, np.nan, dtype=np.float32)
+    kc = np.full_like(crop_map, np.nan, dtype=np.float32)
+    root_depth = np.full_like(crop_map, np.nan, dtype=np.float32)
+    irrigated_fields = irrigated_fields.astype(
+        np.int8
+    )  # change dtype to int, so that we can use the boolean array as index
 
     for i in range(crop_map.size):
         crop = crop_map[i]
@@ -59,7 +66,12 @@ def get_crop_kc(
             assert not np.isnan(field_kc)
             kc[i] = field_kc
 
-    return kc.reshape(shape)
+            root_depth[i] = (
+                init_root_depth
+                + age_days * rooth_depths[crop, irrigated_fields[i]] / harvest_day
+            )
+
+    return kc, root_depth
 
 
 class landcoverType(object):
@@ -95,10 +107,7 @@ class landcoverType(object):
     act_SurfaceWaterAbst
     sum_interceptStor     Total of simulated vegetation interception storage including all landcover types  m
     fracVegCover          Fraction of area covered by the corresponding landcover type
-    minCropKC             minimum crop factor (default 0.2)                                                 --
     rootFraction1
-    maxRootDepth
-    rootDepth
     soildepth             Thickness of the first soil layer                                                 m
     soildepth12           Total thickness of layer 2 and 3                                                  m
     KSat1
@@ -216,8 +225,6 @@ class landcoverType(object):
 
         self.var.actBareSoilEvap = self.var.full_compressed(0, dtype=np.float32)
         self.var.actTransTotal = self.var.full_compressed(0, dtype=np.float32)
-
-        self.var.minCropKC = loadmap("minCropKC")
 
         self.var.soil_layer_height = np.tile(
             self.var.full_compressed(np.nan, dtype=np.float32),
@@ -575,8 +582,6 @@ class landcoverType(object):
         # this is an old CWatM option that was removed. Assert that it was not configured.
         assert "rootFrac" not in binding
 
-        self.var.trueRoothDepth = self.var.full_compressed(0.3, dtype=np.float32)
-
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)[0]
 
@@ -592,40 +597,7 @@ class landcoverType(object):
                 1.2, np.maximum(0.01, self.var.arnoBeta[land_use_indices])
             )
 
-            # Due to large rooting depths, the third (final) soil layer may be pushed to its minimum of 0.05 m.
-            # In such a case, it may be better to turn off the root fractioning feature, as there is limited depth
-            # in the third soil layer to hold water, while having a significant fraction of the rootss.
-            # TODO: Extend soil depths to match maximum root depths
-            # fractionroot12 = self.var.soil_layer_height1[land_use_indices] / (
-            #     self.var.soil_layer_height1[land_use_indices]
-            #     + self.var.soil_layer_height[land_use_indices]
-            # )
-            # self.var.adjRoot[0][land_use_indices] = (
-            #     fractionroot12 * rootFraction1[land_use_indices]
-            # )
-            # self.var.adjRoot[1][land_use_indices] = (
-            #     1 - fractionroot12
-            # ) * rootFraction1[land_use_indices]
-            # self.var.adjRoot[2][land_use_indices] = (
-            #     1.0 - rootFraction1[land_use_indices]
-            # )
-
-        # assert np.logical_or(
-        #     np.isclose(self.var.adjRoot.sum(axis=0), 1.0, rtol=0, atol=1e-5),
-        #     np.isnan(self.var.adjRoot.sum(axis=0)),
-        # ).all()
-
         self.var.maxtopwater = loadmap("irrPaddy_maxtopwater")
-
-        # # for irrigation of non paddy -> No =3
-        # totalWaterPlant1 = np.maximum(
-        #     0.0, self.var.wfc1 - self.var.wwp1
-        # )  # * self.var.rootDepth[0][3]
-        # totalWaterPlant2 = np.maximum(
-        #     0.0, self.var.wfc2 - self.var.wwp2
-        # )  # * self.var.rootDepth[1][3]
-        # # totalWaterPlant3 = np.maximum(0., self.var.wfc3[3] - self.var.wwp3[3]) * self.var.rootDepth[2][3]  # Why is this turned off? MS
-        # self.var.totAvlWater = totalWaterPlant1 + totalWaterPlant2  # + totalWaterPlant3
 
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
@@ -851,13 +823,32 @@ class landcoverType(object):
             ]
         )
 
-        self.var.cropKC = get_crop_kc(
+        root_depths = np.column_stack(
+            [
+                self.crop_farmers.crop_data["rd_rain"],
+                self.crop_farmers.crop_data["rd_irr"],
+            ]
+        )
+
+        self.var.cropKC, self.var.root_depth = get_crop_kc_and_root_depths(
             self.var.crop_map,
             self.var.crop_age_days_map,
             self.var.crop_harvest_age_days,
-            crop_stage_lenghts,
-            crop_factors,
+            irrigated_fields=self.model.agents.crop_farmers.irrigated_fields,
+            crop_stage_data=crop_stage_lenghts,
+            kc_crop_stage=crop_factors,
+            rooth_depths=root_depths,
+            init_root_depth=0.01,
         )
+
+        self.var.root_depth[self.var.land_use_type == 0] = 2.0  # forest
+        self.var.root_depth[
+            (self.var.land_use_type == 1) & (self.var.land_owners == -1)
+        ] = 0.1  # grassland
+        self.var.root_depth[
+            (self.var.land_use_type == 1) & (self.var.land_owners != -1)
+        ] = 0.05  # fallow land. The rooting depth
+
         if self.model.use_gpu:
             self.var.cropKC = cp.array(self.var.cropKC)
 
@@ -872,11 +863,10 @@ class landcoverType(object):
 
         self.var.cropKC[self.var.land_use_type == 0] = forest_cropCoefficientNC[
             self.var.land_use_type == 0
-        ]
+        ]  # forest
         assert (self.var.crop_map[self.var.land_use_type == 1] == -1).all()
-        self.var.cropKC[self.var.land_use_type == 1] = (
-            self.var.minCropKC
-        )  # this is always grassland. All land is in principle irrigated, but farmers often don't have the required irrigation equipment.
+
+        self.var.cropKC[self.var.land_use_type == 1] = 0.2
 
         self.var.potTranspiration, potBareSoilEvap, totalPotET = (
             self.model.evaporation_module.dynamic(self.var.ETRef)
