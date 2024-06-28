@@ -102,7 +102,7 @@ class groundwater_modflow:
     def available_groundwater_m_modflow(self):
         groundwater_storage_available_m = (
             self.modflow.decompress(self.modflow.head) - self.layer_boundaries[1]
-        ) * self.porosity[0]
+        ) * self.specific_yield[0]
         groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
         return groundwater_storage_available_m
 
@@ -148,7 +148,7 @@ class groundwater_modflow:
 
         # Coef to multiply transmissivity and storage coefficient (because ModFlow convergence is better if aquifer's thicknes is big and permeability is small)
         self.coefficient = 1
-
+        # load elevation
         with rasterio.open(
             self.model.model_structure["MODFLOW_grid"][
                 "groundwater/modflow/modflow_elevation"
@@ -158,30 +158,29 @@ class groundwater_modflow:
             topography = src.read(1).astype(np.float32)
             topography[self.modflow_basin_mask == True] = np.nan
 
+        # load chanRatio
         with rasterio.open(cbinding("chanRatio"), "r") as src:
             self.var.channel_ratio = self.var.compress(src.read(1))
 
-        permeability_m_s = cbinding("permeability")
-        if is_float(permeability_m_s):
-            permeability_m_s = float(permeability_m_s)
-            self.permeability = np.full(
-                (nlay, self.domain["nrow"], self.domain["ncol"]),
-                (24 * 3600 * permeability_m_s) / self.coefficient,
-                dtype=np.float32,
-            )
-        else:
-            raise NotImplementedError
+        # load hydraulic conductivity (md-1)
+        with rasterio.open(
+            self.model.model_structure["MODFLOW_grid"][
+                "groundwater/modflow/hydraulic_conductivity"
+            ],
+            "r",
+        ) as src:
+            self.hydraulic_conductivity = src.read(1).astype(np.float32)
+            self.hydraulic_conductivity[self.modflow_basin_mask == True] = np.nan
 
-        self.porosity = cbinding("poro")  # default = 0.1
-        if is_float(self.porosity):
-            self.porosity = float(self.porosity)
-            self.porosity = np.full(
-                (nlay, self.domain["nrow"], self.domain["ncol"]),
-                self.porosity,
-                dtype=np.float32,
-            )
-        else:
-            raise NotImplementedError
+        # load specific yield
+        with rasterio.open(
+            self.model.model_structure["MODFLOW_grid"][
+                "groundwater/modflow/specific_yield"
+            ],
+            "r",
+        ) as src:
+            self.specific_yield = src.read(1).astype(np.float32)
+            self.specific_yield[self.modflow_basin_mask == True] = np.nan
 
         modflow_x = np.load(
             self.model.model_structure["binary"]["groundwater/modflow/x_modflow"]
@@ -338,7 +337,7 @@ class groundwater_modflow:
             modflow_directory,
             ndays=self.model.n_timesteps,
             specific_storage=0,
-            specific_yield=float(cbinding("poro")),
+            specific_yield=self.specific_yield,
             nlay=nlay,
             nrow=self.domain["nrow"],
             ncol=self.domain["ncol"],
@@ -350,7 +349,7 @@ class groundwater_modflow:
             basin_mask=self.modflow_basin_mask,
             head=self.model.data.modflow.head,
             drainage_elevation=self.layer_boundaries[0],
-            permeability=self.permeability,
+            hydraulic_conductivity=self.hydraulic_conductivity,
             complexity="SIMPLE",
             verbose=Flags["loud"],
         )
@@ -410,12 +409,12 @@ class groundwater_modflow:
             self.modflow2CWATM(self.modflow.groundwater_depth)
         )
 
-        assert self.permeability.ndim == 3
+        assert self.hydraulic_conductivity.ndim == 3
         groundwater_outflow = np.where(
             self.model.data.modflow.head - self.layer_boundaries[0] >= 0,
             (self.model.data.modflow.head - self.layer_boundaries[0])
             * self.coefficient
-            * self.permeability[0],
+            * self.hydraulic_conductivity[0],
             0,
         )
         assert (groundwater_outflow >= 0).all()

@@ -21,6 +21,7 @@ def cd(newdir):
 
 
 class ModFlowSimulation:
+
     def __init__(
         self,
         model,
@@ -40,7 +41,7 @@ class ModFlowSimulation:
         basin_mask,
         head,
         drainage_elevation,
-        permeability,
+        hydraulic_conductivity,
         complexity="COMPLEX",
         verbose=False,
     ):
@@ -112,7 +113,7 @@ class ModFlowSimulation:
 
                 initial_conditions = flopy.mf6.ModflowGwfic(gwf, strt=head)
                 node_property_flow = flopy.mf6.ModflowGwfnpf(
-                    gwf, save_flows=True, icelltype=1, k=permeability
+                    gwf, save_flows=True, icelltype=1, k=hydraulic_conductivity
                 )
 
                 output_control = flopy.mf6.ModflowGwfoc(
@@ -188,7 +189,7 @@ class ModFlowSimulation:
                     drainage_locations
                 ]  # This one should not be an integer
                 drainage[:, 4] = (
-                    permeability[0, self.basin_mask == False]
+                    hydraulic_conductivity[0, self.basin_mask == False]
                     * self.row_resolution
                     * self.col_resolution
                 )
