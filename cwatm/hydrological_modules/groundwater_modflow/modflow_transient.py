@@ -116,17 +116,13 @@ class groundwater_modflow:
         modflow_directory = cbinding("PathGroundwaterModflow")
         self.modflow_resolution = int(cbinding("Modflow_resolution"))
 
-        nlay = int(loadmap("nlay"))
-
         with rasterio.open(
             self.model.model_structure["MODFLOW_grid"][
                 "groundwater/modflow/modflow_mask"
             ],
             "r",
         ) as src:
-            self.modflow_basin_mask = ~src.read(1).astype(
-                bool
-            )  # read in as 3-dimensional array (nlay, nrows, ncols).
+            self.modflow_basin_mask = ~src.read(1).astype(bool)
             self.domain = {
                 "row_resolution": abs(src.profile["transform"].e),
                 "col_resolution": abs(src.profile["transform"].a),
@@ -137,6 +133,31 @@ class groundwater_modflow:
             self.domain["row_resolution"] * self.domain["col_resolution"]
         )
 
+        # load hydraulic conductivity (md-1)
+        with rasterio.open(
+            self.model.model_structure["MODFLOW_grid"][
+                "groundwater/modflow/hydraulic_conductivity"
+            ],
+            "r",
+        ) as src:
+            self.hydraulic_conductivity = src.read().astype(np.float32)
+            self.hydraulic_conductivity[:, self.modflow_basin_mask == True] = np.nan
+
+        assert self.hydraulic_conductivity.ndim == 3
+        nlay = self.hydraulic_conductivity.shape[0]
+
+        # load specific yield
+        with rasterio.open(
+            self.model.model_structure["MODFLOW_grid"][
+                "groundwater/modflow/specific_yield"
+            ],
+            "r",
+        ) as src:
+            self.specific_yield = src.read().astype(np.float32)
+            self.specific_yield[:, self.modflow_basin_mask == True] = np.nan
+
+        assert self.hydraulic_conductivity.shape == self.specific_yield.shape
+
         thickness = cbinding("thickness")
         if is_float(thickness):
             thickness = float(thickness)
@@ -146,8 +167,6 @@ class groundwater_modflow:
         else:
             raise NotImplementedError
 
-        # Coef to multiply transmissivity and storage coefficient (because ModFlow convergence is better if aquifer's thicknes is big and permeability is small)
-        self.coefficient = 1
         # load elevation
         with rasterio.open(
             self.model.model_structure["MODFLOW_grid"][
@@ -162,31 +181,8 @@ class groundwater_modflow:
         with rasterio.open(cbinding("chanRatio"), "r") as src:
             self.var.channel_ratio = self.var.compress(src.read(1))
 
-        # load hydraulic conductivity (md-1)
-        with rasterio.open(
-            self.model.model_structure["MODFLOW_grid"][
-                "groundwater/modflow/hydraulic_conductivity"
-            ],
-            "r",
-        ) as src:
-            self.hydraulic_conductivity = src.read().astype(np.float32)
-            self.hydraulic_conductivity[:, self.modflow_basin_mask == True] = np.nan
-
         assert self.hydraulic_conductivity.ndim == 3
         assert self.hydraulic_conductivity.shape[0] == nlay
-
-        # load specific yield
-        with rasterio.open(
-            self.model.model_structure["MODFLOW_grid"][
-                "groundwater/modflow/specific_yield"
-            ],
-            "r",
-        ) as src:
-            self.specific_yield = src.read().astype(np.float32)
-            self.specific_yield[:, self.modflow_basin_mask == True] = np.nan
-
-        assert self.specific_yield.ndim == 3
-        assert self.specific_yield.shape[0] == nlay
 
         modflow_x = np.load(
             self.model.model_structure["binary"]["groundwater/modflow/x_modflow"]
@@ -425,7 +421,6 @@ class groundwater_modflow:
         groundwater_outflow = np.where(
             self.model.data.modflow.head - self.layer_boundaries[0] >= 0,
             (self.model.data.modflow.head - self.layer_boundaries[0])
-            * self.coefficient
             * self.hydraulic_conductivity[0],
             0,
         )
