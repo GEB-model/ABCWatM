@@ -126,11 +126,7 @@ class water_demand:
     act_indWithdrawal
     act_domWithdrawal
     act_livWithdrawal
-    waterDemandLost
-    ====================  ================================================================================  =========
-
-    **Functions**
-    """
+    waterDemandLost"""
 
     def __init__(self, model):
         self.model = model
@@ -146,25 +142,17 @@ class water_demand:
         is not the same as withdrawal. Consumption is the amount of water that
         is actually used by the farmers, while withdrawal is the amount of water
         that is taken from the source. The difference is the return flow."""
-        potential_irrigation_consumption = self.var.full_compressed(0, dtype=np.float32)
         # Paddy irrigation -> No = 2
         # Non paddy irrigation -> No = 3
 
         # a function of cropKC (evaporation and transpiration) and available water see Wada et al. 2014 p. 19
         paddy_irrigated_land = np.where(self.var.land_use_type == 2)
-        potential_irrigation_consumption[paddy_irrigated_land] = np.maximum(
-            0.0,
-            (
-                self.var.maxtopwater
-                - (
-                    self.var.topwater[paddy_irrigated_land]
-                    + self.var.natural_available_water_infiltration[
-                        paddy_irrigated_land
-                    ]
-                )
-            ),
+
+        paddy_level = self.var.full_compressed(np.nan, dtype=np.float32)
+        paddy_level[paddy_irrigated_land] = (
+            self.var.topwater[paddy_irrigated_land]
+            + self.var.natural_available_water_infiltration[paddy_irrigated_land]
         )
-        assert not np.isnan(potential_irrigation_consumption).any()
 
         nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
 
@@ -214,7 +202,10 @@ class water_demand:
             )
             * root_ratios[2]
         )
-        max_water_content = max_water_content1 + max_water_content2 + max_water_content3
+        max_water_content = self.var.full_compressed(np.nan, dtype=np.float32)
+        max_water_content[nonpaddy_irrigated_land] = (
+            max_water_content1 + max_water_content2 + max_water_content3
+        )
 
         critical_water_level1 = (
             get_critical_water_level(
@@ -240,7 +231,8 @@ class water_demand:
             )
             * root_ratios[2]
         )
-        critical_water_level = (
+        critical_water_level = self.var.full_compressed(np.nan, dtype=np.float32)
+        critical_water_level[nonpaddy_irrigated_land] = (
             critical_water_level1 + critical_water_level2 + critical_water_level3
         )
 
@@ -265,23 +257,12 @@ class water_demand:
             )
             * root_ratios[2]
         )
-        readily_available_water = (
+        readily_available_water = self.var.full_compressed(np.nan, dtype=np.float32)
+        readily_available_water[nonpaddy_irrigated_land] = (
             readily_available_water1
             + readily_available_water2
             + readily_available_water3
         )
-
-        potential_irrigation_consumption[nonpaddy_irrigated_land] = np.where(
-            readily_available_water
-            < critical_water_level,  # if there is not enough water
-            max_water_content
-            - readily_available_water,  # irrigate to field capacity (if possible)
-            0.0,
-        )
-        assert not np.isnan(potential_irrigation_consumption).any()
-        assert (potential_irrigation_consumption >= 0).all()
-
-        # should not be bigger than infiltration capacity
 
         # first 2 soil layers to estimate distribution between runoff and infiltration
         soilWaterStorage = (
@@ -299,16 +280,20 @@ class water_demand:
         potBeta = (self.var.arnoBeta[nonpaddy_irrigated_land] + 1) / self.var.arnoBeta[
             nonpaddy_irrigated_land
         ]
-        potential_infiltration_capacity = store - store * (
+        potential_infiltration_capacity = self.var.full_compressed(
+            np.nan, dtype=np.float32
+        )
+        potential_infiltration_capacity[nonpaddy_irrigated_land] = store - store * (
             1 - (1 - satAreaFrac) ** potBeta
         )
-        potential_irrigation_consumption[nonpaddy_irrigated_land] = np.minimum(
-            potential_irrigation_consumption[nonpaddy_irrigated_land],
+
+        return (
+            paddy_level,
+            readily_available_water,
+            critical_water_level,
+            max_water_content,
             potential_infiltration_capacity,
         )
-
-        assert not np.isnan(potential_irrigation_consumption).any()
-        return potential_irrigation_consumption
 
     def initial(self):
         """
@@ -339,7 +324,7 @@ class water_demand:
             self.model.data.grid.full_compressed(0, dtype=np.float32),
         )
 
-    def get_available_water(self, potential_irrigation_consumption_m):
+    def get_available_water(self):
         assert (
             self.model.data.grid.waterBodyIDC.size
             == self.model.data.grid.reservoirStorageM3C.size
@@ -355,8 +340,7 @@ class water_demand:
             self.reservoir_operators.get_available_water_reservoir_command_areas(
                 self.model.data.grid.reservoirStorageM3C[
                     self.model.data.grid.waterBodyTypC == 2
-                ],
-                potential_irrigation_consumption_m,
+                ]
             )
         )
         return (
@@ -393,19 +377,25 @@ class water_demand:
             self.livestock_farmers.water_demand()
         )
         timer.new_split("Livestock")
-        pot_irrConsumption = self.get_potential_irrigation_consumption(totalPotET)
+        (
+            paddy_level,
+            readily_available_water,
+            critical_water_level,
+            max_water_content,
+            potential_infiltration_capacity,
+        ) = self.get_potential_irrigation_consumption(totalPotET)
 
         assert (domestic_water_demand >= 0).all()
         assert (industry_water_demand >= 0).all()
         assert (livestock_water_demand >= 0).all()
-        assert (pot_irrConsumption >= 0).all()
 
         (
             available_channel_storage_m3,
             available_reservoir_storage_m3,
             available_groundwater_m,
             groundwater_head,
-        ) = self.get_available_water(pot_irrConsumption)
+        ) = self.get_available_water()
+
         available_groundwater_m3 = self.model.data.grid.MtoM3(available_groundwater_m)
 
         available_channel_storage_m3_pre = available_channel_storage_m3.copy()
@@ -462,9 +452,6 @@ class water_demand:
         )
         timer.new_split("Water withdrawal")
 
-        self.var.pot_irrConsumption_pre = pot_irrConsumption.copy()
-        self.var.pot_irrConsumption_post = pot_irrConsumption
-
         # 4. irrigation (surface + reservoir + ground)
         (
             irrigation_water_withdrawal_m,
@@ -476,9 +463,11 @@ class water_demand:
                 self.var.cellArea.get() if self.model.use_gpu else self.var.cellArea
             ),
             HRU_to_grid=self.var.HRU_to_grid,
-            totalPotIrrConsumption=(
-                pot_irrConsumption.get() if self.model.use_gpu else pot_irrConsumption
-            ),
+            paddy_level=paddy_level,
+            readily_available_water=readily_available_water,
+            critical_water_level=critical_water_level,
+            max_water_content=max_water_content,
+            potential_infiltration_capacity=potential_infiltration_capacity,
             available_channel_storage_m3=available_channel_storage_m3,
             available_groundwater_m3=available_groundwater_m3,
             groundwater_head=groundwater_head,
@@ -515,9 +504,6 @@ class water_demand:
             self.var.actual_irrigation_consumption = irrigation_water_consumption_m
             addtoevapotrans = addtoevapotrans_m
 
-        assert (
-            pot_irrConsumption + 1e-6 >= self.var.actual_irrigation_consumption
-        ).all()
         assert (self.var.actual_irrigation_consumption + 1e-6 >= 0).all()
 
         groundwater_abstraction_m3 = (

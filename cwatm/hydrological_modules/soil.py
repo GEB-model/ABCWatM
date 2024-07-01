@@ -103,7 +103,6 @@ class soil(object):
     w3                    Simulated water storage in the layer 3                                            m
     topwater              quantity of water above the soil (flooding)                                       m
     arnoBeta
-    maxtopwater           maximum heigth of topwater                                                        m
     directRunoff          Simulated surface runoff                                                          m
     interflow             Simulated flow reaching runoff instead of groundwater                             m
     openWaterEvap         Simulated evaporation from open areas                                             m
@@ -844,7 +843,9 @@ class soil(object):
         )
         # if paddy fields flooded only runoff if topwater > 0.05m
         h = np.maximum(
-            0.0, self.var.topwater[paddy_irrigated_land] - self.var.maxtopwater
+            0.0,
+            self.var.topwater[paddy_irrigated_land]
+            - self.model.agents.crop_farmers.max_paddy_water_level,
         )
         directRunoff[paddy_irrigated_land] = np.where(
             self.var.cropKC[paddy_irrigated_land] > 0.75,

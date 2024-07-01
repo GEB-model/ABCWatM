@@ -170,7 +170,6 @@ class landcoverType(object):
     ElevationStD
     arnoBeta
     adjRoot
-    maxtopwater           maximum heigth of topwater                                                        m
     landcoverSumSum
     totAvlWater
     modflow_timestep      Chosen ModFlow model timestep (1day, 7days, 30days…)
@@ -594,8 +593,6 @@ class landcoverType(object):
             self.var.arnoBeta[land_use_indices] = np.minimum(
                 1.2, np.maximum(0.01, self.var.arnoBeta[land_use_indices])
             )
-
-        self.var.maxtopwater = loadmap("irrPaddy_maxtopwater")
 
         # self.var.GWVolumeVariation = 0
         # self.var.ActualPumpingRate = 0
