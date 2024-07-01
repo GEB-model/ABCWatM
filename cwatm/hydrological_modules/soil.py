@@ -175,22 +175,6 @@ class soil(object):
             data=loadmap("preferentialFlowConstant"), fn=None
         )
 
-        # ------------ SOIL DEPTH ----------------------------------------------------------
-        # soil thickness and storage
-
-        self.var.soildepth = np.tile(
-            self.var.full_compressed(np.nan, dtype=np.float32), (3, 1)
-        )
-
-        # first soil layer = 5 cm
-        self.var.soildepth[0] = self.var.full_compressed(0.05, dtype=np.float32)
-        # second soil layer minimum 5cm
-        soildepth1 = self.model.data.to_HRU(data=loadmap("StorDepth1"), fn=None)
-        self.var.soildepth[1] = np.maximum(0.05, soildepth1 - self.var.soildepth[0])
-
-        soildepth2 = self.model.data.to_HRU(data=loadmap("StorDepth2"), fn=None)
-        self.var.soildepth[2] = np.maximum(0.05, soildepth2)
-
         def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
             out_dir = self.model.simulation_root / "plantFATE" / f"cell_{idx}"
             out_dir.mkdir(parents=True, exist_ok=True)

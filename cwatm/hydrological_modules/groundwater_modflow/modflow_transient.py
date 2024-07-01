@@ -269,7 +269,7 @@ class groundwater_modflow:
         )
 
         self.model.data.grid.total_soil_depth = self.model.data.to_grid(
-            HRU_data=self.model.data.HRU.soildepth.sum(axis=0),
+            HRU_data=self.model.data.HRU.soil_layer_height.sum(axis=0),
             fn="weightedmean",
         )
 

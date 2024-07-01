@@ -94,9 +94,8 @@ class CWATModel_ini(DynamicModel):
         self.snowfrost_module.initial(ElevationStD)
         self.soil_module.initial()
 
-        self.groundwater_modflow_module.initial()
-
         self.landcoverType_module.initial(ElevationStD)
+        self.groundwater_modflow_module.initial()
         self.interception_module.initial()
 
         self.runoff_concentration_module.initial()
