@@ -25,7 +25,6 @@ class ModFlowSimulation:
         self,
         model,
         name,
-        folder,
         ndays,
         specific_storage,
         specific_yield,
@@ -45,7 +44,6 @@ class ModFlowSimulation:
         verbose=False,
     ):
         self.name = name.upper()  # MODFLOW requires the name to be uppercase
-        self.folder = folder
         self.nrow = nrow
         self.ncol = ncol
         self.row_resolution = row_resolution
@@ -70,7 +68,7 @@ class ModFlowSimulation:
                 sim = flopy.mf6.MFSimulation(
                     sim_name=self.name,
                     version="mf6",
-                    exe_name=os.path.join(folder, "mf6"),
+                    exe_name=os.path.join("modflow", "mf6"),
                     sim_ws=os.path.realpath(self.working_directory),
                     memory_print_option="all",
                 )

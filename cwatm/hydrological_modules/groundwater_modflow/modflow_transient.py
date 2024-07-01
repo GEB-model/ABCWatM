@@ -113,9 +113,6 @@ class groundwater_modflow:
         )
 
     def initial(self):
-        modflow_directory = cbinding("PathGroundwaterModflow")
-        self.modflow_resolution = int(cbinding("Modflow_resolution"))
-
         with rasterio.open(
             self.model.model_structure["MODFLOW_grid"][
                 "groundwater/modflow/modflow_mask"
@@ -342,7 +339,6 @@ class groundwater_modflow:
         self.modflow = ModFlowSimulation(
             self.model,
             "transient",
-            modflow_directory,
             ndays=self.model.n_timesteps,
             specific_storage=0,
             specific_yield=self.specific_yield,
