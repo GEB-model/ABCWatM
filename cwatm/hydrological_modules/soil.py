@@ -723,6 +723,13 @@ class soil(object):
                 root_distribution_per_layer_rws_corrected_non_normalized
                 / root_distribution_per_layer_rws_corrected_non_normalized.sum(axis=0)
             )
+            # when no water is available, no transpiration can occur. Avoid nan values
+            # by setting the transpiration to 0
+            root_distribution_per_layer_rws_corrected[
+                :,
+                root_distribution_per_layer_rws_corrected_non_normalized.sum(axis=0)
+                == 0,
+            ] = 0
 
             ta = TaMax * root_distribution_per_layer_rws_corrected
             ta[:, (TaMax == 0)] = 0
