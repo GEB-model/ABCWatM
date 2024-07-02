@@ -20,12 +20,11 @@ from cwatm.hydrological_modules.soil import (
     get_maximum_water_content,
     get_critical_water_level,
     get_available_water,
+    get_fraction_easily_available_soil_water,
+    get_crop_group_number,
 )
-from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import (
-    option,
     cbinding,
-    loadmap,
     checkOption,
 )
 
@@ -166,15 +165,19 @@ class water_demand:
         etpotMax = np.minimum(0.1 * (totalPotET[nonpaddy_irrigated_land] * 1000.0), 1.0)
         # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of 10 mm/day.
 
-        # for group number 1 -> those are plants which needs irrigation
-        # p = 1 / (0.76 + 1.5 * np.minimum(0.1 * (self.var.totalPotET[No] * 1000.), 1.0)) - 0.10 * ( 5 - cropGroupNumber)
-        p = 1 / (0.76 + 1.5 * etpotMax) - 0.4
-        # soil water depletion fraction (easily available soil water) # Van Diepen et al., 1988: WOFOST 6.0, p.87.
-        p = p + (etpotMax - 0.6) / 4
-        # correction for crop group 1  (Van Diepen et al, 1988) -> p between 0.14 - 0.77
-        p = np.maximum(np.minimum(p, 1.0), 0.0)
+        # load crop group number
+        crop_group_number = get_crop_group_number(
+            self.var.crop_map,
+            self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
+            self.var.land_use_type,
+            self.var.natural_crop_groups,
+        )
+
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
-        # p is closer to 0 if evapo is bigger and cropgroup is smaller
+        p = get_fraction_easily_available_soil_water(
+            crop_group_number[nonpaddy_irrigated_land],
+            etpotMax,
+        )
 
         root_ratios = get_root_ratios(
             self.var.root_depth[nonpaddy_irrigated_land],
