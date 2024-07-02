@@ -50,6 +50,12 @@ def get_root_ratios(
     return root_ratios
 
 
+def get_crop_group_number(crop_map, crop_group_numbers):
+    crop_group_map = np.take(crop_group_numbers, crop_map)
+    crop_group_map[crop_map == -1] = np.nan
+    return crop_group_map
+
+
 class soil(object):
     """
     **SOIL**
@@ -163,10 +169,6 @@ class soil(object):
         )  # checked
 
         # ------------ Preferential Flow constant ------------------------------------------
-        self.var.cropGroupNumber = loadmap("cropgroupnumber")
-        self.var.cropGroupNumber = self.model.data.to_HRU(
-            data=self.var.cropGroupNumber, fn=None
-        )  # checked
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
 
@@ -463,25 +465,31 @@ class soil(object):
         # The crop group number of olive groves is 4 and of rice fields is 1
         # for irrigation it is expected that the crop has a low adaptation to dry climate
 
+        # load crop group number
+        crop_group_number = get_crop_group_number(
+            self.var.crop_map,
+            self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
+        )
+
         # for non-irrigated bioland
         non_irrigated_bioland = np.where(
             (self.var.land_use_type == 0) | (self.var.land_use_type == 1)
         )
         p[non_irrigated_bioland] = 1 / (
             0.76 + 1.5 * etpotMax[non_irrigated_bioland]
-        ) - 0.10 * (5 - self.var.cropGroupNumber[non_irrigated_bioland])
+        ) - 0.10 * (5 - crop_group_number[non_irrigated_bioland])
         # soil water depletion fraction (easily available soil water)
         # Van Diepen et al., 1988: WOFOST 6.0, p.87
         # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of
         # 10 mm/day. Thus, p will range from 0.15 to 0.45 at ETRef eq 10 and
         # CropGroupNumber 1-5
         p[non_irrigated_bioland] = np.where(
-            self.var.cropGroupNumber[non_irrigated_bioland] <= 2.5,
+            crop_group_number[non_irrigated_bioland] <= 2.5,
             p[non_irrigated_bioland]
             + (etpotMax[non_irrigated_bioland] - 0.6)
             / (
-                self.var.cropGroupNumber[non_irrigated_bioland]
-                * (self.var.cropGroupNumber[non_irrigated_bioland] + 3)
+                crop_group_number[non_irrigated_bioland]
+                * (crop_group_number[non_irrigated_bioland] + 3)
             ),
             p[non_irrigated_bioland],
         )
