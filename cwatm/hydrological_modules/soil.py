@@ -9,7 +9,8 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
-from cwatm.management_modules.data_handling import loadmap, divideValues, checkOption
+import rasterio
+from cwatm.management_modules.data_handling import loadmap, checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
 
@@ -24,6 +25,27 @@ def get_available_water(w, wwp):
 
 def get_maximum_water_content(wfc, wwp):
     return wfc - wwp
+
+
+def get_fraction_easily_available_soil_water(crop_group_number, etpotMax):
+    # fraction of easily available soil water
+    # p is closer to 0 if evapo is bigger and cropgroup is smaller
+    p = 1 / (0.76 + 1.5 * etpotMax) - 0.10 * (5 - crop_group_number)
+    # The crop group number is a indicator of adaptation to dry climate,
+    # Van Diepen et al., 1988: WOFOST 6.0, p.87
+    # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of
+    # 10 mm/day. Thus, p will range from 0.15 to 0.45 at ETRef eq 10 and
+    # CropGroupNumber 1-5
+
+    # correction for crop groups 1 and 2 (Van Diepen et al, 1988)
+    p = np.where(
+        crop_group_number <= 2.5,
+        p + (etpotMax - 0.6) / (crop_group_number * (crop_group_number + 3)),
+        p,
+    )
+    assert not (np.isnan(p)).any()
+
+    return np.clip(p, 0, 1)
 
 
 def get_critical_water_level(p, wfc, wwp):
@@ -50,9 +72,14 @@ def get_root_ratios(
     return root_ratios
 
 
-def get_crop_group_number(crop_map, crop_group_numbers):
+def get_crop_group_number(
+    crop_map, crop_group_numbers, land_use_type, natural_crop_groups
+):
     crop_group_map = np.take(crop_group_numbers, crop_map)
     crop_group_map[crop_map == -1] = np.nan
+
+    natural_land = np.isin(land_use_type, (0, 1))
+    crop_group_map[natural_land] = natural_crop_groups[natural_land]
     return crop_group_map
 
 
@@ -171,6 +198,12 @@ class soil(object):
         # ------------ Preferential Flow constant ------------------------------------------
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
+
+        with rasterio.open(self.model.model_structure["grid"]["soil/cropgrp"]) as src:
+            natural_crop_groups = self.model.data.grid.compress(src.read(1))
+            self.var.natural_crop_groups = self.model.data.to_HRU(
+                data=natural_crop_groups
+            )
 
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cPrefFlow = self.model.data.to_HRU(
@@ -453,53 +486,18 @@ class soil(object):
         etpotMax = np.minimum(0.1 * (totalPotET * 1000.0), 1.0)
         # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of 10 mm/day.
 
-        p = self.var.full_compressed(np.nan, dtype=np.float32)
-
-        # for irrigated land
-        p[irrigated_land] = 1 / (0.76 + 1.5 * etpotMax[irrigated_land]) - 0.4
-        # soil water depletion fraction (easily available soil water) # Van Diepen et al., 1988: WOFOST 6.0, p.87.
-        p[irrigated_land] = p[irrigated_land] + (etpotMax[irrigated_land] - 0.6) / 4
-        # correction for crop group 1  (Van Diepen et al, 1988) -> p between 0.14 - 0.77
-        # The crop group number is a indicator of adaptation to dry climate,
-        # e.g. olive groves are adapted to dry climate, therefore they can extract more water from drying out soil than e.g. rice.
-        # The crop group number of olive groves is 4 and of rice fields is 1
-        # for irrigation it is expected that the crop has a low adaptation to dry climate
-
         # load crop group number
         crop_group_number = get_crop_group_number(
             self.var.crop_map,
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
+            self.var.land_use_type,
+            self.var.natural_crop_groups,
         )
 
-        # for non-irrigated bioland
-        non_irrigated_bioland = np.where(
-            (self.var.land_use_type == 0) | (self.var.land_use_type == 1)
-        )
-        p[non_irrigated_bioland] = 1 / (
-            0.76 + 1.5 * etpotMax[non_irrigated_bioland]
-        ) - 0.10 * (5 - crop_group_number[non_irrigated_bioland])
-        # soil water depletion fraction (easily available soil water)
-        # Van Diepen et al., 1988: WOFOST 6.0, p.87
-        # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of
-        # 10 mm/day. Thus, p will range from 0.15 to 0.45 at ETRef eq 10 and
-        # CropGroupNumber 1-5
-        p[non_irrigated_bioland] = np.where(
-            crop_group_number[non_irrigated_bioland] <= 2.5,
-            p[non_irrigated_bioland]
-            + (etpotMax[non_irrigated_bioland] - 0.6)
-            / (
-                crop_group_number[non_irrigated_bioland]
-                * (crop_group_number[non_irrigated_bioland] + 3)
-            ),
-            p[non_irrigated_bioland],
-        )
-        del non_irrigated_bioland
-        del etpotMax
-        # correction for crop groups 1 and 2 (Van Diepen et al, 1988)
-
-        p = np.maximum(np.minimum(p, 1.0), 0.0)[bioarea]
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
-        # p is closer to 0 if evapo is bigger and cropgroup is smaller
+        p = get_fraction_easily_available_soil_water(
+            crop_group_number[bioarea], etpotMax[bioarea]
+        )
 
         root_ratios = get_root_ratios(
             self.var.root_depth[bioarea],
