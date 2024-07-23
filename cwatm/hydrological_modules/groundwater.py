@@ -112,6 +112,7 @@ class groundwater(object):
 
         self.var.storGroundwater = self.var.storGroundwater - self.var.baseflow - self.var.capillar
         assert (self.var.storGroundwater > 0).all()
+        self.var.capillarGW += self.var.capillar
 
         # PS: baseflow must be calculated at the end (to ensure the availability of storGroundwater to support nonFossilGroundwaterAbs)
 

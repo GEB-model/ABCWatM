@@ -69,7 +69,9 @@ class evaporation(object):
         # calculate potential ET
         ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m]
         totalPotET = self.var.cropCorrect * self.var.cropKC * ETRef
-        totalPotET[self.var.land_use_indices_forest] *= 1.345
+        self.var.muliplication_factor = 1
+        totalPotET[self.var.land_use_indices_forest] *= 1.345 
+        totalPotET *=  self.var.muliplication_factor
         potBareSoilEvap[self.var.land_use_indices_forest] *= 0.425
 
         ## potTranspiration: Transpiration for each land cover class

@@ -81,7 +81,6 @@ class CWATModel_dyn(DynamicModel):
         self.lakes_res_small_module.dynamic()
         timemeasure("Small lakes")  # 9. timing
 
-
         self.routing_kinematic_module.dynamic(openWaterEvap, channel_abstraction, returnFlow)
         timemeasure("Routing_Kin")  # 10. timing
 

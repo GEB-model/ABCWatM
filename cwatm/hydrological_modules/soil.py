@@ -788,9 +788,9 @@ class soil(object):
         relSat = soilWaterStorage / soilWaterStorageCap
         relSat = np.minimum(relSat, 1.0)
 
-        self.soilwaterstorage_forest[:] =  sum(self.var.w1[self.var.bioarea] + self.var.w2[self.var.bioarea] + self.var.w3[self.var.bioarea]*self.var.area_bioarea_ref)
-        self.soilwaterstorage_grassland[:] =  sum(self.var.w1[self.var.land_use_indices_grassland] + self.var.w2[self.var.land_use_indices_grassland] + self.var.w3[self.var.land_use_indices_grassland]*self.var.area_grassland_ref)
-        self.soilwaterstorage_agriculture[:] =  sum(self.var.w1[self.var.land_use_indices_agriculture] + self.var.w2[self.var.land_use_indices_agriculture] + self.var.w3[self.var.land_use_indices_agriculture]*self.var.area_agriculture_ref)
+        self.soilwaterstorage_forest[:] =  sum((self.var.w1[self.var.bioarea] + self.var.w2[self.var.bioarea] + self.var.w3[self.var.bioarea])*self.var.area_bioarea_ref)
+        self.soilwaterstorage_grassland[:] =  sum((self.var.w1[self.var.land_use_indices_grassland] + self.var.w2[self.var.land_use_indices_grassland] + self.var.w3[self.var.land_use_indices_grassland])*self.var.area_grassland_ref)
+        self.soilwaterstorage_agriculture[:] =  sum((self.var.w1[self.var.land_use_indices_agriculture] + self.var.w2[self.var.land_use_indices_agriculture] + self.var.w3[self.var.land_use_indices_agriculture])*self.var.area_agriculture_ref)
         self.soilwaterstorage_relsat_forest[:] =  sum((self.var.w1[self.var.land_use_indices_forest] + self.var.w2[self.var.land_use_indices_forest] + self.var.w3[self.var.land_use_indices_forest])/ (self.var.ws1[self.var.land_use_indices_forest] + self.var.ws2[self.var.land_use_indices_forest] + self.var.ws3[self.var.land_use_indices_forest]) *self.var.area_forest_ref)
         self.soilwaterstorage_relsat_grassland[:] =  sum((self.var.w1[self.var.land_use_indices_grassland] + self.var.w2[self.var.land_use_indices_grassland] + self.var.w3[self.var.land_use_indices_grassland])/ (self.var.ws1[self.var.land_use_indices_grassland] + self.var.ws2[self.var.land_use_indices_grassland] + self.var.ws3[self.var.land_use_indices_grassland])*self.var.area_grassland_ref)
         self.soilwaterstorage_relsat_agriculture[:] =  sum((self.var.w1[self.var.land_use_indices_agriculture] + self.var.w2[self.var.land_use_indices_agriculture] + self.var.w3[self.var.land_use_indices_agriculture])/ (self.var.ws1[self.var.land_use_indices_agriculture] + self.var.ws2[self.var.land_use_indices_agriculture] + self.var.ws3[self.var.land_use_indices_agriculture])* self.var.area_agriculture_ref)
@@ -799,6 +799,10 @@ class soil(object):
         self.soilwaterstorage_relsat_average += (self.var.w1+self.var.w2+self.var.w3)/(self.var.ws1+self.var.ws2+self.var.ws3)
         self.soilwaterstorage_average += (self.var.w1 + self.var.w2 + self.var.w3)
         potInf= self.var.full_compressed(0, dtype=np.float32)
+
+        if self.model.current_timestep ==  377:
+            breakpoint()
+        
 
         del soilWaterStorage
 

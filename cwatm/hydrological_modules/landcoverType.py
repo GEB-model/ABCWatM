@@ -202,15 +202,16 @@ class landcoverType(object):
 
         mask = ((self.var.land_use_type == 1) & (self.var.land_owners != -1)) #change land use type grassland to agriculture where land owners are
         self.var.land_use_type[mask] = 3
+        self.var.capillarGW = self.var.full_compressed(0, dtype=np.float32)
 
-        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change":
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change" or self.model.config["general"]["name"] == "spinup":
                 # Create a mask for areas with value 1 in the raster, everything else = 0 
                 to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/forested_grassland_and_agricultural_land.tif", masked = True)
 
         elif self.model.config["general"]["name"] == "restoration opportunities" :
                 to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/belgium_mask_grassland_to_forest.tif", masked = True)
 
-        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change" or self.model.config["general"]["name"] == "restoration opportunities":
+        if self.model.config["general"]["name"] == "100 infiltration change" or self.model.config["general"]["name"] == "100 no infiltration change":
                 forest_mask_3d = np.where(to_forest.values == 1,1,0)
                 forest_mask_3d_boolean = forest_mask_3d == 1
                 forest_mask = forest_mask_3d_boolean[0, :, :]
@@ -224,25 +225,7 @@ class landcoverType(object):
                     (self.var.land_use_type[HRUs_to_forest] >= 1) & (self.var.land_use_type[HRUs_to_forest] <= 3)
                 ]  # select HRUs which are grassland or agricultural land 
                 
-                self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
-                self.var.HRUs_to_forest = HRUs_to_forest
-                to_forest =  rioxarray.open_rasterio("C:/Users/romij/GEB/GEB_models/meuse/models/meuse/base/input/to_forest/belgium_mask_agriculture_to_forest.tif", masked = True)
-
-                forest_mask_3d = np.where(to_forest.values == 1,1,0)
-                forest_mask_3d_boolean = forest_mask_3d == 1
-                forest_mask = forest_mask_3d_boolean[0, :, :]
-
-                HRU_indices = self.var.decompress(
-                    np.arange(self.model.data.HRU.land_use_type.size)
-                )
-
-                HRUs_to_forest = np.unique(HRU_indices[forest_mask])
-                HRUs_to_forest = HRUs_to_forest[HRUs_to_forest != -1]
-                HRUs_to_forest = HRUs_to_forest[
-                    (self.var.land_use_type[HRUs_to_forest] >= 1) & (self.var.land_use_type[HRUs_to_forest] <= 3)
-                ]  # select HRUs which are grassland or agricultural land 
-                
-                self.var.land_use_type[HRUs_to_forest] = 0  # 0 is forest
+                self.var.land_use_type[HRUs_to_forest] = 0 # 0 is forest
                 self.var.HRUs_to_forest = HRUs_to_forest
                 
                 # Define the range of values
@@ -330,22 +313,23 @@ class landcoverType(object):
                 if coverType == 'forest':
                     # for forest there is a special map, for the other land use types the same map is used
                         # ksat in cm/d-1 -> m/dm
-                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat1")/100, fn=None)[land_use_indices]  # checked
-                    self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat2")/100, fn=None)[land_use_indices]  # checked
-                    self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_ksat3")/100, fn=None)[land_use_indices]  # checked
-                    alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha1"), fn=None)[land_use_indices]  # checked
-                    alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha2"), fn=None)[land_use_indices]  # checked
-                    alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_alpha3"), fn=None)[land_use_indices]  # checked
-                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda1"), fn=None)[land_use_indices]  # checked
-                    self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda2"), fn=None)[land_use_indices]  # checked
-                    self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_lambda3"), fn=None)[land_use_indices]  # checked
+                    self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat1")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat2[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat2")/100, fn=None)[land_use_indices]  # checked
+                    self.var.KSat3[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat3")/100, fn=None)[land_use_indices]  # checked
+                    alpha1[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha1"), fn=None)[land_use_indices]  # checked
+                    alpha2[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha2"), fn=None)[land_use_indices]  # checked
+                    alpha3[land_use_indices] = self.model.data.to_HRU(data=loadmap("alpha3"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda1[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda1"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda2[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda2"), fn=None)[land_use_indices]  # checked
+                    self.var.lambda3[land_use_indices] = self.model.data.to_HRU(data=loadmap("lambda3"), fn=None)[land_use_indices]  # checked
                     thetas1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas1"), fn=None)[land_use_indices]  # checked
                     thetas2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas2"), fn=None)[land_use_indices]  # checked
                     thetas3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetas3"), fn=None)[land_use_indices]  # checked
-                    thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar1"), fn=None)[land_use_indices]  # checked
-                    thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar2"), fn=None)[land_use_indices]  # checked
-                    thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap("forest_fao_thetar3"), fn=None)[land_use_indices]  # checked
-
+                    thetar1[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar1"), fn=None)[land_use_indices]  # checked
+                    thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar2"), fn=None)[land_use_indices]  # checked
+                    thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar3"), fn=None)[land_use_indices]  # checked
+        
+    
                 else:
                     pre = ""                  
                     self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap(pre + "KSat1")/100, fn=None)[land_use_indices]  # checked
@@ -375,7 +359,7 @@ class landcoverType(object):
 
                 if coverType == 'irrNonPaddy':
                     self.var.KSat1[land_use_indices] = self.model.data.to_HRU(data=loadmap("KSat1")/100, fn=None)[land_use_indices] 
-                    #values filled in fao polygons are filled for every parameter, without transferring polygons which are 0 in fao map to the rest of the values; essentially not overwriting all values already filled in by the original data above
+                    #values filled in fao polygons are filled for every parameter, without transferring polygons which are 0 in fao map to the rest of the values; essentially not overwriting all values already filled in by the initial van genuchten datasets
                     parameters = ["KSat1", "KSat2", "KSat3", "alpha1", "alpha2", "alpha3", "lambda1", "lambda2", "lambda3", "thetas1", "thetas2", "thetas3", "thetar1", "thetar2", "thetar3"]
                     for param in parameters:
                         # Load data and create a boolean mask for non-zero values
@@ -422,9 +406,24 @@ class landcoverType(object):
                     thetar2[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar2"), fn=None)[land_use_indices]  # checked
                     thetar3[land_use_indices] = self.model.data.to_HRU(data=loadmap("thetar3"), fn=None)[land_use_indices]  # checked
 
+        #self.var.KSat1 *= 1.5
+        #self.var.KSat2 *= 1.5
+        #self.var.KSat3 *= 1.5
+        #thetas1 *= 1.1
+        #alpha1 *= 0.25
+        #alpha2 *= 0.25
+        #alpha3 *= 0.25
+        #self.var.lambda1 *= 1.5
+        #self.var.lambda2 *= 1.5
+        #self.var.lambda3 *= 1.5
 
 
-        self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
+                    
+        
+
+
+
+        self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32),
         self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.wwp3 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.ws1 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -738,6 +737,7 @@ class landcoverType(object):
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
 
         if self.model.current_timestep == 1:
+            self.var.directrunoff= self.var.full_compressed(0, dtype=np.float32)
             self.var.runoff_delay = self.var.full_compressed(0, dtype=np.float32)
             self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
             self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
@@ -745,10 +745,13 @@ class landcoverType(object):
             directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
         else:
             self.var.runoff_delay_pre = self.var.runoff_delay.copy()
-            directRunoff[bioarea] = directRunoff[bioarea] + self.var.runoff_delay_pre[bioarea]
             self.var.runoff_delay[land_use_indices_grass_agri] = directRunoff[land_use_indices_grass_agri] * 0.02
             self.var.runoff_delay[land_use_indices_forest] = directRunoff[land_use_indices_forest] * 0.05
+            directRunoff[bioarea] = directRunoff[bioarea] + self.var.runoff_delay_pre[bioarea]
             directRunoff[bioarea] = directRunoff[bioarea] - self.var.runoff_delay[bioarea]
+        
+        
+        self.var.directrunoff += directRunoff
 
         self.directrunoff_forest= self.var.full_compressed(0, dtype=np.float32)
         self.directrunoff_agriculture = self.var.full_compressed(0, dtype=np.float32)
@@ -763,7 +766,6 @@ class landcoverType(object):
         self.interflow_forest[:] = sum(interflow[self.var.bioarea]*self.var.area_bioarea_ref)
         self.interflow_agriculture[:] = sum(interflow[self.var.land_use_indices_agriculture]*self.var.area_agriculture_ref)
         self.interflow_grassland[:] = sum(interflow[self.var.land_use_indices_grassland] *self.var.area_grassland_ref)
-
 
         if self.model.use_gpu:
             self.var.actual_transpiration_crop[self.var.crop_map != -1] += self.var.actTransTotal.get()[self.var.crop_map != -1]
