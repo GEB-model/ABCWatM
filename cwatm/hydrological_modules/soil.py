@@ -126,6 +126,21 @@ def get_crop_group_number(
     return crop_group_map
 
 
+def get_unsaturated_hydraulic_conductivity(
+    w, wres, ws, lambda_, saturated_hydraulic_conductivity
+):
+    saturation_term = np.clip(np.maximum(0.0, w - wres) / (ws - wres), 0, 1)
+    residual_moisture = lambda_ / (lambda_ + 1)
+
+    return (
+        saturated_hydraulic_conductivity
+        * np.sqrt(saturation_term)
+        * np.square(
+            1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture
+        )
+    )
+
+
 class soil(object):
     """
     **SOIL**
@@ -906,49 +921,20 @@ class soil(object):
 
         timer.new_split("Infiltration")
 
-        # Available water in both soil layers [m]
-        availWater1 = np.maximum(0.0, self.var.w1[bioarea] - self.var.wres1[bioarea])
-        availWater2 = np.maximum(0.0, self.var.w2[bioarea] - self.var.wres2[bioarea])
-        availWater3 = np.maximum(0.0, self.var.w3[bioarea] - self.var.wres3[bioarea])
-
-        satTerm2 = np.clip(
-            availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea]), 0, 1
-        )
-        satTerm3 = np.clip(
-            availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea]), 0, 1
+        kUnSat2 = get_unsaturated_hydraulic_conductivity(
+            self.var.w2[bioarea],
+            self.var.wres2[bioarea],
+            self.var.ws2[bioarea],
+            self.var.lambda2[bioarea],
+            self.var.KSat2[bioarea],
         )
 
-        kUnSat2 = (
-            self.var.KSat2[bioarea]
-            * np.sqrt(satTerm2)
-            * np.square(
-                1
-                - (
-                    1
-                    - satTerm2
-                    ** (
-                        1
-                        / (self.var.lambda2[bioarea] / (self.var.lambda2[bioarea] + 1))
-                    )
-                )
-                ** (self.var.lambda2[bioarea] / (self.var.lambda2[bioarea] + 1))
-            )
-        )
-        kUnSat3 = (
-            self.var.KSat3[bioarea]
-            * np.sqrt(satTerm3)
-            * np.square(
-                1
-                - (
-                    1
-                    - satTerm3
-                    ** (
-                        1
-                        / (self.var.lambda3[bioarea] / (self.var.lambda3[bioarea] + 1))
-                    )
-                )
-                ** (self.var.lambda3[bioarea] / (self.var.lambda3[bioarea] + 1))
-            )
+        kUnSat3 = get_unsaturated_hydraulic_conductivity(
+            self.var.w3[bioarea],
+            self.var.wres3[bioarea],
+            self.var.ws3[bioarea],
+            self.var.lambda3[bioarea],
+            self.var.KSat3[bioarea],
         )
 
         ## ----------------------------------------------------------
@@ -967,6 +953,7 @@ class soil(object):
             np.maximum(0.0, (1 - satTermFC2) * kUnSat3), self.var.kunSatFC23[bioarea]
         )
 
+        availWater3 = np.maximum(0.0, self.var.w3[bioarea] - self.var.wres3[bioarea])
         capRise2 = np.minimum(capRise2, availWater3)
 
         del satTermFC1
@@ -1022,78 +1009,26 @@ class soil(object):
         timer.new_split("Fluxes - setup")
 
         for i in range(NoSubSteps):
-            # Saturation term in Van Genuchten equation
-            satTerm1 = np.maximum(0.0, wtemp1 - self.var.wres1[bioarea]) / (
-                self.var.ws1[bioarea] - self.var.wres1[bioarea]
+            kUnSat1 = get_unsaturated_hydraulic_conductivity(
+                wtemp1,
+                self.var.wres1[bioarea],
+                self.var.ws1[bioarea],
+                self.var.lambda1[bioarea],
+                self.var.KSat1[bioarea],
             )
-            satTerm2 = np.maximum(0.0, wtemp2 - self.var.wres2[bioarea]) / (
-                self.var.ws2[bioarea] - self.var.wres2[bioarea]
+            kUnSat2 = get_unsaturated_hydraulic_conductivity(
+                wtemp2,
+                self.var.wres2[bioarea],
+                self.var.ws2[bioarea],
+                self.var.lambda2[bioarea],
+                self.var.KSat2[bioarea],
             )
-            satTerm3 = np.maximum(0.0, wtemp3 - self.var.wres3[bioarea]) / (
-                self.var.ws3[bioarea] - self.var.wres3[bioarea]
-            )
-
-            satTerm1 = np.maximum(np.minimum(satTerm1, 1.0), 0)
-            satTerm2 = np.maximum(np.minimum(satTerm2, 1.0), 0)
-            satTerm3 = np.maximum(np.minimum(satTerm3, 1.0), 0)
-
-            # Unsaturated hydraulic conductivities
-            kUnSat1 = (
-                self.var.KSat1[bioarea]
-                * np.sqrt(satTerm1)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm1
-                        ** (
-                            1
-                            / (
-                                self.var.lambda1[bioarea]
-                                / (self.var.lambda1[bioarea] + 1)
-                            )
-                        )
-                    )
-                    ** (self.var.lambda1[bioarea] / (self.var.lambda1[bioarea] + 1))
-                )
-            )
-            kUnSat2 = (
-                self.var.KSat2[bioarea]
-                * np.sqrt(satTerm2)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm2
-                        ** (
-                            1
-                            / (
-                                self.var.lambda2[bioarea]
-                                / (self.var.lambda2[bioarea] + 1)
-                            )
-                        )
-                    )
-                    ** (self.var.lambda2[bioarea] / (self.var.lambda2[bioarea] + 1))
-                )
-            )
-            kUnSat3 = (
-                self.var.KSat3[bioarea]
-                * np.sqrt(satTerm3)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm3
-                        ** (
-                            1
-                            / (
-                                self.var.lambda3[bioarea]
-                                / (self.var.lambda3[bioarea] + 1)
-                            )
-                        )
-                    )
-                    ** (self.var.lambda3[bioarea] / (self.var.lambda3[bioarea] + 1))
-                )
+            kUnSat3 = get_unsaturated_hydraulic_conductivity(
+                wtemp3,
+                self.var.wres3[bioarea],
+                self.var.ws3[bioarea],
+                self.var.lambda3[bioarea],
+                self.var.KSat3[bioarea],
             )
 
             # Flux from top- to subsoil
@@ -1148,10 +1083,6 @@ class soil(object):
             del kUnSat1
             del kUnSat2
             del kUnSat3
-
-        del satTerm1
-        del satTerm2
-        del satTerm3
 
         del capLayer2
         del capLayer3
