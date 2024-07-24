@@ -129,7 +129,7 @@ def get_crop_group_number(
 def get_unsaturated_hydraulic_conductivity(
     w, wres, ws, lambda_, saturated_hydraulic_conductivity
 ):
-    saturation_term = np.clip(np.maximum(0.0, w - wres) / (ws - wres), 0, 1)
+    saturation_term = np.clip((w - wres) / (ws - wres), 0, 1)
     residual_moisture = lambda_ / (lambda_ + 1)
 
     return (
@@ -1215,8 +1215,6 @@ class soil(object):
         timer.new_split("Finalizing")
         if self.model.timing:
             print(timer)
-
-        print(self.var.w1[bioarea].mean())
 
         return (
             interflow,
