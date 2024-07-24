@@ -594,13 +594,11 @@ class landcoverType(object):
                 1.2, np.maximum(0.01, self.var.arnoBeta[land_use_indices])
             )
 
-        # self.var.GWVolumeVariation = 0
-        # self.var.ActualPumpingRate = 0
-        self.forest_kc_ds = xr.open_dataset(
+        self.forest_kc_per_10_days = xr.open_dataset(
             self.model.model_structure["forcing"][
                 "landcover/forest/cropCoefficientForest_10days"
             ]
-        )["cropCoefficientForest_10days"]
+        )["cropCoefficientForest_10days"].values
 
     def water_body_exchange(self, groundwater_recharge):
         """computing leakage from rivers"""
@@ -849,9 +847,7 @@ class landcoverType(object):
 
         forest_cropCoefficientNC = self.model.data.to_HRU(
             data=self.model.data.grid.compress(
-                self.forest_kc_ds.sel(
-                    time=self.model.current_time.replace(year=2000), method="ffill"
-                ).data
+                self.forest_kc_per_10_days[(self.model.current_day_of_year - 1) // 10]
             ),
             fn=None,
         )
