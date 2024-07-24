@@ -15,7 +15,18 @@ from pathlib import Path
 from geb.workflows import TimingModule
 
 
-def get_critical_soil_moisture(p, wfc, wwp):
+def get_critical_soil_moisture_content(p, wfc, wwp):
+    """
+    "The critical soil moisture content is defined as the quantity of stored soil moisture below
+    which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
+    value. Restriction of water uptake due to water stress starts at a higher water content
+    when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
+
+    A higher p value means that the critical soil moisture content is higher, i.e. the plant can
+    extract water from the soil at a lower soil moisture content. Thus when p is 1 the critical
+    soil moisture content is equal to the wilting point, and when p is 0 the critical soil moisture
+    content is equal to the field capacity.
+    """
     return (1 - p) * (wfc - wwp) + wwp
 
 
@@ -27,32 +38,64 @@ def get_maximum_water_content(wfc, wwp):
     return wfc - wwp
 
 
-def get_fraction_easily_available_soil_water(crop_group_number, etpotMax):
-    # fraction of easily available soil water
-    # p is closer to 0 if evapo is bigger and cropgroup is smaller
-    p = 1 / (0.76 + 1.5 * etpotMax) - 0.10 * (5 - crop_group_number)
-    # The crop group number is a indicator of adaptation to dry climate,
-    # Van Diepen et al., 1988: WOFOST 6.0, p.87
-    # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of
-    # 10 mm/day. Thus, p will range from 0.15 to 0.45 at ETRef eq 10 and
-    # CropGroupNumber 1-5
+def get_fraction_easily_available_soil_water(
+    crop_group_number, potential_evapotranspiration
+):
+    """
+    Calculate the fraction of easily available soil water, based on crop group number and potential evapotranspiration
+    following Van Diepen et al., 1988: WOFOST 6.0, p.87
 
-    # correction for crop groups 1 and 2 (Van Diepen et al, 1988)
+    Parameters
+    ----------
+    crop_group_number : np.ndarray
+        The crop group number is a indicator of adaptation to dry climate,
+        Van Diepen et al., 1988: WOFOST 6.0, p.87
+    potential_evapotranspiration : np.ndarray
+        Potential evapotranspiration in m
+
+    Returns
+    -------
+    np.ndarray
+        The fraction of easily available soil water, p is closer to 0 if evapo is bigger and cropgroup is smaller
+    """
+    potential_evapotranspiration_cm = potential_evapotranspiration * 100.0
+
+    p = 1 / (0.76 + 1.5 * potential_evapotranspiration_cm) - 0.10 * (
+        5 - crop_group_number
+    )
+
+    # Additional correction for crop groups 1 and 2
     p = np.where(
         crop_group_number <= 2.5,
-        p + (etpotMax - 0.6) / (crop_group_number * (crop_group_number + 3)),
+        p
+        + (potential_evapotranspiration_cm - 0.6)
+        / (crop_group_number * (crop_group_number + 3)),
         p,
     )
     assert not (np.isnan(p)).any()
-
     return np.clip(p, 0, 1)
 
 
 def get_critical_water_level(p, wfc, wwp):
-    return np.maximum(get_critical_soil_moisture(p, wfc, wwp) - wwp, 0)
+    return np.maximum(get_critical_soil_moisture_content(p, wfc, wwp) - wwp, 0)
 
 
-def get_transpiration_factor(w, wwp, wcrit):
+def get_total_transpiration_reduction_factor(
+    transpiration_reduction_factor_per_layer, root_ratios, soil_layer_height
+):
+    transpiration_reduction_factor_relative_contribution_per_layer = (
+        soil_layer_height * root_ratios
+    )
+    transpiration_reduction_factor_total = np.sum(
+        transpiration_reduction_factor_relative_contribution_per_layer
+        / transpiration_reduction_factor_relative_contribution_per_layer.sum(axis=0)
+        * transpiration_reduction_factor_per_layer,
+        axis=0,
+    )
+    return transpiration_reduction_factor_total
+
+
+def get_transpiration_reduction_factor(w, wwp, wcrit):
     factor = np.clip((w - wwp) / (wcrit - wwp), 0, 1)
     return np.nan_to_num(factor)
 
@@ -466,8 +509,8 @@ class soil(object):
             0,
         )
         self.var.w2[bioarea] = np.minimum(self.var.ws2[bioarea], self.var.w2[bioarea])
-        # CAPRISE from GW to soilayer 1 , if this is full it is send to saverunofffromGW
-        saverunofffromGW = np.where(
+        # CAPRISE from GW to soilayer 1 , if this is full it is send to saverunoffromGW
+        saverunoffromGW = np.where(
             self.var.w1[bioarea] > self.var.ws1[bioarea],
             self.var.w1[bioarea] - self.var.ws1[bioarea],
             0,
@@ -483,9 +526,6 @@ class soil(object):
         # calculate transpiration
         # ***** SOIL WATER STRESS ************************************
 
-        etpotMax = np.minimum(0.1 * (totalPotET * 1000.0), 1.0)
-        # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of 10 mm/day.
-
         # load crop group number
         crop_group_number = get_crop_group_number(
             self.var.crop_map,
@@ -496,7 +536,7 @@ class soil(object):
 
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
         p = get_fraction_easily_available_soil_water(
-            crop_group_number[bioarea], etpotMax[bioarea]
+            crop_group_number[bioarea], totalPotET[bioarea]
         )
 
         root_ratios = get_root_ratios(
@@ -504,99 +544,87 @@ class soil(object):
             self.var.soil_layer_height[:, bioarea],
         )
 
-        critical_soil_moisture1 = (
-            get_critical_soil_moisture(
-                p, self.var.wfc1[bioarea], self.var.wwp1[bioarea]
+        critical_soil_moisture1 = get_critical_soil_moisture_content(
+            p, self.var.wfc1[bioarea], self.var.wwp1[bioarea]
+        )
+        critical_soil_moisture2 = get_critical_soil_moisture_content(
+            p, self.var.wfc2[bioarea], self.var.wwp2[bioarea]
+        )
+        critical_soil_moisture3 = get_critical_soil_moisture_content(
+            p, self.var.wfc3[bioarea], self.var.wwp3[bioarea]
+        )
+
+        # del p
+
+        transpiration_reduction_factor_per_layer = np.zeros_like(root_ratios)
+
+        transpiration_reduction_factor_per_layer[0] = (
+            get_transpiration_reduction_factor(
+                self.var.w1[bioarea],
+                self.var.wwp1[bioarea],
+                critical_soil_moisture1,
             )
-            * root_ratios[0]
         )
-        critical_soil_moisture2 = (
-            get_critical_soil_moisture(
-                p, self.var.wfc2[bioarea], self.var.wwp2[bioarea]
+        transpiration_reduction_factor_per_layer[1] = (
+            get_transpiration_reduction_factor(
+                self.var.w2[bioarea],
+                self.var.wwp2[bioarea],
+                critical_soil_moisture2,
             )
-            * root_ratios[1]
         )
-        critical_soil_moisture3 = (
-            get_critical_soil_moisture(
-                p, self.var.wfc3[bioarea], self.var.wwp3[bioarea]
+        transpiration_reduction_factor_per_layer[2] = (
+            get_transpiration_reduction_factor(
+                self.var.w3[bioarea],
+                self.var.wwp3[bioarea],
+                critical_soil_moisture3,
             )
-            * root_ratios[2]
         )
 
-        critical_soil_moisture = (
-            critical_soil_moisture1 + critical_soil_moisture2 + critical_soil_moisture3
+        transpiration_reduction_factor_total = get_total_transpiration_reduction_factor(
+            transpiration_reduction_factor_per_layer,
+            root_ratios,
+            self.var.soil_layer_height[:, bioarea],
         )
 
-        del p
+        # del critical_soil_moisture1
+        # del critical_soil_moisture2
+        # del critical_soil_moisture3
 
-        rsw = get_transpiration_factor(
-            self.var.w1[bioarea] * root_ratios[0]
-            + self.var.w2[bioarea] * root_ratios[1]
-            + self.var.w3[bioarea] * root_ratios[2],
-            self.var.wwp1[bioarea] * root_ratios[0]
-            + self.var.wwp2[bioarea] * root_ratios[1]
-            + self.var.wwp3[bioarea] * root_ratios[2],
-            critical_soil_moisture,
-        )
-
-        rsw_per_layer = np.zeros_like(root_ratios)
-
-        rsw_per_layer[0] = get_transpiration_factor(
-            self.var.w1[bioarea] * root_ratios[0],
-            self.var.wwp1[bioarea] * root_ratios[0],
-            critical_soil_moisture1,
-        )
-        rsw_per_layer[1] = get_transpiration_factor(
-            self.var.w2[bioarea] * root_ratios[1],
-            self.var.wwp2[bioarea] * root_ratios[1],
-            critical_soil_moisture2,
-        )
-        rsw_per_layer[2] = get_transpiration_factor(
-            self.var.w3[bioarea] * root_ratios[2],
-            self.var.wwp3[bioarea] * root_ratios[2],
-            critical_soil_moisture3,
-        )
-
-        del critical_soil_moisture1
-        del critical_soil_moisture2
-        del critical_soil_moisture3
-
-        TaMax = potTranspiration[bioarea] * rsw
+        TaMax = potTranspiration[bioarea] * transpiration_reduction_factor_total
 
         del potTranspiration
-        del rsw
 
         # set transpiration to 0 when soil is frozen
         TaMax[self.var.FrostIndex[bioarea] > self.var.FrostIndexThreshold] = 0.0
 
-        self.model.data.grid.vapour_pressure_deficit = (
-            self.calculate_vapour_pressure_deficit_kPa(
-                self.model.data.grid.tas, self.model.data.grid.hurs
-            )
-        )
+        # self.model.data.grid.vapour_pressure_deficit = (
+        #     self.calculate_vapour_pressure_deficit_kPa(
+        #         self.model.data.grid.tas, self.model.data.grid.hurs
+        #     )
+        # )
 
-        self.model.data.grid.photosynthetic_photon_flux_density = (
-            self.calculate_photosynthetic_photon_flux_density(self.model.data.grid.rsds)
-        )
+        # self.model.data.grid.photosynthetic_photon_flux_density = (
+        #     self.calculate_photosynthetic_photon_flux_density(self.model.data.grid.rsds)
+        # )
 
-        soil_water_potential = self.calculate_soil_water_potential_MPa(
-            self.var.w1 + self.var.w2 + self.var.w3,  # [m]
-            self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
-            self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
-            self.var.soil_layer_height[0]
-            + self.var.soil_layer_height[1]
-            + self.var.soil_layer_height[2],  # [m]
-            wilting_point=-1500,  # kPa
-            field_capacity=-33,  # kPa
-        )
-        soil_water_potential_plantFATE_HRUs = np.where(
-            self.var.land_use_type == 0,
-            soil_water_potential,
-            np.nan,
-        )
-        self.model.data.grid.soil_water_potential = self.model.data.to_grid(
-            HRU_data=soil_water_potential_plantFATE_HRUs, fn="weightednanmean"
-        )
+        # soil_water_potential = self.calculate_soil_water_potential_MPa(
+        #     self.var.w1 + self.var.w2 + self.var.w3,  # [m]
+        #     self.var.wwp1 + self.var.wwp2 + self.var.wwp3,  # [m]
+        #     self.var.wfc1 + self.var.wfc2 + self.var.wfc3,  # [m]
+        #     self.var.soil_layer_height[0]
+        #     + self.var.soil_layer_height[1]
+        #     + self.var.soil_layer_height[2],  # [m]
+        #     wilting_point=-1500,  # kPa
+        #     field_capacity=-33,  # kPa
+        # )
+        # soil_water_potential_plantFATE_HRUs = np.where(
+        #     self.var.land_use_type == 0,
+        #     soil_water_potential,
+        #     np.nan,
+        # )
+        # self.model.data.grid.soil_water_potential = self.model.data.to_grid(
+        #     HRU_data=soil_water_potential_plantFATE_HRUs, fn="weightednanmean"
+        # )
 
         if self.model.config["general"]["simulate_forest"]:
             transpiration_plantFATE = np.zeros_like(
@@ -717,7 +745,8 @@ class soil(object):
             )
 
             root_distribution_per_layer_rws_corrected_non_normalized = (
-                root_distribution_per_layer_non_normalized * rsw_per_layer
+                root_distribution_per_layer_non_normalized
+                * transpiration_reduction_factor_per_layer
             )
             root_distribution_per_layer_rws_corrected = (
                 root_distribution_per_layer_rws_corrected_non_normalized
@@ -856,10 +885,10 @@ class soil(object):
             - directRunoff[paddy_irrigated_land],
         )
 
-        directRunoff[bioarea] = directRunoff[bioarea] + saverunofffromGW
+        directRunoff[bioarea] = directRunoff[bioarea] + saverunoffromGW
         # ADDING EXCESS WATER FROM GW CAPILLARY RISE
 
-        del saverunofffromGW
+        del saverunoffromGW
 
         # infiltration to soilayer 1 , if this is full it is send to soil layer 2
         self.var.w1[bioarea] = self.var.w1[bioarea] + infiltration[bioarea]
@@ -882,17 +911,12 @@ class soil(object):
         availWater2 = np.maximum(0.0, self.var.w2[bioarea] - self.var.wres2[bioarea])
         availWater3 = np.maximum(0.0, self.var.w3[bioarea] - self.var.wres3[bioarea])
 
-        satTerm2 = availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea])
-        satTerm3 = availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea])
-
-        satTerm2[satTerm2 < 0] = 0
-        satTerm2[satTerm2 > 1] = 1
-        satTerm3[satTerm3 < 0] = 0
-        satTerm3[satTerm3 > 1] = 1
-
-        # Saturation term in Van Genuchten equation (always between 0 and 1)
-        assert (satTerm2 >= 0).all() and (satTerm2 <= 1).all()
-        assert (satTerm3 >= 0).all() and (satTerm3 <= 1).all()
+        satTerm2 = np.clip(
+            availWater2 / (self.var.ws2[bioarea] - self.var.wres2[bioarea]), 0, 1
+        )
+        satTerm3 = np.clip(
+            availWater3 / (self.var.ws3[bioarea] - self.var.wres3[bioarea]), 0, 1
+        )
 
         kUnSat2 = (
             self.var.KSat2[bioarea]

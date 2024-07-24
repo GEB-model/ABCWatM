@@ -155,16 +155,6 @@ class water_demand:
 
         nonpaddy_irrigated_land = np.where(self.var.land_use_type == 3)[0]
 
-        # calculate   ****** SOIL WATER STRESS ************************************
-
-        # The crop group number is a indicator of adaptation to dry climate,
-        # e.g. olive groves are adapted to dry climate, therefore they can extract more water from drying out soil than e.g. rice.
-        # The crop group number of olive groves is 4 and of rice fields is 1
-        # for irrigation it is expected that the crop has a low adaptation to dry climate
-        # cropGroupNumber = 1.0
-        etpotMax = np.minimum(0.1 * (totalPotET[nonpaddy_irrigated_land] * 1000.0), 1.0)
-        # to avoid a strange behaviour of the p-formula's, ETRef is set to a maximum of 10 mm/day.
-
         # load crop group number
         crop_group_number = get_crop_group_number(
             self.var.crop_map,
@@ -176,7 +166,7 @@ class water_demand:
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
         p = get_fraction_easily_available_soil_water(
             crop_group_number[nonpaddy_irrigated_land],
-            etpotMax,
+            totalPotET[nonpaddy_irrigated_land],
         )
 
         root_ratios = get_root_ratios(
