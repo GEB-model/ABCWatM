@@ -134,10 +134,9 @@ def get_unsaturated_hydraulic_conductivity(
 
     return (
         saturated_hydraulic_conductivity
-        * np.sqrt(saturation_term)
-        * np.square(
-            1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture
-        )
+        * saturation_term**0.5
+        * (1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture)
+        ** 2
     )
 
 
