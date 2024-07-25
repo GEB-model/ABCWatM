@@ -33,41 +33,45 @@ def get_critical_soil_moisture_content(p, wfc, wwp):
 def get_aeration_stress_threshold(
     cum_soil_layer_height, soil_layer_height, root_depth, ws, crop_aer
 ):
-    if cum_soil_layer_height > root_depth:
-        factor = 1 - ((cum_soil_layer_height - root_depth) / soil_layer_height)
-    else:
-        factor = 1
+    factor = np.where(
+        cum_soil_layer_height > root_depth,
+        1 - ((cum_soil_layer_height - root_depth) / soil_layer_height),
+        1,
+    )
 
     # Water storage in root zone at aeration stress threshold (mm)
-    WrAer = round(factor * (ws - (crop_aer / 100)) * soil_layer_height, 2)
+    WrAer = np.round(factor * (ws - (crop_aer / 100)) * soil_layer_height, 2)
 
     return WrAer
 
 
 def sum_aeration_stress_threshold(aeration_stress_threshold_per_layer, root_depth):
     # Root zone water content at aeration stress threshold (m3/m3)
-    return aeration_stress_threshold_per_layer.sum(axis=0) / root_depth
+    return np.sum(aeration_stress_threshold_per_layer, axis=0) / root_depth
 
 
-def aeration_stress_factor(ws, w, waer, aer_days, crop_lag_aer):
-    if w > waer:
-        # Calculate aeration stress coefficient
-        if aer_days < crop_lag_aer:
-            stress = 1 - ((ws - w) / (ws - waer))
-            ksa_aer = 1 - ((aer_days / 3) * stress)
-        elif aer_days >= crop_lag_aer:
-            ksa_aer = (ws - w) / (ws - waer)
+def calc_aeration_stress_factor(ws, w, waer, aer_days, crop_lag_aer):
+    # Initialize ksa_aer with ones, equivalent to setting no stress
+    ksa_aer = np.ones_like(w)
 
-        # Increment aeration days counter
-        aer_days = aer_days + 1
-        if aer_days > crop_lag_aer:
-            aer_days = crop_lag_aer
+    # Calculate stress and ksa_aer where w > waer
+    stress_mask = w > waer
+    stress = np.where(
+        aer_days < crop_lag_aer, 1 - ((ws - w) / (ws - waer)), np.nan
+    )  # Use nan temporarily to ignore these cases
+    ksa_aer = np.where(
+        stress_mask & (aer_days < crop_lag_aer), 1 - ((aer_days / 3) * stress), ksa_aer
+    )
+    ksa_aer = np.where(
+        stress_mask & (aer_days >= crop_lag_aer), (ws - w) / (ws - waer), ksa_aer
+    )
 
-    else:
-        # Set aeration stress coefficient to one (no stress value)
-        ksa_aer = 1
-        # Reset aeration days counter
-        aer_days = 0
+    # Increment aeration days counter
+    aer_days = np.where(stress_mask, aer_days + 1, aer_days)
+    # Reset aeration days counter where w <= waer
+    aer_days = np.where(stress_mask, aer_days, 0)
+    # Cap aeration days at crop_lag_aer
+    aer_days = np.minimum(aer_days, crop_lag_aer)
 
     return ksa_aer, aer_days
 
@@ -283,6 +287,10 @@ class soil(object):
         # self.var.permeability = float(cbinding('permeability'))
 
         self.var.soilLayers = 3
+
+        # Initialize aer_days and set temporary crop_lag_aer
+        self.var.aer_days = np.full(self.var.compressed_size, 0)
+        self.var.crop_lag_aer = np.full(self.var.compressed_size, 3)
         # --- Topography -----------------------------------------------------
 
         # Fraction of area where percolation to groundwater is impeded [dimensionless]
@@ -641,6 +649,51 @@ class soil(object):
             root_ratios,
             self.var.soil_layer_height[:, bioarea],
         )
+
+        aeration_stress_threshold_per_layer = np.zeros_like(root_ratios)
+
+        total_soil_layer_height = np.sum(self.var.soil_layer_height[:, bioarea], axis=0)
+
+        aeration_stress_threshold_per_layer[0] = get_aeration_stress_threshold(
+            total_soil_layer_height,
+            self.var.soil_layer_height[0, bioarea],
+            self.var.root_depth[bioarea],
+            self.var.ws1[bioarea],
+            5,
+        )
+        aeration_stress_threshold_per_layer[1] = get_aeration_stress_threshold(
+            total_soil_layer_height,
+            self.var.soil_layer_height[1, bioarea],
+            self.var.root_depth[bioarea],
+            self.var.ws2[bioarea],
+            5,
+        )
+        aeration_stress_threshold_per_layer[2] = get_aeration_stress_threshold(
+            total_soil_layer_height,
+            self.var.soil_layer_height[2, bioarea],
+            self.var.root_depth[bioarea],
+            self.var.ws3[bioarea],
+            5,
+        )
+
+        aeration_stress_threshold_total = sum_aeration_stress_threshold(
+            aeration_stress_threshold_per_layer, self.var.root_depth[bioarea]
+        )
+
+        aeration_stress_factor, aer_days = calc_aeration_stress_factor(
+            ws=(self.var.ws1[bioarea] + self.var.ws2[bioarea] + self.var.ws3[bioarea]),
+            w=(self.var.w1[bioarea] + self.var.w2[bioarea] + self.var.w3[bioarea]),
+            waer=aeration_stress_threshold_total,
+            aer_days=self.var.aer_days[bioarea],
+            crop_lag_aer=self.var.crop_lag_aer[bioarea],
+        )
+
+        if np.mean(aeration_stress_factor) != 1:
+            print(
+                "Aeration stress factor = ",
+                np.mean(aeration_stress_factor),
+                #   "Water stress factor = ", np.mean(transpiration_reduction_factor_total)
+            )
 
         # del critical_soil_moisture1
         # del critical_soil_moisture2
