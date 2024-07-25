@@ -18,7 +18,7 @@ from geb.workflows import TimingModule
 def get_critical_soil_moisture_content(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
-    which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
+    which water uptake is impaired and the crop begins to close its stomata. It is not a fixed
     value. Restriction of water uptake due to water stress starts at a higher water content
     when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
 
@@ -28,6 +28,48 @@ def get_critical_soil_moisture_content(p, wfc, wwp):
     content is equal to the field capacity.
     """
     return (1 - p) * (wfc - wwp) + wwp
+
+
+def get_aeration_stress_threshold(
+    cum_soil_layer_height, soil_layer_height, root_depth, ws, crop_aer
+):
+    if cum_soil_layer_height > root_depth:
+        factor = 1 - ((cum_soil_layer_height - root_depth) / soil_layer_height)
+    else:
+        factor = 1
+
+    # Water storage in root zone at aeration stress threshold (mm)
+    WrAer = round(factor * (ws - (crop_aer / 100)) * soil_layer_height, 2)
+
+    return WrAer
+
+
+def sum_aeration_stress_threshold(aeration_stress_threshold_per_layer, root_depth):
+    # Root zone water content at aeration stress threshold (m3/m3)
+    return aeration_stress_threshold_per_layer.sum(axis=0) / root_depth
+
+
+def aeration_stress_factor(ws, w, waer, aer_days, crop_lag_aer):
+    if w > waer:
+        # Calculate aeration stress coefficient
+        if aer_days < crop_lag_aer:
+            stress = 1 - ((ws - w) / (ws - waer))
+            ksa_aer = 1 - ((aer_days / 3) * stress)
+        elif aer_days >= crop_lag_aer:
+            ksa_aer = (ws - w) / (ws - waer)
+
+        # Increment aeration days counter
+        aer_days = aer_days + 1
+        if aer_days > crop_lag_aer:
+            aer_days = crop_lag_aer
+
+    else:
+        # Set aeration stress coefficient to one (no stress value)
+        ksa_aer = 1
+        # Reset aeration days counter
+        aer_days = 0
+
+    return ksa_aer, aer_days
 
 
 def get_available_water(w, wwp):

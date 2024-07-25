@@ -155,6 +155,16 @@ class groundwater_modflow:
 
         assert self.hydraulic_conductivity.shape == self.specific_yield.shape
 
+        # Load initial groundwater depth
+        with rasterio.open(
+            self.model.model_structure["MODFLOW_grid"][
+                "groundwater/modflow/initial_groundwater_depth"
+            ],
+            "r",
+        ) as src:
+            initial_water_table_depth = src.read().astype(np.float32)
+            initial_water_table_depth[:, self.modflow_basin_mask == True] = np.nan
+
         thickness = cbinding("thickness")
         if is_float(thickness):
             thickness = float(thickness)
@@ -329,11 +339,13 @@ class groundwater_modflow:
             (nlay + 1, self.domain["nrow"], self.domain["ncol"]), dtype=np.float64
         )
         self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
-        self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
+        self.layer_boundaries[1] = (
+            self.layer_boundaries[0] - thickness - initial_water_table_depth
+        )  # for now have the thickness be 100 m below the initial water table depth
 
         self.model.data.modflow.head = self.model.data.modflow.load_initial(
             "head",
-            default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
+            default=self.layer_boundaries[0] - initial_water_table_depth[0],
         )
 
         self.modflow = ModFlowSimulation(
