@@ -1743,7 +1743,7 @@ class soil(object):
 
         timer.new_split("Various")
 
-        np.testing.assert_almost_equal(
+        tupnp.testing.assert_almost_equal(
             groundwater_recharge_, groundwater_recharge, decimal=5
         )
         np.testing.assert_almost_equal(
