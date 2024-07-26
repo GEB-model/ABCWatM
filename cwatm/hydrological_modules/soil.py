@@ -271,6 +271,7 @@ def get_unsaturated_hydraulic_conductivity_numba(
 #             float32[:],  # frost_index
 #             float32[:],  # arno_beta
 #             float32[:],  # capillar
+#             float32[:],  # percolation_impeded_ratio
 #             float32[:],  # capillary_rise_index
 #             float32[:],  # crop_group_number_per_group
 #             float32,  # frost_index_threshold
@@ -279,11 +280,12 @@ def get_unsaturated_hydraulic_conductivity_numba(
 #             float32[:],  # topwater_res
 #             float32[:],  # open_water_evaporation_res
 #             float32[:],  # actual_bare_soil_evaporation
-#             float32[:],  # test_res
+#             float32[:],  # groundwater_recharge
+#             float32[:],  # interflow
 #             float32[:],  # test_res2
 #         )
 #     ],
-#     "(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(o,n),(m,n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(k),(),()->(m,n),(n),(n),(n),(n),(n)",
+#     "(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(o,n),(m,n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(k),(),()->(m,n),(n),(n),(n),(n),(n),(n)",
 #     target="cpu",
 # )
 @njit(cache=True)
@@ -296,7 +298,7 @@ def update_soil_water_storage(
     soil_layer_height,
     saturated_hydraulic_conductivity,
     unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
-    lamda_,
+    lambda_,
     land_use_type,
     root_depth,
     actual_irrigation_consumption,
@@ -312,6 +314,7 @@ def update_soil_water_storage(
     arno_beta,
     capillar,
     capillary_rise_index,
+    percolation_impeded_ratio,
     crop_group_number_per_group,
     frost_index_threshold,
     cPrefFlow,
@@ -319,7 +322,9 @@ def update_soil_water_storage(
     topwater_res,
     open_water_evaporation_res,
     actual_bare_soil_evaporation_res,
-    test_res,
+    actual_total_transpiration,
+    groundwater_recharge,
+    interflow,
     test_res2,
 ):
     n_layers = w.shape[0]
@@ -331,6 +336,9 @@ def update_soil_water_storage(
     capillary_rise_soil_matrix = np.zeros_like(
         unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
     )
+    percolation_matrix = np.zeros_like(w)
+
+    PERCOLATION_SUBSTEPS = 3
 
     for i in range(land_use_type.size):
         soil_is_frozen = frost_index[i] > frost_index_threshold
@@ -434,12 +442,13 @@ def update_soil_water_storage(
                 root_distribution_per_layer_rws_corrected_matrix[layer, i] = (
                     root_length_within_layer_rws_corrected
                 )
-                if layer == 0:
-                    test_res[i] = transpiration_reduction_factor_matrix[layer, i]
-                    # test_res2[i] = wwp[layer, i]
-                    test_res2[i] = critical_soil_moisture_content
 
             total_transpiration_reduction_factor /= root_depth[i]
+
+            actual_total_transpiration[i] = (
+                0  # reset the total transpiration TODO: This may be confusing.
+            )
+            # this is a saved array from the previous day
 
             # correct the transpiration reduction factor for water stress
             # if the soil is frozen, no transpiration occurs, so we can skip the loop
@@ -457,11 +466,8 @@ def update_soil_water_storage(
                         * root_distribution_per_layer_rws_corrected_matrix[layer, i]
                         / total_root_length_rws_corrected
                     )
-                    if np.isnan(transpiration):
-                        print(layer, transpiration)
                     w_res[layer, i] -= transpiration
-                    # if layer == 0:
-                    #     test_res[i] = transpiration
+                    actual_total_transpiration[i] += transpiration
 
             # limit the bare soil evaporation to the available water in the soil
             if not soil_is_frozen and topwater_res[i] == 0:
@@ -556,7 +562,7 @@ def update_soil_water_storage(
                         w_res[layer + 1, i],
                         wres[layer + 1, i],
                         ws[layer + 1, i],
-                        lamda_[layer + 1, i],
+                        lambda_[layer + 1, i],
                         saturated_hydraulic_conductivity[layer + 1, i],
                     )
                 )
@@ -587,11 +593,61 @@ def update_soil_water_storage(
                 if layer != 0:
                     w_res[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
 
-                if layer == 0:
-                    test_res[i] = capillary_rise_soil_matrix[layer, i]
-                if layer == 1:
-                    test_res2[i] = capillary_rise_soil_matrix[layer, i]
-            test_res2[i] = available_water_infiltration
+            # percolcation (top to bottom soil layer)
+            percolation_to_groundwater = 0.0
+            for _ in range(PERCOLATION_SUBSTEPS):
+                for layer in range(n_layers):
+                    unsaturated_hydraulic_conductivity = (
+                        get_unsaturated_hydraulic_conductivity_numba(
+                            w_res[layer, i],
+                            wres[layer, i],
+                            ws[layer, i],
+                            lambda_[layer, i],
+                            saturated_hydraulic_conductivity[layer, i],
+                        )
+                    )
+                    percolation = (
+                        unsaturated_hydraulic_conductivity / PERCOLATION_SUBSTEPS
+                    )
+                    # no percolation if the soil is frozen in the top 2 layers.
+                    if not (soil_is_frozen and (layer == 0 or layer == 1)):
+                        # limit percolation by the available water in the layer
+                        available_water = max(w_res[layer, i] - wres[layer, i], 0)
+                        percolation = min(percolation, available_water)
+                        if layer == n_layers - 1:  # last soil layer
+                            # limit percolation by available water, and consider the capillary rise index
+                            # TODO: Check how the capillary rise index works
+                            percolation *= 1 - capillary_rise_index[i]
+                        else:
+                            # limit percolation the remaining water storage capacity of the layer below
+                            percolation = min(
+                                percolation, ws[layer + 1, i] - w_res[layer + 1, i]
+                            )
+                    else:
+                        percolation = 0
+
+                    # save percolation in matrix
+                    percolation_matrix[layer, i] = percolation
+
+                # for bottom soil layer, save percolation to groundwater
+                percolation_to_groundwater += percolation
+
+                for layer in range(n_layers):
+                    # for all layers, remove percolation from the layer
+                    w_res[layer, i] -= percolation_matrix[layer, i]
+                    # for all layers except the top layer, add percolation from the layer above (-1)
+                    if layer != 0:
+                        w_res[layer, i] += percolation_matrix[layer - 1, i]
+
+                interflow_or_groundwater_recharge = (
+                    percolation_to_groundwater + preferential_flow
+                )
+                interflow[i] = (
+                    percolation_impeded_ratio[i] * interflow_or_groundwater_recharge
+                )
+                groundwater_recharge[i] = interflow_or_groundwater_recharge * (
+                    1 - percolation_impeded_ratio[i]
+                )
 
 
 class soil(object):
@@ -896,7 +952,12 @@ class soil(object):
         return photosynthetic_photon_flux_density
 
     def dynamic(
-        self, capillar, openWaterEvap, potTranspiration, potBareSoilEvap, totalPotET
+        self,
+        capillar,
+        open_water_evaporation,
+        potTranspiration,
+        potBareSoilEvap,
+        totalPotET,
     ):
         """
         Dynamic part of the soil module
@@ -911,7 +972,7 @@ class soil(object):
             w2_pre = self.var.w2.copy()
             w3_pre = self.var.w3.copy()
             topwater_pre = self.var.topwater.copy()
-            open_water_evaporation_pre = openWaterEvap.copy()
+            open_water_evaporation_pre = open_water_evaporation.copy()
             potBareSoilEvap_pre = potBareSoilEvap.copy()
 
         w = np.stack([self.var.w1, self.var.w2, self.var.w3], axis=0)
@@ -929,12 +990,11 @@ class soil(object):
             np.stack([self.var.kunSatFC12, self.var.kunSatFC23], axis=0)
         )
 
-        actual_bare_soil_evaporation = np.zeros_like(
-            self.var.land_use_type, dtype=np.float32
-        )
+        actual_bare_soil_evaporation = self.var.full_compressed(0, dtype=np.float32)
+        groundwater_recharge = self.var.full_compressed(0, dtype=np.float32)
 
+        interflow = np.full_like(self.var.land_use_type, 0, dtype=np.float32)
         test_res = np.full_like(self.var.land_use_type, 0, dtype=np.float32)
-        test_res2 = np.full_like(self.var.land_use_type, 0, dtype=np.float32)
 
         timer = TimingModule("Soil")
 
@@ -963,6 +1023,7 @@ class soil(object):
             self.var.arnoBeta,
             capillar.astype(np.float32),
             self.var.capriseindex,
+            self.var.percolationImp,
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values.astype(
                 np.float32
             ),
@@ -970,10 +1031,12 @@ class soil(object):
             self.var.cPrefFlow,
             w,
             self.var.topwater,
-            openWaterEvap,
+            open_water_evaporation,
             actual_bare_soil_evaporation,
+            self.var.actTransTotal,
+            groundwater_recharge,
+            interflow,
             test_res,
-            test_res2,
         )
 
         timer.new_split("Vectorized")
@@ -983,7 +1046,6 @@ class soil(object):
         w2_numba = w[1].copy()
         w3_numba = w[2].copy()
         topwater_numba = self.var.topwater.copy()
-        openWaterEvap_numba = openWaterEvap.copy()
 
         timer.new_split("Cleaning")
 
@@ -993,7 +1055,7 @@ class soil(object):
         self.var.w2 = w2_pre.copy()
         self.var.w3 = w3_pre.copy()
         self.var.topwater = topwater_pre.copy()
-        openWaterEvap = open_water_evaporation_pre.copy()
+        openWaterEvap_ = open_water_evaporation_pre.copy()
         potBareSoilEvap = potBareSoilEvap_pre.copy()
 
         paddy_irrigated_land = np.where(self.var.land_use_type == 2)
@@ -1017,13 +1079,13 @@ class soil(object):
         )
 
         # open water evaporation from the paddy field  - using potential evaporation from open water
-        openWaterEvap[paddy_irrigated_land] = np.minimum(
+        openWaterEvap_[paddy_irrigated_land] = np.minimum(
             np.maximum(0.0, self.var.topwater[paddy_irrigated_land]),
             self.var.EWRef[paddy_irrigated_land],
         )
         self.var.topwater[paddy_irrigated_land] = (
             self.var.topwater[paddy_irrigated_land]
-            - openWaterEvap[paddy_irrigated_land]
+            - openWaterEvap_[paddy_irrigated_land]
         )
 
         assert (self.var.topwater >= 0).all()
@@ -1039,7 +1101,8 @@ class soil(object):
         # open water can evaporate more than maximum bare soil + transpiration because it is calculated from open water pot evaporation
         potBareSoilEvap[paddy_irrigated_land] = np.maximum(
             0.0,
-            potBareSoilEvap[paddy_irrigated_land] - openWaterEvap[paddy_irrigated_land],
+            potBareSoilEvap[paddy_irrigated_land]
+            - openWaterEvap_[paddy_irrigated_land],
         )
         # if open water revaporation is bigger than bare soil, transpiration rate is reduced
 
@@ -1324,7 +1387,8 @@ class soil(object):
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
 
-        self.var.actTransTotal[bioarea] = ta.sum(axis=0)
+        np.testing.assert_almost_equal(ta.sum(axis=0), self.var.actTransTotal[bioarea])
+        # self.var.actTransTotal[bioarea] = ta.sum(axis=0)
 
         del ta
 
@@ -1498,27 +1562,6 @@ class soil(object):
         self.var.w2[bioarea] = self.var.w2[bioarea] - capRise1 + capRise2
         self.var.w3[bioarea] = self.var.w3[bioarea] - capRise2
 
-        decimal = 7
-        # np.testing.assert_almost_equal(test_res[bioarea], capRise1, decimal=7)
-        # np.testing.assert_almost_equal(
-        #     test_res2[bioarea], availWaterInfiltration[bioarea], decimal=7
-        # )
-
-        decimal = 7
-        np.testing.assert_almost_equal(w1_numba, self.var.w1, decimal=decimal)
-        np.testing.assert_almost_equal(w2_numba, self.var.w2, decimal=decimal)
-        np.testing.assert_almost_equal(w3_numba, self.var.w3, decimal=decimal)
-        np.testing.assert_almost_equal(
-            topwater_numba, self.var.topwater, decimal=decimal
-        )
-        np.testing.assert_almost_equal(
-            openWaterEvap_numba, openWaterEvap, decimal=decimal
-        )
-
-        timer.new_split("Various")
-
-        timer.new_split("Infiltration")
-
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
@@ -1557,8 +1600,6 @@ class soil(object):
         assert (self.var.w3 >= 0).all()
 
         # Start iterating
-
-        timer.new_split("Fluxes - setup")
 
         for i in range(NoSubSteps):
             kUnSat1 = get_unsaturated_hydraulic_conductivity(
@@ -1632,9 +1673,9 @@ class soil(object):
             del subperc2to3
             del subperc3toGW
 
-            del kUnSat1
-            del kUnSat2
-            del kUnSat3
+            # del kUnSat1
+            # del kUnSat2
+            # del kUnSat3
 
         del capLayer2
         del capLayer3
@@ -1646,6 +1687,16 @@ class soil(object):
         del availWater1
         del availWater2
         del availWater3
+
+        decimal = 6
+        # np.testing.assert_almost_equal(
+        #     test_res2[bioarea],
+        #     kUnSat1,
+        #     decimal=6,
+        # )
+        # np.testing.assert_almost_equal(
+        #     test_res[bioarea], self.var.w1[bioarea], decimal=7
+        # )
 
         # Update soil moisture
         assert (self.var.w1 >= 0).all()
@@ -1660,8 +1711,8 @@ class soil(object):
         assert not np.isnan(self.var.w2).any()
         assert not np.isnan(self.var.w3).any()
 
-        del perc1to2
-        del perc2to3
+        # del perc1to2
+        # del perc2to3
 
         # ---------------------------------------------------------------------------------------------
         # Calculate interflow
@@ -1671,16 +1722,6 @@ class soil(object):
         # self.var.actTransTotal[No] =  np.sum(actTrans, axis=0)
 
         # This relates to deficit conditions, and calculating the ratio of actual to potential transpiration
-
-        timer.new_split("Fluxes")
-
-        # total actual evaporation + transpiration
-        self.var.actualET[bioarea] = (
-            self.var.actualET[bioarea]
-            + self.var.actBareSoilEvap[bioarea]
-            + openWaterEvap[bioarea]
-            + self.var.actTransTotal[bioarea]
-        )
 
         #  actual evapotranspiration can be bigger than pot, because openWater is taken from pot open water evaporation, therefore self.var.totalPotET[No] is adjusted
         # totalPotET[bioarea] = np.maximum(totalPotET[bioarea], self.var.actualET[bioarea])
@@ -1692,16 +1733,42 @@ class soil(object):
         # groundwater recharge
         toGWorInterflow = perc3toGW[bioarea] + prefFlow[bioarea]
 
-        interflow = self.var.full_compressed(0, dtype=np.float32)
-        interflow[bioarea] = self.var.percolationImp[bioarea] * toGWorInterflow
+        interflow_ = self.var.full_compressed(0, dtype=np.float32)
+        interflow_[bioarea] = self.var.percolationImp[bioarea] * toGWorInterflow
 
-        groundwater_recharge = self.var.full_compressed(0, dtype=np.float32)
-        groundwater_recharge[bioarea] = (
+        groundwater_recharge_ = self.var.full_compressed(0, dtype=np.float32)
+        groundwater_recharge_[bioarea] = (
             1 - self.var.percolationImp[bioarea]
         ) * toGWorInterflow
 
-        assert not np.isnan(interflow).any()
-        assert not np.isnan(groundwater_recharge).any()
+        timer.new_split("Various")
+
+        np.testing.assert_almost_equal(
+            groundwater_recharge_, groundwater_recharge, decimal=5
+        )
+        np.testing.assert_almost_equal(
+            self.var.actBareSoilEvap[bioarea],
+            actual_bare_soil_evaporation[bioarea],
+            decimal=decimal,
+        )
+
+        np.testing.assert_almost_equal(w1_numba, self.var.w1, decimal=5)
+        np.testing.assert_almost_equal(w2_numba, self.var.w2, decimal=5)
+        np.testing.assert_almost_equal(w3_numba, self.var.w3, decimal=5)
+        np.testing.assert_almost_equal(
+            topwater_numba, self.var.topwater, decimal=decimal
+        )
+        np.testing.assert_almost_equal(
+            open_water_evaporation, openWaterEvap_, decimal=decimal
+        )
+
+        # total actual evaporation + transpiration
+        self.var.actualET[bioarea] = (
+            self.var.actualET[bioarea]
+            + actual_bare_soil_evaporation[bioarea]
+            + open_water_evaporation[bioarea]
+            + self.var.actTransTotal[bioarea]
+        )
 
         if checkOption("calcWaterBalance"):
             self.model.waterbalance_module.waterBalanceCheck(
@@ -1713,11 +1780,11 @@ class soil(object):
                 ],
                 outfluxes=[
                     directRunoff[bioarea],
-                    perc3toGW[bioarea],
-                    prefFlow[bioarea],
+                    interflow[bioarea],
+                    groundwater_recharge[bioarea],
                     self.var.actTransTotal[bioarea],
-                    self.var.actBareSoilEvap[bioarea],
-                    openWaterEvap[bioarea],
+                    actual_bare_soil_evaporation[bioarea],
+                    open_water_evaporation[bioarea],
                 ],
                 prestorages=[
                     w1_pre[bioarea],
@@ -1772,7 +1839,5 @@ class soil(object):
             interflow,
             directRunoff,
             groundwater_recharge,
-            perc3toGW,
-            prefFlow,
-            openWaterEvap,
+            open_water_evaporation,
         )

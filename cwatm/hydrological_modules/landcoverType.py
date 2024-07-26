@@ -883,8 +883,6 @@ class landcoverType(object):
             interflow,
             directRunoff,
             groundwater_recharge,
-            perc3toGW,
-            prefFlow,
             openWaterEvap,
         ) = self.model.soil_module.dynamic(
             capillar,
@@ -949,8 +947,8 @@ class landcoverType(object):
                 ],
                 outfluxes=[
                     directRunoff,
-                    perc3toGW,
-                    prefFlow,
+                    interflow,
+                    groundwater_recharge,
                     self.var.actTransTotal,
                     self.var.actBareSoilEvap,
                     openWaterEvap,
