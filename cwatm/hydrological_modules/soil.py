@@ -13,9 +13,26 @@ import rasterio
 from cwatm.management_modules.data_handling import loadmap, checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
+from numba import njit, guvectorize, float32, int32, prange
 
 
 def get_critical_soil_moisture_content(p, wfc, wwp):
+    """
+    "The critical soil moisture content is defined as the quantity of stored soil moisture below
+    which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
+    value. Restriction of water uptake due to water stress starts at a higher water content
+    when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
+
+    A higher p value means that the critical soil moisture content is higher, i.e. the plant can
+    extract water from the soil at a lower soil moisture content. Thus when p is 1 the critical
+    soil moisture content is equal to the wilting point, and when p is 0 the critical soil moisture
+    content is equal to the field capacity.
+    """
+    return (1 - p) * (wfc - wwp) + wwp
+
+
+@njit
+def get_critical_soil_moisture_content_numba(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
     which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
@@ -76,6 +93,46 @@ def get_fraction_easily_available_soil_water(
     return np.clip(p, 0, 1)
 
 
+@njit
+def get_fraction_easily_available_soil_water_numba(
+    crop_group_number, potential_evapotranspiration
+):
+    """
+    Calculate the fraction of easily available soil water, based on crop group number and potential evapotranspiration
+    following Van Diepen et al., 1988: WOFOST 6.0, p.87
+
+    Parameters
+    ----------
+    crop_group_number : np.ndarray
+        The crop group number is a indicator of adaptation to dry climate,
+        Van Diepen et al., 1988: WOFOST 6.0, p.87
+    potential_evapotranspiration : np.ndarray
+        Potential evapotranspiration in m
+
+    Returns
+    -------
+    np.ndarray
+        The fraction of easily available soil water, p is closer to 0 if evapo is bigger and cropgroup is smaller
+    """
+    potential_evapotranspiration_cm = potential_evapotranspiration * 100.0
+
+    p = 1.0 / (0.76 + 1.5 * potential_evapotranspiration_cm) - 0.10 * (
+        5.0 - crop_group_number
+    )
+
+    # Additional correction for crop groups 1 and 2
+    if crop_group_number <= 2.5:
+        p = p + (potential_evapotranspiration_cm - 0.6) / (
+            crop_group_number * (crop_group_number + 3.0)
+        )
+
+    if p < 0.0:
+        p = 0.0
+    if p > 1.0:
+        p = 1.0
+    return p
+
+
 def get_critical_water_level(p, wfc, wwp):
     return np.maximum(get_critical_soil_moisture_content(p, wfc, wwp) - wwp, 0)
 
@@ -96,8 +153,24 @@ def get_total_transpiration_reduction_factor(
 
 
 def get_transpiration_reduction_factor(w, wwp, wcrit):
-    factor = np.clip((w - wwp) / (wcrit - wwp), 0, 1)
-    return np.nan_to_num(factor)
+    return np.clip((w - wwp) / (wcrit - wwp), 0, 1)
+
+
+@njit
+def get_transpiration_reduction_factor_numba(w, wwp, wcrit):
+    nominator = w - wwp
+    denominator = wcrit - wwp
+    if denominator == 0:
+        if nominator > 0:
+            return 1
+        else:
+            return 0
+    factor = nominator / denominator
+    if factor < 0:
+        return 0
+    if factor > 1:
+        return 1
+    return factor
 
 
 def get_root_ratios(
@@ -112,6 +185,17 @@ def get_root_ratios(
             remaining_root_depth[mask] / soil_layer_height[layer, mask], 1
         )
         remaining_root_depth[mask] -= soil_layer_height[layer, mask]
+    return root_ratios
+
+
+@njit
+def get_root_ratios_numba(root_depth, soil_layer_height, n_layers, root_ratios):
+    remaining_root_depth = root_depth
+    for layer in range(n_layers):
+        root_ratios[layer] = min(remaining_root_depth / soil_layer_height[layer], 1)
+        remaining_root_depth -= soil_layer_height[layer]
+        if remaining_root_depth < 0:
+            return root_ratios
     return root_ratios
 
 
@@ -138,6 +222,376 @@ def get_unsaturated_hydraulic_conductivity(
         * (1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture)
         ** 2
     )
+
+
+@njit
+def get_unsaturated_hydraulic_conductivity_numba(
+    w, wres, ws, lambda_, saturated_hydraulic_conductivity
+):
+    saturation_term = (w - wres) / (ws - wres)
+    if saturation_term < 0:
+        saturation_term = 0
+    elif saturation_term > 1:
+        saturation_term = 1
+    residual_moisture = lambda_ / (lambda_ + 1)
+
+    return (
+        saturated_hydraulic_conductivity
+        * saturation_term**0.5
+        * (1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture)
+        ** 2
+    )
+
+
+# @guvectorize(
+#     [
+#         (
+#             float32[:, :],  # w
+#             float32[:, :],  # wwp
+#             float32[:, :],  # wfc
+#             float32[:, :],  # ws
+#             float32[:, :],  # res
+#             float32[:, :],  # soil_layer_height
+#             float32[:, :],  # saturated_hydraulic_conductivity
+#             float32[
+#                 :, :
+#             ],  # unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
+#             float32[:, :],  # lambda_
+#             int32[:],  # land_use_type
+#             float32[:],  # root_depth
+#             float32[:],  # actual_irrigation_consumption
+#             float32[:],  # natural_available_water_infiltration
+#             float32[:],  # crop_kc
+#             int32[:],  # crop_map
+#             float32[:],  # natural_crop_groups
+#             float32[:],  # EWRef
+#             float32[:],  # potential_transpiration
+#             float32[:],  # potential_bare_soil_evaporation
+#             float32[:],  # potential_evapotranspiration
+#             float32[:],  # frost_index
+#             float32[:],  # arno_beta
+#             float32[:],  # capillar
+#             float32[:],  # capillary_rise_index
+#             float32[:],  # crop_group_number_per_group
+#             float32,  # frost_index_threshold
+#             float32,  # cPrefFlow
+#             float32[:, :],  # start of output (w_res)
+#             float32[:],  # topwater_res
+#             float32[:],  # open_water_evaporation_res
+#             float32[:],  # actual_bare_soil_evaporation
+#             float32[:],  # test_res
+#             float32[:],  # test_res2
+#         )
+#     ],
+#     "(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(o,n),(m,n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(k),(),()->(m,n),(n),(n),(n),(n),(n)",
+#     target="cpu",
+# )
+@njit(cache=True)
+def update_soil_water_storage(
+    w,
+    wwp,
+    wfc,
+    ws,
+    wres,
+    soil_layer_height,
+    saturated_hydraulic_conductivity,
+    unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
+    lamda_,
+    land_use_type,
+    root_depth,
+    actual_irrigation_consumption,
+    natural_available_water_infiltration,
+    crop_kc,
+    crop_map,
+    natural_crop_groups,
+    EWRef,
+    potential_transpiration,
+    potential_bare_soil_evaporation,
+    potential_evapotranspiration,
+    frost_index,
+    arno_beta,
+    capillar,
+    capillary_rise_index,
+    crop_group_number_per_group,
+    frost_index_threshold,
+    cPrefFlow,
+    w_res,
+    topwater_res,
+    open_water_evaporation_res,
+    actual_bare_soil_evaporation_res,
+    test_res,
+    test_res2,
+):
+    n_layers = w.shape[0]
+    bottom_soil_layer_index = n_layers - 1
+    root_ratios_matrix = np.zeros_like(w)
+    # TODO: This matrix is not required, can be removed for speedup
+    transpiration_reduction_factor_matrix = np.zeros_like(w)
+    root_distribution_per_layer_rws_corrected_matrix = np.zeros_like(w)
+    capillary_rise_soil_matrix = np.zeros_like(
+        unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
+    )
+
+    for i in range(land_use_type.size):
+        soil_is_frozen = frost_index[i] > frost_index_threshold
+
+        available_water_infiltration = (
+            natural_available_water_infiltration[i] + actual_irrigation_consumption[i]
+        )
+        if available_water_infiltration < 0:
+            available_water_infiltration = 0
+        # paddy irrigated land
+        if land_use_type[i] == 2:
+            if crop_kc[i] > 0.75:
+                topwater_res[i] += available_water_infiltration
+
+            assert EWRef[i] >= 0
+            open_water_evaporation_res[i] = min(max(0.0, topwater_res[i]), EWRef[i])
+            topwater_res[i] -= open_water_evaporation_res[i]
+            assert topwater_res[i] >= 0
+            if crop_kc[i] > 0.75:
+                available_water_infiltration = topwater_res[i]
+            else:
+                available_water_infiltration = (
+                    topwater_res[i] + available_water_infiltration
+                )
+
+            # TODO: Minor bug, this should only occur when topwater is above 0
+            # fix this after completing soil module speedup
+            potential_bare_soil_evaporation[i] = max(
+                0,
+                potential_bare_soil_evaporation[i] - open_water_evaporation_res[i],
+            )
+
+        # all bio areas
+        if land_use_type[i] < 4:
+            w_res[bottom_soil_layer_index, i] += capillar[
+                i
+            ]  # add capillar rise to the bottom soil layer
+
+            # if the bottom soil layer is full, send water to the above layer, repeat until top layer
+            for j in range(bottom_soil_layer_index, 0, -1):
+                if w_res[j, i] > ws[j, i]:
+                    w_res[j - 1, i] += (
+                        w_res[j, i] - ws[j, i]
+                    )  # move excess water to layer above
+                    w_res[j, i] = ws[j, i]  # set the current layer to full
+
+            # if the top layer is full, send water to the runoff
+            if w_res[0, i] > ws[0, i]:
+                runoff_from_groundwater = (
+                    w_res[0, i] - ws[0, i]
+                )  # move excess water to runoff
+                w_res[0, i] = ws[0, i]  # set the top layer to full
+            else:
+                runoff_from_groundwater = 0
+
+            # get group group numbers for natural areas
+            if land_use_type[i] == 0 or land_use_type[i] == 1:
+                crop_group_number = natural_crop_groups[i]
+            else:  #
+                crop_group_number = crop_group_number_per_group[crop_map[i]]
+
+            p = get_fraction_easily_available_soil_water_numba(
+                crop_group_number, potential_evapotranspiration[i]
+            )
+
+            root_ratios = get_root_ratios_numba(
+                root_depth[i],
+                soil_layer_height[:, i],
+                n_layers,
+                root_ratios_matrix[:, i],
+            )
+
+            total_transpiration_reduction_factor = 0.0
+            total_root_length_rws_corrected = 0.0  # check if same as total_transpiration_reduction_factor * root_depth
+            for layer in range(n_layers):
+                critical_soil_moisture_content = (
+                    get_critical_soil_moisture_content_numba(
+                        p, wfc[layer, i], wwp[layer, i]
+                    )
+                )
+                transpiration_reduction_factor_matrix[layer, i] = (
+                    get_transpiration_reduction_factor_numba(
+                        w_res[layer, i], wwp[layer, i], critical_soil_moisture_content
+                    )
+                )
+                root_length_within_layer = (
+                    soil_layer_height[layer, i] * root_ratios[layer]
+                )
+
+                total_transpiration_reduction_factor += (
+                    transpiration_reduction_factor_matrix[layer, i]
+                ) * root_length_within_layer
+
+                root_length_within_layer_rws_corrected = (
+                    root_length_within_layer
+                    * transpiration_reduction_factor_matrix[layer, i]
+                )
+                total_root_length_rws_corrected += (
+                    root_length_within_layer_rws_corrected
+                )
+                root_distribution_per_layer_rws_corrected_matrix[layer, i] = (
+                    root_length_within_layer_rws_corrected
+                )
+                if layer == 0:
+                    test_res[i] = transpiration_reduction_factor_matrix[layer, i]
+                    # test_res2[i] = wwp[layer, i]
+                    test_res2[i] = critical_soil_moisture_content
+
+            total_transpiration_reduction_factor /= root_depth[i]
+
+            # correct the transpiration reduction factor for water stress
+            # if the soil is frozen, no transpiration occurs, so we can skip the loop
+            # likewise, if the total_transpiration_reduction_factor (full water stress) is 0, we can skip the loop
+            # this also avoids division by zero, and thus NaNs
+            if not soil_is_frozen and total_transpiration_reduction_factor > 0:
+                maximum_transpiration = (
+                    potential_transpiration[i] * total_transpiration_reduction_factor
+                )
+                # distribute the transpiration over the layers, considering the root ratios
+                # and the transpiration reduction factor per layer
+                for layer in range(n_layers):
+                    transpiration = (
+                        maximum_transpiration
+                        * root_distribution_per_layer_rws_corrected_matrix[layer, i]
+                        / total_root_length_rws_corrected
+                    )
+                    if np.isnan(transpiration):
+                        print(layer, transpiration)
+                    w_res[layer, i] -= transpiration
+                    # if layer == 0:
+                    #     test_res[i] = transpiration
+
+            # limit the bare soil evaporation to the available water in the soil
+            if not soil_is_frozen and topwater_res[i] == 0:
+                actual_bare_soil_evaporation_res[i] = min(
+                    potential_bare_soil_evaporation[i],
+                    max(w_res[0, i] - wres[0, i], 0),  # can never be lower than 0
+                )
+                # remove the bare soil evaporation from the top layer
+                w_res[0, i] -= actual_bare_soil_evaporation_res[i]
+            else:
+                # if the soil is frozen, no evaporation occurs
+                # if the field is flooded (paddy irrigation), no bare soil evaporation occurs
+                actual_bare_soil_evaporation_res[i] = 0
+
+            # estimate the infiltration capacity
+            # use first 2 soil layers to estimate distribution between runoff and infiltration
+            soil_water_storage = w_res[0, i] + w_res[1, i]
+            soil_water_storage_max = ws[0, i] + ws[1, i]
+            relative_saturation = soil_water_storage / soil_water_storage_max
+            assert relative_saturation <= 1
+            if (
+                relative_saturation > 1
+            ):  # cap the relative saturation at 1 - this should not happen
+                relative_saturation = 1
+
+            # Fraction of pixel that is at saturation as a function of
+            # the ratio Theta1/ThetaS1. Distribution function taken from
+            # Zhao,1977, as cited in Todini, 1996 (JoH 175, 339-382) Eq. A.4.
+            saturated_area_fraction = 1 - (1 - relative_saturation) ** arno_beta[i]
+            if saturated_area_fraction > 1:
+                saturated_area_fraction = 1
+            elif saturated_area_fraction < 0:
+                saturated_area_fraction = 0
+
+            store = soil_water_storage_max / (
+                arno_beta[i] + 1
+            )  # it is unclear what "store" means exactly, refer to source material to improve variable name
+            pot_beta = (arno_beta[i] + 1) / arno_beta[i]  # idem
+            potential_infiltration = store - store * (
+                1 - (1 - saturated_area_fraction) ** pot_beta
+            )
+
+            # if soil is frozen, there is no preferential flow, also not on paddy fields
+            if not soil_is_frozen and land_use_type[i] != 2:
+                preferential_flow = (
+                    available_water_infiltration * relative_saturation**cPrefFlow
+                ) * (1 - capillary_rise_index[i])
+            else:
+                preferential_flow = 0
+
+            # no infiltration if the soil is frozen
+            if soil_is_frozen:
+                infiltration = 0
+            else:
+                infiltration = min(
+                    potential_infiltration,
+                    available_water_infiltration - preferential_flow,
+                )
+
+            direct_runoff = max(
+                (available_water_infiltration - infiltration - preferential_flow), 0
+            )
+
+            if land_use_type[i] == 2:
+                topwater_res[i] = max(0, topwater_res[i] - infiltration)
+                if crop_kc[i] > 0.75:
+                    # if paddy fields flooded only runoff if topwater > 0.05m
+                    direct_runoff = max(
+                        0, topwater_res[i] - 0.05
+                    )  # TODO: Potential minor bug, should this be added to runoff instead of replacing runoff?
+                topwater_res[i] = max(0, topwater_res[i] - direct_runoff)
+
+            direct_runoff += runoff_from_groundwater
+
+            # add infiltration to the soil
+            w_res[0, i] += infiltration
+            if w_res[0, i] > ws[0, i]:
+                w_res[1, i] += (
+                    w_res[0, i] - ws[0, i]
+                )  # TODO: Solve edge case of the second layer being full, in principle this should not happen as infiltration should be capped by the infilation capacity
+                w_res[0, i] = ws[0, i]
+
+            # capillary rise between soil layers, iterate from top, but skip bottom (which is has capillary rise from groundwater)
+            for layer in range(n_layers - 1):
+                saturation_ratio = max(
+                    (w_res[layer, i] - wres[layer, i])
+                    / (wfc[layer, i] - wres[layer, i]),
+                    0,
+                )
+                unsaturated_hydraulic_conductivity_layer_below = (
+                    get_unsaturated_hydraulic_conductivity_numba(
+                        w_res[layer + 1, i],
+                        wres[layer + 1, i],
+                        ws[layer + 1, i],
+                        lamda_[layer + 1, i],
+                        saturated_hydraulic_conductivity[layer + 1, i],
+                    )
+                )
+                capillary_rise_soil = min(
+                    max(
+                        0.0,
+                        (1 - saturation_ratio)
+                        * unsaturated_hydraulic_conductivity_layer_below,
+                    ),
+                    unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers[
+                        layer, i
+                    ],
+                )
+                # penultimate layer, limit capillary rise to available water in bottom layer
+                if layer == n_layers - 2:
+                    capillary_rise_soil = min(
+                        capillary_rise_soil,
+                        w_res[n_layers - 1, i] - wres[n_layers - 1, i],
+                    )
+
+                capillary_rise_soil_matrix[layer, i] = capillary_rise_soil
+
+            for layer in range(n_layers):
+                # for all layers except the bottom layer, add capillary rise from below to the layer
+                if layer != n_layers - 1:
+                    w_res[layer, i] += capillary_rise_soil_matrix[layer, i]
+                # for all layers except the top layer, remove capillary rise from the layer above
+                if layer != 0:
+                    w_res[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
+
+                if layer == 0:
+                    test_res[i] = capillary_rise_soil_matrix[layer, i]
+                if layer == 1:
+                    test_res2[i] = capillary_rise_soil_matrix[layer, i]
+            test_res2[i] = available_water_infiltration
 
 
 class soil(object):
@@ -452,14 +906,96 @@ class soil(object):
         Dependend on soil depth, soil hydraulic parameters
         """
 
-        timer = TimingModule("Soil")
         if checkOption("calcWaterBalance"):
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
             w3_pre = self.var.w3.copy()
             topwater_pre = self.var.topwater.copy()
+            open_water_evaporation_pre = openWaterEvap.copy()
+            potBareSoilEvap_pre = potBareSoilEvap.copy()
+
+        w = np.stack([self.var.w1, self.var.w2, self.var.w3], axis=0)
+        ws = np.stack([self.var.ws1, self.var.ws2, self.var.ws3], axis=0)
+        wfc = np.stack([self.var.wfc1, self.var.wfc2, self.var.wfc3], axis=0)
+        wwp = np.stack([self.var.wwp1, self.var.wwp2, self.var.wwp3], axis=0)
+        wres = np.stack([self.var.wres1, self.var.wres2, self.var.wres3], axis=0)
+        lambda_ = np.stack(
+            [self.var.lambda1, self.var.lambda2, self.var.lambda3], axis=0
+        )
+        saturated_hydraulic_conductivity = np.stack(
+            [self.var.KSat1, self.var.KSat2, self.var.KSat3], axis=0
+        )
+        unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers = (
+            np.stack([self.var.kunSatFC12, self.var.kunSatFC23], axis=0)
+        )
+
+        actual_bare_soil_evaporation = np.zeros_like(
+            self.var.land_use_type, dtype=np.float32
+        )
+
+        test_res = np.full_like(self.var.land_use_type, 0, dtype=np.float32)
+        test_res2 = np.full_like(self.var.land_use_type, 0, dtype=np.float32)
+
+        timer = TimingModule("Soil")
+
+        update_soil_water_storage(
+            w,
+            wwp,
+            wfc,
+            ws,
+            wres,
+            self.var.soil_layer_height,
+            saturated_hydraulic_conductivity,
+            unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
+            lambda_,
+            self.var.land_use_type,
+            self.var.root_depth,
+            self.var.actual_irrigation_consumption,
+            self.var.natural_available_water_infiltration,
+            self.var.cropKC,
+            self.var.crop_map,
+            self.var.natural_crop_groups,
+            self.var.EWRef,
+            potTranspiration,
+            potBareSoilEvap,
+            totalPotET,
+            self.var.FrostIndex,
+            self.var.arnoBeta,
+            capillar.astype(np.float32),
+            self.var.capriseindex,
+            self.model.agents.crop_farmers.crop_data["crop_group_number"].values.astype(
+                np.float32
+            ),
+            self.var.FrostIndexThreshold,
+            self.var.cPrefFlow,
+            w,
+            self.var.topwater,
+            openWaterEvap,
+            actual_bare_soil_evaporation,
+            test_res,
+            test_res2,
+        )
+
+        timer.new_split("Vectorized")
+
+        w_numba = w.copy()
+        w1_numba = w[0].copy()
+        w2_numba = w[1].copy()
+        w3_numba = w[2].copy()
+        topwater_numba = self.var.topwater.copy()
+        openWaterEvap_numba = openWaterEvap.copy()
+
+        timer.new_split("Cleaning")
 
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
+
+        self.var.w1 = w1_pre.copy()
+        self.var.w2 = w2_pre.copy()
+        self.var.w3 = w3_pre.copy()
+        self.var.topwater = topwater_pre.copy()
+        openWaterEvap = open_water_evaporation_pre.copy()
+        potBareSoilEvap = potBareSoilEvap_pre.copy()
+
         paddy_irrigated_land = np.where(self.var.land_use_type == 2)
         irrigated_land = np.where(
             (self.var.land_use_type == 2) | (self.var.land_use_type == 3)
@@ -516,6 +1052,7 @@ class soil(object):
             0,
         )
         self.var.w3[bioarea] = np.minimum(self.var.ws3[bioarea], self.var.w3[bioarea])
+
         # CAPRISE from GW to soilayer 2 , if this is full it is send to soil layer 1
         self.var.w1[bioarea] = self.var.w1[bioarea] + np.where(
             self.var.w2[bioarea] > self.var.ws2[bioarea],
@@ -534,8 +1071,6 @@ class soil(object):
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
-
-        timer.new_split("Various")
         # ---------------------------------------------------------
         # calculate transpiration
         # ***** SOIL WATER STRESS ************************************
@@ -543,7 +1078,9 @@ class soil(object):
         # load crop group number
         crop_group_number = get_crop_group_number(
             self.var.crop_map,
-            self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
+            self.model.agents.crop_farmers.crop_data["crop_group_number"].values.astype(
+                np.float32
+            ),
             self.var.land_use_type,
             self.var.natural_crop_groups,
         )
@@ -777,7 +1314,7 @@ class soil(object):
             ta = TaMax * root_distribution_per_layer_rws_corrected
             ta[:, (TaMax == 0)] = 0
 
-        del TaMax
+        # del TaMax
 
         self.var.w1[bioarea] = self.var.w1[bioarea] - ta[0]
         self.var.w2[bioarea] = self.var.w2[bioarea] - ta[1]
@@ -811,8 +1348,6 @@ class soil(object):
         )
 
         self.var.w1[bioarea] = self.var.w1[bioarea] - self.var.actBareSoilEvap[bioarea]
-
-        timer.new_split("Water stress")
 
         # Infiltration capacity
         #  ========================================
@@ -874,7 +1409,7 @@ class soil(object):
             availWaterInfiltration[bioarea] - infiltration[bioarea] - prefFlow[bioarea],
         )
 
-        del availWaterInfiltration
+        # del availWaterInfiltration
 
         self.var.topwater[paddy_irrigated_land] = np.maximum(
             0.0,
@@ -884,8 +1419,7 @@ class soil(object):
         # if paddy fields flooded only runoff if topwater > 0.05m
         h = np.maximum(
             0.0,
-            self.var.topwater[paddy_irrigated_land]
-            - self.model.agents.crop_farmers.max_paddy_water_level,
+            self.var.topwater[paddy_irrigated_land] - 0.05,
         )
         directRunoff[paddy_irrigated_land] = np.where(
             self.var.cropKC[paddy_irrigated_land] > 0.75,
@@ -917,8 +1451,6 @@ class soil(object):
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
         assert (self.var.w3 >= 0).all()
-
-        timer.new_split("Infiltration")
 
         kUnSat2 = get_unsaturated_hydraulic_conductivity(
             self.var.w2[bioarea],
@@ -955,8 +1487,8 @@ class soil(object):
         availWater3 = np.maximum(0.0, self.var.w3[bioarea] - self.var.wres3[bioarea])
         capRise2 = np.minimum(capRise2, availWater3)
 
-        del satTermFC1
-        del satTermFC2
+        # del satTermFC1
+        # del satTermFC2
 
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
@@ -965,6 +1497,27 @@ class soil(object):
         self.var.w1[bioarea] = self.var.w1[bioarea] + capRise1
         self.var.w2[bioarea] = self.var.w2[bioarea] - capRise1 + capRise2
         self.var.w3[bioarea] = self.var.w3[bioarea] - capRise2
+
+        decimal = 7
+        # np.testing.assert_almost_equal(test_res[bioarea], capRise1, decimal=7)
+        # np.testing.assert_almost_equal(
+        #     test_res2[bioarea], availWaterInfiltration[bioarea], decimal=7
+        # )
+
+        decimal = 7
+        np.testing.assert_almost_equal(w1_numba, self.var.w1, decimal=decimal)
+        np.testing.assert_almost_equal(w2_numba, self.var.w2, decimal=decimal)
+        np.testing.assert_almost_equal(w3_numba, self.var.w3, decimal=decimal)
+        np.testing.assert_almost_equal(
+            topwater_numba, self.var.topwater, decimal=decimal
+        )
+        np.testing.assert_almost_equal(
+            openWaterEvap_numba, openWaterEvap, decimal=decimal
+        )
+
+        timer.new_split("Various")
+
+        timer.new_split("Infiltration")
 
         assert (self.var.w1 >= 0).all()
         assert (self.var.w2 >= 0).all()
