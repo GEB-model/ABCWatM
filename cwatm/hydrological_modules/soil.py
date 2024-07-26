@@ -276,7 +276,7 @@ def get_unsaturated_hydraulic_conductivity_numba(
 #             float32[:],  # crop_group_number_per_group
 #             float32,  # frost_index_threshold
 #             float32,  # cPrefFlow
-#             float32[:, :],  # start of output (w_res)
+#             float32[:, :],  # start of output (w)
 #             float32[:],  # topwater_res
 #             float32[:],  # open_water_evaporation_res
 #             float32[:],  # actual_bare_soil_evaporation
@@ -290,7 +290,6 @@ def get_unsaturated_hydraulic_conductivity_numba(
 # )
 @njit(cache=True)
 def update_soil_water_storage(
-    w,
     wwp,
     wfc,
     ws,
@@ -318,7 +317,7 @@ def update_soil_water_storage(
     crop_group_number_per_group,
     frost_index_threshold,
     cPrefFlow,
-    w_res,
+    w,
     topwater_res,
     open_water_evaporation_res,
     actual_bare_soil_evaporation_res,
@@ -327,16 +326,14 @@ def update_soil_water_storage(
     interflow,
     direct_runoff,
 ):
-    n_layers = w.shape[0]
+    n_layers = soil_layer_height.shape[0]
     bottom_soil_layer_index = n_layers - 1
-    root_ratios_matrix = np.zeros_like(w)
-    # TODO: This matrix is not required, can be removed for speedup
-    transpiration_reduction_factor_matrix = np.zeros_like(w)
-    root_distribution_per_layer_rws_corrected_matrix = np.zeros_like(w)
+    root_ratios_matrix = np.zeros_like(soil_layer_height)
+    root_distribution_per_layer_rws_corrected_matrix = np.zeros_like(soil_layer_height)
     capillary_rise_soil_matrix = np.zeros_like(
         unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
     )
-    percolation_matrix = np.zeros_like(w)
+    percolation_matrix = np.zeros_like(soil_layer_height)
 
     PERCOLATION_SUBSTEPS = 3
 
@@ -373,24 +370,24 @@ def update_soil_water_storage(
 
         # all bio areas
         if land_use_type[i] < 4:
-            w_res[bottom_soil_layer_index, i] += capillar[
+            w[bottom_soil_layer_index, i] += capillar[
                 i
             ]  # add capillar rise to the bottom soil layer
 
             # if the bottom soil layer is full, send water to the above layer, repeat until top layer
             for j in range(bottom_soil_layer_index, 0, -1):
-                if w_res[j, i] > ws[j, i]:
-                    w_res[j - 1, i] += (
-                        w_res[j, i] - ws[j, i]
+                if w[j, i] > ws[j, i]:
+                    w[j - 1, i] += (
+                        w[j, i] - ws[j, i]
                     )  # move excess water to layer above
-                    w_res[j, i] = ws[j, i]  # set the current layer to full
+                    w[j, i] = ws[j, i]  # set the current layer to full
 
             # if the top layer is full, send water to the runoff
-            if w_res[0, i] > ws[0, i]:
+            if w[0, i] > ws[0, i]:
                 runoff_from_groundwater = (
-                    w_res[0, i] - ws[0, i]
+                    w[0, i] - ws[0, i]
                 )  # move excess water to runoff
-                w_res[0, i] = ws[0, i]  # set the top layer to full
+                w[0, i] = ws[0, i]  # set the top layer to full
             else:
                 runoff_from_groundwater = 0
 
@@ -419,9 +416,9 @@ def update_soil_water_storage(
                         p, wfc[layer, i], wwp[layer, i]
                     )
                 )
-                transpiration_reduction_factor_matrix[layer, i] = (
+                transpiration_reduction_factor = (
                     get_transpiration_reduction_factor_numba(
-                        w_res[layer, i], wwp[layer, i], critical_soil_moisture_content
+                        w[layer, i], wwp[layer, i], critical_soil_moisture_content
                     )
                 )
                 root_length_within_layer = (
@@ -429,12 +426,11 @@ def update_soil_water_storage(
                 )
 
                 total_transpiration_reduction_factor += (
-                    transpiration_reduction_factor_matrix[layer, i]
+                    transpiration_reduction_factor
                 ) * root_length_within_layer
 
                 root_length_within_layer_rws_corrected = (
-                    root_length_within_layer
-                    * transpiration_reduction_factor_matrix[layer, i]
+                    root_length_within_layer * transpiration_reduction_factor
                 )
                 total_root_length_rws_corrected += (
                     root_length_within_layer_rws_corrected
@@ -466,17 +462,17 @@ def update_soil_water_storage(
                         * root_distribution_per_layer_rws_corrected_matrix[layer, i]
                         / total_root_length_rws_corrected
                     )
-                    w_res[layer, i] -= transpiration
+                    w[layer, i] -= transpiration
                     actual_total_transpiration[i] += transpiration
 
             # limit the bare soil evaporation to the available water in the soil
             if not soil_is_frozen and topwater_res[i] == 0:
                 actual_bare_soil_evaporation_res[i] = min(
                     potential_bare_soil_evaporation[i],
-                    max(w_res[0, i] - wres[0, i], 0),  # can never be lower than 0
+                    max(w[0, i] - wres[0, i], 0),  # can never be lower than 0
                 )
                 # remove the bare soil evaporation from the top layer
-                w_res[0, i] -= actual_bare_soil_evaporation_res[i]
+                w[0, i] -= actual_bare_soil_evaporation_res[i]
             else:
                 # if the soil is frozen, no evaporation occurs
                 # if the field is flooded (paddy irrigation), no bare soil evaporation occurs
@@ -484,7 +480,7 @@ def update_soil_water_storage(
 
             # estimate the infiltration capacity
             # use first 2 soil layers to estimate distribution between runoff and infiltration
-            soil_water_storage = w_res[0, i] + w_res[1, i]
+            soil_water_storage = w[0, i] + w[1, i]
             soil_water_storage_max = ws[0, i] + ws[1, i]
             relative_saturation = soil_water_storage / soil_water_storage_max
             assert relative_saturation <= 1
@@ -543,23 +539,22 @@ def update_soil_water_storage(
             direct_runoff[i] += runoff_from_groundwater
 
             # add infiltration to the soil
-            w_res[0, i] += infiltration
-            if w_res[0, i] > ws[0, i]:
-                w_res[1, i] += (
-                    w_res[0, i] - ws[0, i]
+            w[0, i] += infiltration
+            if w[0, i] > ws[0, i]:
+                w[1, i] += (
+                    w[0, i] - ws[0, i]
                 )  # TODO: Solve edge case of the second layer being full, in principle this should not happen as infiltration should be capped by the infilation capacity
-                w_res[0, i] = ws[0, i]
+                w[0, i] = ws[0, i]
 
             # capillary rise between soil layers, iterate from top, but skip bottom (which is has capillary rise from groundwater)
             for layer in range(n_layers - 1):
                 saturation_ratio = max(
-                    (w_res[layer, i] - wres[layer, i])
-                    / (wfc[layer, i] - wres[layer, i]),
+                    (w[layer, i] - wres[layer, i]) / (wfc[layer, i] - wres[layer, i]),
                     0,
                 )
                 unsaturated_hydraulic_conductivity_layer_below = (
                     get_unsaturated_hydraulic_conductivity_numba(
-                        w_res[layer + 1, i],
+                        w[layer + 1, i],
                         wres[layer + 1, i],
                         ws[layer + 1, i],
                         lambda_[layer + 1, i],
@@ -580,7 +575,7 @@ def update_soil_water_storage(
                 if layer == n_layers - 2:
                     capillary_rise_soil = min(
                         capillary_rise_soil,
-                        w_res[n_layers - 1, i] - wres[n_layers - 1, i],
+                        w[n_layers - 1, i] - wres[n_layers - 1, i],
                     )
 
                 capillary_rise_soil_matrix[layer, i] = capillary_rise_soil
@@ -588,10 +583,10 @@ def update_soil_water_storage(
             for layer in range(n_layers):
                 # for all layers except the bottom layer, add capillary rise from below to the layer
                 if layer != n_layers - 1:
-                    w_res[layer, i] += capillary_rise_soil_matrix[layer, i]
+                    w[layer, i] += capillary_rise_soil_matrix[layer, i]
                 # for all layers except the top layer, remove capillary rise from the layer above
                 if layer != 0:
-                    w_res[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
+                    w[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
 
             # percolcation (top to bottom soil layer)
             percolation_to_groundwater = 0.0
@@ -599,7 +594,7 @@ def update_soil_water_storage(
                 for layer in range(n_layers):
                     unsaturated_hydraulic_conductivity = (
                         get_unsaturated_hydraulic_conductivity_numba(
-                            w_res[layer, i],
+                            w[layer, i],
                             wres[layer, i],
                             ws[layer, i],
                             lambda_[layer, i],
@@ -612,7 +607,7 @@ def update_soil_water_storage(
                     # no percolation if the soil is frozen in the top 2 layers.
                     if not (soil_is_frozen and (layer == 0 or layer == 1)):
                         # limit percolation by the available water in the layer
-                        available_water = max(w_res[layer, i] - wres[layer, i], 0)
+                        available_water = max(w[layer, i] - wres[layer, i], 0)
                         percolation = min(percolation, available_water)
                         if layer == n_layers - 1:  # last soil layer
                             # limit percolation by available water, and consider the capillary rise index
@@ -621,7 +616,7 @@ def update_soil_water_storage(
                         else:
                             # limit percolation the remaining water storage capacity of the layer below
                             percolation = min(
-                                percolation, ws[layer + 1, i] - w_res[layer + 1, i]
+                                percolation, ws[layer + 1, i] - w[layer + 1, i]
                             )
                     else:
                         percolation = 0
@@ -634,10 +629,10 @@ def update_soil_water_storage(
 
                 for layer in range(n_layers):
                     # for all layers, remove percolation from the layer
-                    w_res[layer, i] -= percolation_matrix[layer, i]
+                    w[layer, i] -= percolation_matrix[layer, i]
                     # for all layers except the top layer, add percolation from the layer above (-1)
                     if layer != 0:
-                        w_res[layer, i] += percolation_matrix[layer - 1, i]
+                        w[layer, i] += percolation_matrix[layer - 1, i]
 
                 interflow_or_groundwater_recharge = (
                     percolation_to_groundwater + preferential_flow
@@ -997,7 +992,6 @@ class soil(object):
         timer = TimingModule("Soil")
 
         update_soil_water_storage(
-            w,
             wwp,
             wfc,
             ws,
@@ -1835,6 +1829,8 @@ class soil(object):
         timer.new_split("Finalizing")
         if self.model.timing:
             print(timer)
+
+        print(self.var.w1[bioarea].mean())
 
         return (
             interflow,
