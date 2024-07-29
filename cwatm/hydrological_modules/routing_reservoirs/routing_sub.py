@@ -419,9 +419,11 @@ def lddrepair(lddnp, lddOrder):
     return ldd_compressed, dir_compressed
 
 
+MAX_ITERS = 10
+
+
 @njit(cache=True)
 def IterateToQnew(Qin, Qold, sideflow, alpha, beta, deltaT, deltaX):
-    MAX_ITERS = 10
     epsilon = np.float64(0.0001)
 
     # If no input, then output = 0
