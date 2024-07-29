@@ -450,7 +450,7 @@ class routing_kinematic(object):
             dtype=self.var.discharge.dtype,
         )
         pre_channelStorageM3 = self.var.channelStorageM3.copy()
-        for subrouting in range(self.var.noRoutingSteps):
+        for subrouting_step in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
             sideflowChanM3 = runoffM3.copy()
             # minus evaporation from channels
@@ -463,31 +463,31 @@ class routing_kinematic(object):
 
             if checkOption("inflow"):
                 self.var.inflowDt = (
-                    self.var.QInM3Old + (subrouting + 1) * self.var.QDelta
+                    self.var.QInM3Old + (subrouting_step + 1) * self.var.QDelta
                 ) / self.var.noRoutingSteps
                 # flow from inlets per sub step
                 sideflowChanM3 += self.var.inflowDt
 
             lakesResOut, lakeOutflowDis = (
-                self.model.lakes_reservoirs_module.dynamic_inloop(subrouting)
+                self.model.lakes_reservoirs_module.dynamic_inloop(subrouting_step)
             )
             sideflowChanM3 += lakesResOut
 
             sideflowChan = sideflowChanM3 * self.var.invchanLength / self.var.dtRouting
 
             self.var.discharge = kinematic(
-                self.var.discharge.astype(np.float64),
-                sideflowChan.astype(np.float64),
+                self.var.discharge,
+                sideflowChan.astype(np.float32),
                 self.var.dirDown_LR,
                 self.var.dirupLen_LR,
                 self.var.dirupID_LR,
-                self.var.channelAlpha.astype(np.float64),
+                self.var.channelAlpha,
                 self.var.beta,
                 self.var.dtRouting,
-                self.var.chanLength.astype(np.float64),
+                self.var.chanLength,
             )
 
-            self.var.discharge_substep[subrouting, :] = self.var.discharge.copy()
+            self.var.discharge_substep[subrouting_step, :] = self.var.discharge.copy()
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
 

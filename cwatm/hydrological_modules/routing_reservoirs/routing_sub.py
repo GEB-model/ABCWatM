@@ -465,7 +465,7 @@ def IterateToQnew(Qin, Qold, sideflow, alpha, beta, deltaT, deltaX):
 def kinematic(Qold, sideflow, dirDown, dirUpLen, dirUpID, alpha, beta, deltaT, deltaX):
     Qnew = np.zeros_like(Qold)
     for i in range(Qold.size):
-        Qin = np.float64(0.0)
+        Qin = np.float32(0.0)
         down = dirDown[i]
         minID = dirUpLen[down]
         maxID = dirUpLen[down + 1]
