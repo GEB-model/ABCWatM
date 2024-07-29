@@ -13,7 +13,7 @@ import rasterio
 from cwatm.management_modules.data_handling import loadmap, checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
-from numba import njit, guvectorize, float32, int32, prange
+from numba import njit, prange
 
 
 def get_critical_soil_moisture_content(p, wfc, wwp):
@@ -247,56 +247,10 @@ def get_unsaturated_hydraulic_conductivity_numba(
     )
 
 
-# @guvectorize(
-#     [
-#         (
-#             float32[:, :],  # w
-#             float32[:, :],  # wwp
-#             float32[:, :],  # wfc
-#             float32[:, :],  # ws
-#             float32[:, :],  # res
-#             float32[:, :],  # soil_layer_height
-#             float32[:, :],  # saturated_hydraulic_conductivity
-#             float32[
-#                 :, :
-#             ],  # unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
-#             float32[:, :],  # lambda_
-#             int32[:],  # land_use_type
-#             float32[:],  # root_depth
-#             float32[:],  # actual_irrigation_consumption
-#             float32[:],  # natural_available_water_infiltration
-#             float32[:],  # crop_kc
-#             int32[:],  # crop_map
-#             float32[:],  # natural_crop_groups
-#             float32[:],  # EWRef
-#             float32[:],  # potential_transpiration
-#             float32[:],  # potential_bare_soil_evaporation
-#             float32[:],  # potential_evapotranspiration
-#             float32[:],  # frost_index
-#             float32[:],  # arno_beta
-#             float32[:],  # capillar
-#             float32[:],  # percolation_impeded_ratio
-#             float32[:],  # capillary_rise_index
-#             float32[:],  # crop_group_number_per_group
-#             float32,  # frost_index_threshold
-#             float32,  # cPrefFlow
-#             float32[:, :],  # start of output (w)
-#             float32[:],  # topwater_res
-#             float32[:],  # open_water_evaporation_res
-#             float32[:],  # actual_bare_soil_evaporation
-#             float32[:],  # groundwater_recharge
-#             float32[:],  # interflow
-#             float32[:],  # direct_runoff
-#         )
-#     ],
-#     "(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(m,n),(o,n),(m,n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(n),(k),(),()->(m,n),(n),(n),(n),(n),(n),(n)",
-#     target="cpu",
-# )
-
-# N_SOIL_LAYERS = 3
+PERCOLATION_SUBSTEPS = 3
 
 
-@njit()
+@njit(cache=True, parallel=True)
 def update_soil_water_storage(
     wwp,
     wfc,
@@ -345,7 +299,6 @@ def update_soil_water_storage(
     This function requires N_SOIL_LAYERS to be defined in the global scope. Which can help
     the compiler to optimize the code better.
     """
-    PERCOLATION_SUBSTEPS = 3
 
     bottom_soil_layer_index = N_SOIL_LAYERS - 1
     root_ratios_matrix = np.zeros_like(soil_layer_height)
@@ -354,10 +307,11 @@ def update_soil_water_storage(
         unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
     )
     percolation_matrix = np.zeros_like(soil_layer_height)
+    preferential_flow = np.zeros_like(land_use_type, dtype=np.float32)
+    is_bioarea = land_use_type <= 3
+    soil_is_frozen = frost_index > FROST_INDEX_THRESHOLD
 
-    for i in range(land_use_type.size):
-        soil_is_frozen = frost_index[i] > FROST_INDEX_THRESHOLD
-
+    for i in prange(land_use_type.size):
         available_water_infiltration = (
             natural_available_water_infiltration[i] + actual_irrigation_consumption[i]
         )
@@ -386,8 +340,7 @@ def update_soil_water_storage(
                 potential_bare_soil_evaporation[i] - open_water_evaporation_res[i],
             )
 
-        # all bio areas
-        if land_use_type[i] < 4:
+        if is_bioarea[i]:
             w[bottom_soil_layer_index, i] += capillar[
                 i
             ]  # add capillar rise to the bottom soil layer
@@ -467,7 +420,7 @@ def update_soil_water_storage(
             # if the soil is frozen, no transpiration occurs, so we can skip the loop
             # likewise, if the total_transpiration_reduction_factor (full water stress) is 0, we can skip the loop
             # this also avoids division by zero, and thus NaNs
-            if not soil_is_frozen and total_transpiration_reduction_factor > 0:
+            if not soil_is_frozen[i] and total_transpiration_reduction_factor > 0:
                 maximum_transpiration = (
                     potential_transpiration[i] * total_transpiration_reduction_factor
                 )
@@ -483,7 +436,7 @@ def update_soil_water_storage(
                     actual_total_transpiration[i] += transpiration
 
             # limit the bare soil evaporation to the available water in the soil
-            if not soil_is_frozen and topwater_res[i] == 0:
+            if not soil_is_frozen[i] and topwater_res[i] == 0:
                 actual_bare_soil_evaporation_res[i] = min(
                     potential_bare_soil_evaporation[i],
                     max(w[0, i] - wres[0, i], 0),  # can never be lower than 0
@@ -500,7 +453,6 @@ def update_soil_water_storage(
             soil_water_storage = w[0, i] + w[1, i]
             soil_water_storage_max = ws[0, i] + ws[1, i]
             relative_saturation = soil_water_storage / soil_water_storage_max
-            assert relative_saturation <= 1
             if (
                 relative_saturation > 1
             ):  # cap the relative saturation at 1 - this should not happen
@@ -524,24 +476,22 @@ def update_soil_water_storage(
             )
 
             # if soil is frozen, there is no preferential flow, also not on paddy fields
-            if not soil_is_frozen and land_use_type[i] != 2:
-                preferential_flow = (
+            if not soil_is_frozen[i] and land_use_type[i] != 2:
+                preferential_flow[i] = (
                     available_water_infiltration * relative_saturation**cPrefFlow
                 ) * (1 - capillary_rise_index[i])
-            else:
-                preferential_flow = 0
 
             # no infiltration if the soil is frozen
-            if soil_is_frozen:
+            if soil_is_frozen[i]:
                 infiltration = 0
             else:
                 infiltration = min(
                     potential_infiltration,
-                    available_water_infiltration - preferential_flow,
+                    available_water_infiltration - preferential_flow[i],
                 )
 
             direct_runoff[i] = max(
-                (available_water_infiltration - infiltration - preferential_flow), 0
+                (available_water_infiltration - infiltration - preferential_flow[i]), 0
             )
 
             if land_use_type[i] == 2:
@@ -563,97 +513,100 @@ def update_soil_water_storage(
                 )  # TODO: Solve edge case of the second layer being full, in principle this should not happen as infiltration should be capped by the infilation capacity
                 w[0, i] = ws[0, i]
 
-            # capillary rise between soil layers, iterate from top, but skip bottom (which is has capillary rise from groundwater)
-            for layer in range(N_SOIL_LAYERS - 1):
-                saturation_ratio = max(
-                    (w[layer, i] - wres[layer, i]) / (wfc[layer, i] - wres[layer, i]),
-                    0,
+    for i in prange(land_use_type.size):
+        # capillary rise between soil layers, iterate from top, but skip bottom (which is has capillary rise from groundwater)
+        for layer in range(N_SOIL_LAYERS - 1):
+            saturation_ratio = max(
+                (w[layer, i] - wres[layer, i]) / (wfc[layer, i] - wres[layer, i]),
+                0,
+            )
+            unsaturated_hydraulic_conductivity_layer_below = (
+                get_unsaturated_hydraulic_conductivity_numba(
+                    w[layer + 1, i],
+                    wres[layer + 1, i],
+                    ws[layer + 1, i],
+                    lambda_[layer + 1, i],
+                    saturated_hydraulic_conductivity[layer + 1, i],
                 )
-                unsaturated_hydraulic_conductivity_layer_below = (
+            )
+            capillary_rise_soil = min(
+                max(
+                    0.0,
+                    (1 - saturation_ratio)
+                    * unsaturated_hydraulic_conductivity_layer_below,
+                ),
+                unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers[
+                    layer, i
+                ],
+            )
+            # penultimate layer, limit capillary rise to available water in bottom layer
+            if layer == N_SOIL_LAYERS - 2:
+                capillary_rise_soil = min(
+                    capillary_rise_soil,
+                    w[N_SOIL_LAYERS - 1, i] - wres[N_SOIL_LAYERS - 1, i],
+                )
+
+            capillary_rise_soil_matrix[layer, i] = capillary_rise_soil
+
+        for layer in range(N_SOIL_LAYERS):
+            # for all layers except the bottom layer, add capillary rise from below to the layer
+            if layer != N_SOIL_LAYERS - 1:
+                w[layer, i] += capillary_rise_soil_matrix[layer, i]
+            # for all layers except the top layer, remove capillary rise from the layer above
+            if layer != 0:
+                w[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
+
+    for i in prange(land_use_type.size):
+        # percolcation (top to bottom soil layer)
+        percolation_to_groundwater = 0.0
+        for _ in range(PERCOLATION_SUBSTEPS):
+            for layer in range(N_SOIL_LAYERS):
+                unsaturated_hydraulic_conductivity = (
                     get_unsaturated_hydraulic_conductivity_numba(
-                        w[layer + 1, i],
-                        wres[layer + 1, i],
-                        ws[layer + 1, i],
-                        lambda_[layer + 1, i],
-                        saturated_hydraulic_conductivity[layer + 1, i],
+                        w[layer, i],
+                        wres[layer, i],
+                        ws[layer, i],
+                        lambda_[layer, i],
+                        saturated_hydraulic_conductivity[layer, i],
                     )
                 )
-                capillary_rise_soil = min(
-                    max(
-                        0.0,
-                        (1 - saturation_ratio)
-                        * unsaturated_hydraulic_conductivity_layer_below,
-                    ),
-                    unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers[
-                        layer, i
-                    ],
-                )
-                # penultimate layer, limit capillary rise to available water in bottom layer
-                if layer == N_SOIL_LAYERS - 2:
-                    capillary_rise_soil = min(
-                        capillary_rise_soil,
-                        w[N_SOIL_LAYERS - 1, i] - wres[N_SOIL_LAYERS - 1, i],
+                percolation = unsaturated_hydraulic_conductivity / PERCOLATION_SUBSTEPS
+                # no percolation if the soil is frozen in the top 2 layers.
+                if not (soil_is_frozen[i] and (layer == 0 or layer == 1)):
+                    # limit percolation by the available water in the layer
+                    available_water = max(w[layer, i] - wres[layer, i], 0)
+                    percolation = min(percolation, available_water)
+                    if layer == N_SOIL_LAYERS - 1:  # last soil layer
+                        # limit percolation by available water, and consider the capillary rise index
+                        # TODO: Check how the capillary rise index works
+                        percolation *= 1 - capillary_rise_index[i]
+                    else:
+                        # limit percolation the remaining water storage capacity of the layer below
+                        percolation = min(
+                            percolation, ws[layer + 1, i] - w[layer + 1, i]
+                        )
+                else:
+                    percolation = (
+                        0  # must be set for percolation to groundwater to be correct
                     )
 
-                capillary_rise_soil_matrix[layer, i] = capillary_rise_soil
+                # save percolation in matrix
+                percolation_matrix[layer, i] = percolation
+
+            # for bottom soil layer, save percolation to groundwater
+            percolation_to_groundwater += percolation
 
             for layer in range(N_SOIL_LAYERS):
-                # for all layers except the bottom layer, add capillary rise from below to the layer
-                if layer != N_SOIL_LAYERS - 1:
-                    w[layer, i] += capillary_rise_soil_matrix[layer, i]
-                # for all layers except the top layer, remove capillary rise from the layer above
+                # for all layers, remove percolation from the layer
+                w[layer, i] -= percolation_matrix[layer, i]
+                # for all layers except the top layer, add percolation from the layer above (-1)
                 if layer != 0:
-                    w[layer, i] -= capillary_rise_soil_matrix[layer - 1, i]
+                    w[layer, i] += percolation_matrix[layer - 1, i]
 
-            # percolcation (top to bottom soil layer)
-            percolation_to_groundwater = 0.0
-            for _ in range(PERCOLATION_SUBSTEPS):
-                for layer in range(N_SOIL_LAYERS):
-                    unsaturated_hydraulic_conductivity = (
-                        get_unsaturated_hydraulic_conductivity_numba(
-                            w[layer, i],
-                            wres[layer, i],
-                            ws[layer, i],
-                            lambda_[layer, i],
-                            saturated_hydraulic_conductivity[layer, i],
-                        )
-                    )
-                    percolation = (
-                        unsaturated_hydraulic_conductivity / PERCOLATION_SUBSTEPS
-                    )
-                    # no percolation if the soil is frozen in the top 2 layers.
-                    if not (soil_is_frozen and (layer == 0 or layer == 1)):
-                        # limit percolation by the available water in the layer
-                        available_water = max(w[layer, i] - wres[layer, i], 0)
-                        percolation = min(percolation, available_water)
-                        if layer == N_SOIL_LAYERS - 1:  # last soil layer
-                            # limit percolation by available water, and consider the capillary rise index
-                            # TODO: Check how the capillary rise index works
-                            percolation *= 1 - capillary_rise_index[i]
-                        else:
-                            # limit percolation the remaining water storage capacity of the layer below
-                            percolation = min(
-                                percolation, ws[layer + 1, i] - w[layer + 1, i]
-                            )
-                    else:
-                        percolation = 0
-
-                    # save percolation in matrix
-                    percolation_matrix[layer, i] = percolation
-
-                # for bottom soil layer, save percolation to groundwater
-                percolation_to_groundwater += percolation
-
-                for layer in range(N_SOIL_LAYERS):
-                    # for all layers, remove percolation from the layer
-                    w[layer, i] -= percolation_matrix[layer, i]
-                    # for all layers except the top layer, add percolation from the layer above (-1)
-                    if layer != 0:
-                        w[layer, i] += percolation_matrix[layer - 1, i]
-
-                interflow_or_groundwater_recharge = (
-                    percolation_to_groundwater + preferential_flow
-                )
+            interflow_or_groundwater_recharge = (
+                percolation_to_groundwater + preferential_flow[i]
+            )
+            if is_bioarea[i]:
                 interflow[i] = (
                     percolation_impeded_ratio[i] * interflow_or_groundwater_recharge
                 )
