@@ -14,8 +14,18 @@ from cwatm.management_modules.data_handling import (
     loadmap,
     cbinding,
 )
+from numba import njit
 
 from geb.workflows import TimingModule
+
+
+@njit(cache=True)
+def get_saturation_vapour_pressure(tasmin_C, tasmax_C):
+    # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
+    ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
+    ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
+    saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+    return saturated_vapour_pressure
 
 
 class evaporationPot(object):
@@ -88,28 +98,27 @@ class evaporationPot(object):
         Based on Penman Monteith - FAO 56
 
         """
-
         timer = TimingModule("Potential evaporation")
+
+        timer.new_split("Start")
 
         tas_C = self.var.tas - 273.15
         tasmin_C = self.var.tasmin - 273.15
         tasmax_C = self.var.tasmax - 273.15
+        rlds = self.var.rlds
+        rsds = self.var.rsds
+        hurs = self.var.hurs
+        ps = self.var.ps
+        sfcWind = self.var.sfcWind
 
         timer.new_split("Read data")
 
-        # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
-        ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
-        ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
-        saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+        saturated_vapour_pressure = get_saturation_vapour_pressure(tasmin_C, tasmax_C)
+        actual_vapour_pressure = saturated_vapour_pressure * hurs / 100.0
 
         timer.new_split("Saturation vapour pressure")
 
-        # Up longwave radiation [MJ/m2/day]
-        rlus_MJ_m2_day = (
-            4.903e-9 * (((tasmin_C + 273.16) ** 4) + ((tasmax_C + 273.16) ** 4)) / 2
-        )  # rlus = Surface Upwelling Longwave Radiation
-
-        ps_kPa = self.var.ps * 0.001
+        ps_kPa = ps * 0.001
         psychrometric_constant = 0.665e-3 * ps_kPa
         # psychrometric constant [kPa C-1]
         # http://www.fao.org/docrep/X0490E/x0490e07.htm  Equation 8
@@ -121,17 +130,21 @@ class evaporationPot(object):
         # Fao 56 Page 36
         # calculate actual vapour pressure
 
-        actual_vapour_pressure = saturated_vapour_pressure * self.var.hurs / 100.0
         # longwave radiation balance
 
-        rlds_MJ_m2_day = self.var.rlds * 0.0864  # 86400 * 1E-6
+        # Up longwave radiation [MJ/m2/day]
+        rlus_MJ_m2_day = (
+            4.903e-9 * (((tasmin_C + 273.16) ** 4) + ((tasmax_C + 273.16) ** 4)) / 2
+        )  # rlus = Surface Upwelling Longwave Radiation
+
+        rlds_MJ_m2_day = rlds * 0.0864  # 86400 * 1E-6
         net_longwave_radation_MJ_m2_day = rlus_MJ_m2_day - rlds_MJ_m2_day
 
         # ************************************************************
         # ***** NET ABSORBED RADIATION *******************************
         # ************************************************************
 
-        rsds_MJ_m2_day = self.var.rsds * 0.0864  # 86400 * 1E-6
+        rsds_MJ_m2_day = rsds * 0.0864  # 86400 * 1E-6
         # net absorbed radiation of reference vegetation canopy [mm/d]
         RNA = np.maximum(
             (1 - self.var.AlbedoCanopy) * rsds_MJ_m2_day
@@ -163,7 +176,7 @@ class evaporationPot(object):
         # Adjust wind speed for measurement height: wind speed measured at
         # 10 m, but needed at 2 m height
         # Shuttleworth, W.J. (1993) in Maidment, D.R. (1993), p. 4.36
-        wind_2m = self.var.sfcWind * 0.749
+        wind_2m = sfcWind * 0.749
 
         # TODO: update this properly following PCR-GLOBWB (https://github.com/UU-Hydro/PCR-GLOBWB_model/blob/0511485ad3ac0a1367d9d4918d2f61ae0fa0e900/model/evaporation/ref_pot_et_penman_monteith.py#L227)
 
