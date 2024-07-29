@@ -583,10 +583,7 @@ class lakes_reservoirs(object):
             # ************************************************************
 
             if checkOption("calcWaterBalance"):
-                #    ii = 3
                 oldlake = self.var.lakeStorageC.copy()
-
-            # if (dateVar['curr'] == 3):
 
             # Lake inflow in [m3/s]
             lakeInflowC = inflowC / self.var.dtRouting
@@ -673,6 +670,7 @@ class lakes_reservoirs(object):
                 )
 
             if checkOption("calcWaterBalance"):
+                np.put(self.var.lakedaycorrect, self.var.decompress_LR, lakedaycorrectC)
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[self.var.lakeIn],  # In [m3/s]
                     outfluxes=[
@@ -685,8 +683,6 @@ class lakes_reservoirs(object):
                     tollerance=1e-5,
                 )
 
-            if checkOption("calcWaterBalance"):
-                np.put(self.var.lakedaycorrect, self.var.decompress_LR, lakedaycorrectC)
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[inflowC / self.var.dtRouting],  # In [m3/s]
                     outfluxes=[
@@ -700,7 +696,6 @@ class lakes_reservoirs(object):
                     tollerance=1e-5,
                 )
 
-            if checkOption("calcWaterBalance"):
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[inflowC],  # In [m3/s]
                     outfluxes=[
