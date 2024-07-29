@@ -14,8 +14,18 @@ from cwatm.management_modules.data_handling import (
     loadmap,
     cbinding,
 )
+from numba import njit
 
 from geb.workflows import TimingModule
+
+
+@njit(cache=True)
+def get_saturation_vapour_pressure(tasmin_C, tasmax_C):
+    # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
+    ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
+    ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
+    saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+    return saturated_vapour_pressure
 
 
 class evaporationPot(object):
@@ -103,17 +113,10 @@ class evaporationPot(object):
 
         timer.new_split("Read data")
 
-        # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
-        ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
-        ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
-        saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+        saturated_vapour_pressure = get_saturation_vapour_pressure(tasmin_C, tasmax_C)
+        actual_vapour_pressure = saturated_vapour_pressure * hurs / 100.0
 
         timer.new_split("Saturation vapour pressure")
-
-        # Up longwave radiation [MJ/m2/day]
-        rlus_MJ_m2_day = (
-            4.903e-9 * (((tasmin_C + 273.16) ** 4) + ((tasmax_C + 273.16) ** 4)) / 2
-        )  # rlus = Surface Upwelling Longwave Radiation
 
         ps_kPa = ps * 0.001
         psychrometric_constant = 0.665e-3 * ps_kPa
@@ -127,8 +130,12 @@ class evaporationPot(object):
         # Fao 56 Page 36
         # calculate actual vapour pressure
 
-        actual_vapour_pressure = saturated_vapour_pressure * hurs / 100.0
         # longwave radiation balance
+
+        # Up longwave radiation [MJ/m2/day]
+        rlus_MJ_m2_day = (
+            4.903e-9 * (((tasmin_C + 273.16) ** 4) + ((tasmax_C + 273.16) ** 4)) / 2
+        )  # rlus = Surface Upwelling Longwave Radiation
 
         rlds_MJ_m2_day = rlds * 0.0864  # 86400 * 1E-6
         net_longwave_radation_MJ_m2_day = rlus_MJ_m2_day - rlds_MJ_m2_day
