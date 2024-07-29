@@ -233,13 +233,17 @@ def get_unsaturated_hydraulic_conductivity_numba(
         saturation_term = 0
     elif saturation_term > 1:
         saturation_term = 1
+
+    saturation_term_sqrt = saturation_term**0.5
+
     residual_moisture = lambda_ / (lambda_ + 1)
+    inner_term = saturation_term ** (1 / residual_moisture)
+    outer_term = 1 - (1 - inner_term) ** residual_moisture
 
     return (
         saturated_hydraulic_conductivity
-        * saturation_term**0.5
-        * (1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture)
-        ** 2
+        * saturation_term_sqrt
+        * (outer_term * outer_term)  # squaring by multiplying is faster than **2
     )
 
 
