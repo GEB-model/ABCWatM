@@ -309,6 +309,7 @@ def update_soil_water_storage(
     percolation_matrix = np.zeros_like(soil_layer_height)
     preferential_flow = np.zeros_like(land_use_type, dtype=np.float32)
     available_water_infiltration = np.zeros_like(land_use_type, dtype=np.float32)
+    runoff_from_groundwater = np.zeros_like(land_use_type, dtype=np.float32)
     is_bioarea = land_use_type <= 3
     soil_is_frozen = frost_index > FROST_INDEX_THRESHOLD
 
@@ -339,101 +340,93 @@ def update_soil_water_storage(
                 potential_bare_soil_evaporation[i] - open_water_evaporation_res[i],
             )
 
-        if is_bioarea[i]:
-            w[bottom_soil_layer_index, i] += capillar[
-                i
-            ]  # add capillar rise to the bottom soil layer
+    for i in prange(land_use_type.size):
+        w[bottom_soil_layer_index, i] += capillar[
+            i
+        ]  # add capillar rise to the bottom soil layer
 
-            # if the bottom soil layer is full, send water to the above layer, repeat until top layer
-            for j in range(bottom_soil_layer_index, 0, -1):
-                if w[j, i] > ws[j, i]:
-                    w[j - 1, i] += (
-                        w[j, i] - ws[j, i]
-                    )  # move excess water to layer above
-                    w[j, i] = ws[j, i]  # set the current layer to full
+        # if the bottom soil layer is full, send water to the above layer, repeat until top layer
+        for j in range(bottom_soil_layer_index, 0, -1):
+            if w[j, i] > ws[j, i]:
+                w[j - 1, i] += w[j, i] - ws[j, i]  # move excess water to layer above
+                w[j, i] = ws[j, i]  # set the current layer to full
 
-            # if the top layer is full, send water to the runoff
-            if w[0, i] > ws[0, i]:
-                runoff_from_groundwater = (
-                    w[0, i] - ws[0, i]
-                )  # move excess water to runoff
-                w[0, i] = ws[0, i]  # set the top layer to full
-            else:
-                runoff_from_groundwater = 0
+        # if the top layer is full, send water to the runoff
+        if w[0, i] > ws[0, i]:
+            runoff_from_groundwater[i] = (
+                w[0, i] - ws[0, i]
+            )  # move excess water to runoff
+            w[0, i] = ws[0, i]  # set the top layer to full
 
-            # get group group numbers for natural areas
-            if land_use_type[i] == 0 or land_use_type[i] == 1:
-                crop_group_number = natural_crop_groups[i]
-            else:  #
-                crop_group_number = crop_group_number_per_group[crop_map[i]]
+        # get group group numbers for natural areas
+        if land_use_type[i] == 0 or land_use_type[i] == 1:
+            crop_group_number = natural_crop_groups[i]
+        else:  #
+            crop_group_number = crop_group_number_per_group[crop_map[i]]
 
-            p = get_fraction_easily_available_soil_water_numba(
-                crop_group_number, potential_evapotranspiration[i]
+        p = get_fraction_easily_available_soil_water_numba(
+            crop_group_number, potential_evapotranspiration[i]
+        )
+
+        root_ratios = get_root_ratios_numba(
+            root_depth[i],
+            soil_layer_height[:, i],
+            root_ratios_matrix[:, i],
+        )
+
+        total_transpiration_reduction_factor = 0.0
+        total_root_length_rws_corrected = (
+            0.0  # check if same as total_transpiration_reduction_factor * root_depth
+        )
+        for layer in range(N_SOIL_LAYERS):
+            critical_soil_moisture_content = get_critical_soil_moisture_content_numba(
+                p, wfc[layer, i], wwp[layer, i]
+            )
+            transpiration_reduction_factor = get_transpiration_reduction_factor_numba(
+                w[layer, i], wwp[layer, i], critical_soil_moisture_content
+            )
+            root_length_within_layer = soil_layer_height[layer, i] * root_ratios[layer]
+
+            total_transpiration_reduction_factor += (
+                transpiration_reduction_factor
+            ) * root_length_within_layer
+
+            root_length_within_layer_rws_corrected = (
+                root_length_within_layer * transpiration_reduction_factor
+            )
+            total_root_length_rws_corrected += root_length_within_layer_rws_corrected
+            root_distribution_per_layer_rws_corrected_matrix[layer, i] = (
+                root_length_within_layer_rws_corrected
             )
 
-            root_ratios = get_root_ratios_numba(
-                root_depth[i],
-                soil_layer_height[:, i],
-                root_ratios_matrix[:, i],
-            )
+        total_transpiration_reduction_factor /= root_depth[i]
 
-            total_transpiration_reduction_factor = 0.0
-            total_root_length_rws_corrected = 0.0  # check if same as total_transpiration_reduction_factor * root_depth
+        actual_total_transpiration[i] = (
+            0  # reset the total transpiration TODO: This may be confusing.
+        )
+        # this is a saved array from the previous day
+
+        # correct the transpiration reduction factor for water stress
+        # if the soil is frozen, no transpiration occurs, so we can skip the loop
+        # likewise, if the total_transpiration_reduction_factor (full water stress) is 0, we can skip the loop
+        # this also avoids division by zero, and thus NaNs
+        if not soil_is_frozen[i] and total_transpiration_reduction_factor > 0:
+            maximum_transpiration = (
+                potential_transpiration[i] * total_transpiration_reduction_factor
+            )
+            # distribute the transpiration over the layers, considering the root ratios
+            # and the transpiration reduction factor per layer
             for layer in range(N_SOIL_LAYERS):
-                critical_soil_moisture_content = (
-                    get_critical_soil_moisture_content_numba(
-                        p, wfc[layer, i], wwp[layer, i]
-                    )
+                transpiration = (
+                    maximum_transpiration
+                    * root_distribution_per_layer_rws_corrected_matrix[layer, i]
+                    / total_root_length_rws_corrected
                 )
-                transpiration_reduction_factor = (
-                    get_transpiration_reduction_factor_numba(
-                        w[layer, i], wwp[layer, i], critical_soil_moisture_content
-                    )
-                )
-                root_length_within_layer = (
-                    soil_layer_height[layer, i] * root_ratios[layer]
-                )
-
-                total_transpiration_reduction_factor += (
-                    transpiration_reduction_factor
-                ) * root_length_within_layer
-
-                root_length_within_layer_rws_corrected = (
-                    root_length_within_layer * transpiration_reduction_factor
-                )
-                total_root_length_rws_corrected += (
-                    root_length_within_layer_rws_corrected
-                )
-                root_distribution_per_layer_rws_corrected_matrix[layer, i] = (
-                    root_length_within_layer_rws_corrected
-                )
-
-            total_transpiration_reduction_factor /= root_depth[i]
-
-            actual_total_transpiration[i] = (
-                0  # reset the total transpiration TODO: This may be confusing.
-            )
-            # this is a saved array from the previous day
-
-            # correct the transpiration reduction factor for water stress
-            # if the soil is frozen, no transpiration occurs, so we can skip the loop
-            # likewise, if the total_transpiration_reduction_factor (full water stress) is 0, we can skip the loop
-            # this also avoids division by zero, and thus NaNs
-            if not soil_is_frozen[i] and total_transpiration_reduction_factor > 0:
-                maximum_transpiration = (
-                    potential_transpiration[i] * total_transpiration_reduction_factor
-                )
-                # distribute the transpiration over the layers, considering the root ratios
-                # and the transpiration reduction factor per layer
-                for layer in range(N_SOIL_LAYERS):
-                    transpiration = (
-                        maximum_transpiration
-                        * root_distribution_per_layer_rws_corrected_matrix[layer, i]
-                        / total_root_length_rws_corrected
-                    )
-                    w[layer, i] -= transpiration
+                w[layer, i] -= transpiration
+                if is_bioarea[i]:
                     actual_total_transpiration[i] += transpiration
 
+        if is_bioarea[i]:
             # limit the bare soil evaporation to the available water in the soil
             if not soil_is_frozen[i] and topwater_res[i] == 0:
                 actual_bare_soil_evaporation_res[i] = min(
@@ -506,7 +499,7 @@ def update_soil_water_storage(
             topwater_res[i] = max(0, topwater_res[i] - direct_runoff[i])
 
         if is_bioarea[i]:
-            direct_runoff[i] += runoff_from_groundwater
+            direct_runoff[i] += runoff_from_groundwater[i]
 
         # add infiltration to the soil
         w[0, i] += infiltration
@@ -1808,8 +1801,6 @@ class soil(object):
         timer.new_split("Finalizing")
         if self.model.timing:
             print(timer)
-
-        print(self.var.w1[bioarea].mean())
 
         return (
             interflow,
