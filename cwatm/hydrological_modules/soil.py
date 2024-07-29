@@ -323,7 +323,6 @@ def update_soil_water_storage(
     capillary_rise_index,
     percolation_impeded_ratio,
     crop_group_number_per_group,
-    frost_index_threshold,
     cPrefFlow,
     w,
     topwater_res,
@@ -357,7 +356,7 @@ def update_soil_water_storage(
     percolation_matrix = np.zeros_like(soil_layer_height)
 
     for i in range(land_use_type.size):
-        soil_is_frozen = frost_index[i] > frost_index_threshold
+        soil_is_frozen = frost_index[i] > FROST_INDEX_THRESHOLD
 
         available_water_infiltration = (
             natural_available_water_infiltration[i] + actual_irrigation_consumption[i]
@@ -764,9 +763,13 @@ class soil(object):
         # self.var.permeability = float(cbinding('permeability'))
 
         self.var.soilLayers = 3
-        # set number of soil layers as global variable
+        # set number of soil layers as global variable for numba
         global N_SOIL_LAYERS
         N_SOIL_LAYERS = self.var.soilLayers
+
+        # set the frost index threshold as global variable for numba
+        global FROST_INDEX_THRESHOLD
+        FROST_INDEX_THRESHOLD = self.var.FrostIndexThreshold
         # --- Topography -----------------------------------------------------
 
         # Fraction of area where percolation to groundwater is impeded [dimensionless]
@@ -1040,7 +1043,6 @@ class soil(object):
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values.astype(
                 np.float32
             ),
-            self.var.FrostIndexThreshold,
             self.var.cPrefFlow,
             w,
             self.var.topwater,
