@@ -754,7 +754,8 @@ class lakes_reservoirs(object):
             reservoirOutflow[self.var.waterBodyTypC == 2] = (
                 self.model.agents.reservoir_operators.regulate_reservoir_outflow(
                     self.var.reservoirStorageM3C[self.var.waterBodyTypC == 2],
-                    inflowC[self.var.waterBodyTypC == 2],
+                    inflowC[self.var.waterBodyTypC == 2]
+                    / self.var.dtRouting,  # convert per timestep to per second
                     self.var.waterBodyIDC[self.var.waterBodyTypC == 2],
                 )
             )
