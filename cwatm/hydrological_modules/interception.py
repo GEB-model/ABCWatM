@@ -8,12 +8,10 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules import globals
 from cwatm.management_modules.data_handling import (
     loadmap,
     divideValues,
     checkOption,
-    cbinding,
 )
 import numpy as np
 import xarray as xr
@@ -68,13 +66,18 @@ class interception(object):
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()
 
-        self.interception_ds = {}
-        for land_cover in ("forest", "grassland"):
-            self.interception_ds[land_cover] = xr.open_dataset(
+        self.interception = {}
+        for coverType in ("forest", "grassland"):
+            ds = xr.open_dataset(
                 self.model.model_structure["forcing"][
-                    f"landcover/{land_cover}/interceptCap{land_cover.title()}_10days"
+                    f"landcover/{coverType}/interceptCap{coverType.title()}_10days"
                 ]
-            )[f"interceptCap{land_cover.title()}_10days"]
+            )
+
+            self.interception[coverType] = ds[
+                f"interceptCap{coverType.title()}_10days"
+            ].values
+            ds.close()
 
     def dynamic(self, potTranspiration):
         """
@@ -94,20 +97,15 @@ class interception(object):
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
             if coverType in ("forest", "grassland"):
-                covertype_interceptCapNC = self.model.data.to_HRU(
+                interception_cover = self.model.data.to_HRU(
                     data=self.model.data.grid.compress(
-                        self.interception_ds[coverType]
-                        .sel(
-                            time=self.model.current_time.replace(year=2000),
-                            method="ffill",
-                        )
-                        .data
+                        self.interception[coverType][
+                            (self.model.current_day_of_year - 1) // 10
+                        ]
                     ),
                     fn=None,
                 )
-                interceptCap[coverType_indices] = covertype_interceptCapNC[
-                    coverType_indices
-                ]
+                interceptCap[coverType_indices] = interception_cover[coverType_indices]
             else:
                 interceptCap[coverType_indices] = self.var.minInterceptCap[
                     coverType_indices

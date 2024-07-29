@@ -8,7 +8,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 try:
