@@ -38,18 +38,7 @@ from cwatm import (
     __status__,
 )
 
-import os
 import sys
-import datetime
-
-from cwatm.management_modules.globals import (
-    globalFlags,
-    settingsfile,
-    versioning,
-    platform1,
-    globalclear,
-    Flags,
-)
 
 
 def usage():
@@ -114,82 +103,9 @@ def GNU():
     sys.exit(1)
 
 
-def headerinfo():
-    """
-    Print the information on top of each run
-
-    this is collecting the last change of one of the source files
-    in order to give more information of the settingsfile and the version of cwatm
-    this information is put in the result files .tss and .nc
-    """
-
-    versioning["exe"] = __file__
-    realPath = os.path.dirname(os.path.realpath(versioning["exe"]))
-    i = 0
-    for dirpath, _, filenames in os.walk(realPath):
-        for file in filenames:
-            if file[-3:] == ".py":
-                i += 1
-                file1 = dirpath + "/" + file
-                if i == 1:
-                    lasttime = os.path.getmtime(file1)
-                    lastfile = file
-                else:
-                    if os.path.getmtime(file1) > lasttime:
-                        lasttime = os.path.getmtime(file1)
-                        lastfile = file
-    versioning["lastdate"] = datetime.datetime.fromtimestamp(lasttime).strftime(
-        "%Y/%m/%d %H:%M"
-    )
-    __date__ = versioning["lastdate"]
-    versioning["lastfile"] = lastfile
-    versioning["version"] = __version__
-    versioning["platform"] = platform1
-
-    if not (Flags["veryquiet"]) and not (Flags["quiet"]):
-        print(
-            "CWATM - Community Water Model ",
-            __version__,
-            " Date: ",
-            versioning["lastdate"],
-            " ",
-        )
-        print("International Institute of Applied Systems Analysis (IIASA)")
-        print("Running under platform: ", platform1)
-        print("-----------------------------------------------------------")
-
-
-def main(settings, args):
-    success = False
-    if Flags["test"]:
-        globalclear()
-
-    globalFlags(settings, args, settingsfile, Flags)
-    if Flags["use"]:
-        usage()
-    if Flags["warranty"]:
-        GNU()
-    # setting of global flag e.g checking input maps, producing more output information
-    headerinfo()
-    success, last_dis = CWATMexe(settingsfile[0])
-
-    # if Flags['test']:
-    return success, last_dis
-
-
 def parse_args():
     if len(sys.argv) < 2:
         usage()
         sys.exit(0)
     else:
         return sys.argv[1], sys.argv[2:]
-
-
-def run_from_command_line():
-    settings, args = parse_args()
-    main(settings, args)
-
-
-if __name__ == "__main__":
-    settings, args = parse_args()
-    main(settings, args)

@@ -15,50 +15,13 @@ try:
 except (ModuleNotFoundError, ImportError):
     cp = np
 
-
-from . import globals
 from cwatm.management_modules.globals import (
     binding,
-    geotrans,
-    maskmapAttr,
     maskinfo,
     option,
 )
 
 from osgeo import gdal, gdalconst
-
-
-def setmaskmapAttr(x, y, col, row, cell):
-    """
-    Definition of cell size, coordinates of the meteo maps and maskmap
-
-    :param x: upper left corner x
-    :param y: upper left corner y
-    :param col: number of cols
-    :param row: number of rows
-    :param cell: cell size
-    :return: -
-    """
-    invcell = round(1 / cell, 0)
-    # getgeotransform only delivers single precision!
-    cell = 1 / invcell
-    if (x - int(x)) != 0.0:
-        if abs(x - int(x)) > 1e9:
-            x = 1 / round(1 / (x - int(x)), 4) + int(x)
-        else:
-            x = round(x, 4)
-    if (y - int(y)) != 0.0:
-        if abs(y - int(y)) > 1e9:
-            y = 1 / round(1 / (y - int(y)), 4) + int(y)
-        else:
-            y = round(y, 4)
-
-    maskmapAttr["x"] = x
-    maskmapAttr["y"] = y
-    maskmapAttr["col"] = col
-    maskmapAttr["row"] = row
-    maskmapAttr["cell"] = cell
-    maskmapAttr["invcell"] = invcell
 
 
 def loadsetclone(name):
@@ -73,15 +36,6 @@ def loadsetclone(name):
     filename = cbinding(name)
 
     nf2 = gdal.Open(str(filename), gdalconst.GA_ReadOnly)
-    geotransform = nf2.GetGeoTransform()
-    geotrans.append(geotransform)
-    setmaskmapAttr(
-        geotransform[0],
-        geotransform[3],
-        nf2.RasterXSize,
-        nf2.RasterYSize,
-        geotransform[1],
-    )
 
     band = nf2.GetRasterBand(1)
     # bandtype = gdal.GetDataTypeName(band.DataType)
@@ -110,8 +64,6 @@ def loadsetclone(name):
         maskinfo["shapeflat"]
     )  # empty map 1D but with mask
     maskinfo["maskall"].mask = maskinfo["maskflat"]
-
-    globals.inZero = np.zeros(maskinfo["mapC"])
 
     return mapC
 

@@ -198,14 +198,6 @@ class snow_frost(object):
         )
 
         self.var.extfrostindex = False
-        if "morefrost" in binding:
-            self.var.extfrostindex = returnBool("morefrost")
-            self.var.FrostIndexThreshold2 = loadmap("FrostIndexThreshold2")
-            self.var.frostInd1 = globals.inZero
-            self.var.frostInd2 = globals.inZero
-            self.var.frostindexS = []
-            for i in range(self.var.numberSnowLayers):
-                self.var.frostindexS.append(globals.inZero)
 
     def dynamic(self):
         """
@@ -234,8 +226,6 @@ class snow_frost(object):
             * np.sin(math.radians((day_of_year - 81) * self.var.SnowDayDegrees))
             + self.var.SnowMeltCoef
         )
-
-        # SeasSnowMeltCoef = SnowSeason * sin((dateVar['doy']-81)* SnowDayDegrees) + SnowMeltCoef;
 
         # sinus shaped function between the
         # annual minimum (December 21st) and annual maximum (June 21st)
@@ -332,23 +322,6 @@ class snow_frost(object):
                     self.var.frostindexS[i] + FrostIndexChangeRate * self.model.DtDay, 0
                 )
 
-        if self.var.extfrostindex:
-            if dateVar["curr"] >= dateVar["intSpin"]:
-                for i in range(self.var.numberSnowLayers):
-                    self.var.frostInd1 = np.where(
-                        self.var.frostindexS[i] > self.var.FrostIndexThreshold,
-                        self.var.frostInd1 + 1 / float(self.var.numberSnowLayers),
-                        self.var.frostInd1,
-                    )
-                    self.var.frostInd2 = np.where(
-                        self.var.frostindexS[i] > self.var.FrostIndexThreshold2,
-                        self.var.frostInd2 + 1 / float(self.var.numberSnowLayers),
-                        self.var.frostInd2,
-                    )
-            if dateVar["currDate"] == dateVar["dateEnd"]:
-                self.var.frostInd1 = self.var.frostInd1 / float(dateVar["diffdays"])
-                self.var.frostInd2 = self.var.frostInd2 / float(dateVar["diffdays"])
-
         Snow /= self.var.numberSnowLayersFloat
         self.var.Rain /= self.var.numberSnowLayersFloat
         self.var.SnowMelt /= self.var.numberSnowLayersFloat
@@ -392,16 +365,3 @@ class snow_frost(object):
         # SnowWaterEquivalent taken as 0.45
         # Afrost, (daily decay coefficient) is taken as 0.97 (Handbook of Hydrology, p. 7.28)
         # Kfrost, (snow depth reduction coefficient) is taken as 0.57 [1/cm], (HH, p. 7.28) -> from Molnau taken as 0.5 for t> 0 and 0.08 for T<0
-
-        """
-        if self.var.extfrostindex:
-
-            if dateVar['curr'] >= dateVar['intSpin']:
-                self.var.frostInd1 = np.where(self.var.FrostIndex > self.var.FrostIndexThreshold, self.var.frostInd1  +1., self.var.frostInd1)
-                self.var.frostInd2 = np.where(self.var.FrostIndex > 84., self.var.frostInd2  +1., self.var.frostInd2)
-
-            if dateVar['currDate'] == dateVar['dateEnd']:
-                self.var.frostInd1 = self.var.frostInd1 / float(dateVar['diffdays'])
-                self.var.frostInd2 = self.var.frostInd2 / float(dateVar['diffdays'])
-                ii = 1
-        """
