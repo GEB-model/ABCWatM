@@ -9,7 +9,7 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
-from cwatm.management_modules.data_handling import checkOption
+from cwatm.data_handling import checkOption
 
 
 class sealed_water(object):

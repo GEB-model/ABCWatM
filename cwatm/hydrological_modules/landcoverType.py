@@ -15,8 +15,8 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
-from cwatm.management_modules.globals import binding
-from cwatm.management_modules.data_handling import (
+from cwatm.globals import binding
+from cwatm.data_handling import (
     checkOption,
     loadmap,
 )

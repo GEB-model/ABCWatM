@@ -9,7 +9,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.data_handling import *
+from cwatm.data_handling import *
 
 
 class waterbalance(object):

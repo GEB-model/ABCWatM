@@ -29,7 +29,7 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
-from cwatm.management_modules.data_handling import (
+from cwatm.data_handling import (
     loadsetclone,
     loadmap,
 )

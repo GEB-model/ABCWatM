@@ -10,7 +10,7 @@
 
 import numpy as np
 import rasterio
-from cwatm.management_modules.data_handling import loadmap, checkOption
+from cwatm.data_handling import loadmap, checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
 from numba import njit, prange

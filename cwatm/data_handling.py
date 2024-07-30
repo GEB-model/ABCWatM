@@ -15,7 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     cp = np
 
-from cwatm.management_modules.globals import (
+from cwatm.globals import (
     binding,
     maskinfo,
     option,

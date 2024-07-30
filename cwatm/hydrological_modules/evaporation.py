@@ -8,7 +8,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.data_handling import cbinding, checkOption
+from cwatm.data_handling import cbinding, checkOption
 import numpy as np
 
 try:

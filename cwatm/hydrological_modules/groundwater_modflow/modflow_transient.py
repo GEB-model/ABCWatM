@@ -1,6 +1,6 @@
 from math import isclose
 import numpy as np
-from cwatm.management_modules.data_handling import (
+from cwatm.data_handling import (
     cbinding,
     loadmap,
     returnBool,

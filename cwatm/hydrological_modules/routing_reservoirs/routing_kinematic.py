@@ -18,8 +18,8 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
 )
 
 import numpy as np
-from cwatm.management_modules.data_handling import loadmap, decompress, checkOption
-from cwatm.management_modules.globals import maskinfo
+from cwatm.data_handling import loadmap, decompress, checkOption
+from cwatm.globals import maskinfo
 
 
 class routing_kinematic(object):

@@ -10,14 +10,14 @@
 import pandas as pd
 import numpy as np
 
-from cwatm.management_modules.data_handling import (
+from cwatm.data_handling import (
     checkOption,
     loadmap,
     decompress,
     compressArray,
     returnBool,
 )
-from cwatm.management_modules.globals import binding
+from cwatm.globals import binding
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
     subcatchment1,
     defLdd2,

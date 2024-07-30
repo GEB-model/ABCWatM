@@ -23,7 +23,7 @@ from cwatm.hydrological_modules.soil import (
     get_fraction_easily_available_soil_water,
     get_crop_group_number,
 )
-from cwatm.management_modules.data_handling import (
+from cwatm.data_handling import (
     cbinding,
     checkOption,
 )

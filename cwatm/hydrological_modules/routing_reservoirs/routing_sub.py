@@ -11,8 +11,8 @@
 
 import numpy as np
 from numba import njit
-from cwatm.management_modules.globals import maskinfo
-from cwatm.management_modules.data_handling import compressArray
+from cwatm.globals import maskinfo
+from cwatm.data_handling import compressArray
 
 
 def Compress(map, mask):
