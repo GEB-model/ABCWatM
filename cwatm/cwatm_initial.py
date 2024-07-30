@@ -29,11 +29,9 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
-from cwatm.management_modules.output import outputTssMap
 from cwatm.management_modules.dynamicModel import DynamicModel
 from cwatm.management_modules.data_handling import (
     loadsetclone,
-    checkOption,
     loadmap,
 )
 
@@ -58,10 +56,6 @@ class CWATModel_ini(DynamicModel):
         ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2
         # set the maskmap
         self.MaskMap = loadsetclone(self, "MaskMap")
-
-        # ----------------------------------------
-        # include output of tss and maps
-        self.output_module = outputTssMap(self)
 
         # include all the hydrological modules
         self.misc_module = miscInitial(self)

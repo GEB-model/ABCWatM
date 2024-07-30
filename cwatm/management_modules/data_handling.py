@@ -23,7 +23,6 @@ from typing import Tuple
 
 from . import globals
 from cwatm.management_modules.checks import *
-from cwatm.management_modules.messages import *
 
 from cwatm.management_modules.dynamicModel import *
 
@@ -56,7 +55,7 @@ def valuecell(coordx, coordstr, returnmap=True):
             coord.append(float(xy))
         except:
             msg = "Gauges: " + xy + " in " + coordstr + " is not a coordinate"
-            raise CWATMError(msg)
+            raise Exception(msg)
 
     null = np.zeros((maskmapAttr["row"], maskmapAttr["col"]))
     null[null == 0] = -9999
@@ -98,7 +97,7 @@ def valuecell(coordx, coordstr, returnmap=True):
             )
             msg += box
             msg += '\nPlease have a look at "MaskMap" or "Gauges"'
-            raise CWATMError(msg)
+            raise Exception(msg)
     if returnmap:
         mapnp = compressArray(null).astype(np.int64)
         return mapnp
@@ -223,7 +222,7 @@ def maskfrompoint(mask2D, xleft, yup):
 
     if xleft == -1:
         msg = "MaskMap point does not have a valid value in the river network (LDD)"
-        raise CWATMError(msg)
+        raise Exception(msg)
 
     x = xleft * maskmapAttr["cell"] + maskmapAttr["x"]
     y = maskmapAttr["y"] - yup * maskmapAttr["cell"]
@@ -315,7 +314,7 @@ def loadmap(name, compress=True, local=False, cut=True):
                         + " not stored in "
                         + filename
                     )
-                    raise CWATMError(msg)
+                    raise Exception(msg)
                 itime = np.where(nf1.variables["time"][:] == timestepI)[0][0]
                 if cut:
                     mapnp = nf1.variables[varname][itime, cut2:cut3, cut0:cut1]
@@ -344,7 +343,7 @@ def loadmap(name, compress=True, local=False, cut=True):
                     cut0, cut1, cut2, cut3 = mapattrTiff(nf2)
                     mapnp = mapnp[cut2:cut3, cut0:cut1]
         except:
-            raise CWATMFileError(filename, sname=name)
+            raise
 
     if compress:
         mapC = compressArray(mapnp, name=filename)
@@ -380,7 +379,7 @@ def compressArray(map, name="None", zeros=0.0):
     if name != "None":
         if np.max(np.isnan(mapC)):
             msg = name + " has less valid pixels than area or ldd \n"
-            raise CWATMError(msg)
+            raise Exception(msg)
             # test if map has less valid pixel than area.map (or ldd)
     # if a value is bigger or smaller than 1e20, -1e20 than the standard value is taken
     mapC[mapC > 1.0e20] = zeros
@@ -453,7 +452,7 @@ def metaNetCDF():
         nf1.close()
     except:
         msg = "Trying to get metadata from netcdf \n"
-        raise CWATMFileError(cbinding("PrecipitationMaps"), msg)
+        raise
 
 
 def readCoord(name):
@@ -501,7 +500,7 @@ def readCoordNetCDF2(name, check=True):
             nf1 = Dataset(name, "r")
         except:
             msg = "Checking netcdf map \n"
-            raise CWATMFileError(name, msg)
+            raise
     else:
         # if subroutine is called already from inside a try command
         nf1 = Dataset(name, "r")
@@ -518,7 +517,6 @@ def readCoordNetCDF(name, check=True):
     :param name: name of the netcdf file
     :param check:  checking if netcdffile exists
     :return: latitude, longitude, cell size, inverse cell size
-    :raises if no netcdf map can be found: :meth:`management_modules.messages.CWATMFileError`
     """
 
     if check:
@@ -526,7 +524,7 @@ def readCoordNetCDF(name, check=True):
             nf1 = Dataset(name, "r")
         except:
             msg = "Error 205: Checking netcdf map \n"
-            raise CWATMFileError(name, msg)
+            raise
     else:
         # if subroutine is called already from inside a try command
         nf1 = Dataset(name, "r")
@@ -576,15 +574,13 @@ def checkMeteo_Wordclim(meteodata, wordclimdata):
     :param nmeteodata: name of the meteo netcdf file
     :param wordlclimdata:  cname of the wordlclim netcdf file
     :return: True if meteo and wordclim has the same mapextend
-
-    :raises if map extend is different :meth:`management_modules.messages.CWATMFileError`
     """
 
     try:
         nf1 = Dataset(meteodata.split(":")[0], "r")
     except:
         msg = "Checking netcdf map \n"
-        raise CWATMFileError(meteodata, msg)
+        raise
 
     lonM0 = nf1.variables["lon"][0]
     lon1 = nf1.variables["lon"][1]
@@ -607,7 +603,7 @@ def checkMeteo_Wordclim(meteodata, wordclimdata):
         nf1 = Dataset(wordclimdata.split(":")[0], "r")
     except:
         msg = "Checking netcdf map \n"
-        raise CWATMFileError(wordclimdata, msg)
+        raise
 
     lonW0 = nf1.variables["lon"][0]
     lon1 = nf1.variables["lon"][1]
@@ -631,7 +627,7 @@ def checkMeteo_Wordclim(meteodata, wordclimdata):
     check = True
     if contr > 0.00001:
         # msg = "Data from meteo dataset and Wordclim dataset does not match"
-        # raise CWATMError(msg)
+        # raise Exception(msg)
         check = False
 
     return check
@@ -645,7 +641,7 @@ def mapattrNetCDF(name, check=True):
     :param name: name of the netcdf file
     :param check:  checking if netcdffile exists
     :return: cut1,cut2,cut3,cut4
-    :raises if cell size is different: :meth:`management_modules.messages.CWATMError`
+    :raises if cell size is different: :meth:`management_modules.messages.Exception`
     """
 
     lat, lon, cell, invcell, rows, cols = readCoord(name)
@@ -657,7 +653,7 @@ def mapattrNetCDF(name, check=True):
             + " and: "
             + name
         )
-        raise CWATMError(msg)
+        raise Exception(msg)
 
     xx = maskmapAttr["x"]
     yy = maskmapAttr["y"]
@@ -755,7 +751,7 @@ def mapattrTiff(nf2):
 
     if maskmapAttr["invcell"] != invcell:
         msg = "Cell size different in maskmap: " + binding["MaskMap"]
-        raise CWATMError(msg)
+        raise Exception(msg)
 
     x = x1 - cellSize / 2
     y = y1 + cellSize / 2
@@ -1013,8 +1009,7 @@ def writenetcdf(
             + netfile
         )
         nf1.close()
-        print(CWATMWarning(msg))
-        return False
+        raise Exception(msg)
 
     if modflow:
         mapnp = inputmap
@@ -1260,7 +1255,7 @@ def checkOptionOptinal(inBinding):
         return btrue
     else:
         msg = 'Value in: "' + inBinding + '" is not True or False! \nbut: ' + b
-        raise CWATMError(msg)
+        raise Exception(msg)
 
 
 def checkOption(inBinding):

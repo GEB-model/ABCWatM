@@ -30,28 +30,7 @@ configuration module
     :members:
     :undoc-members:
     :show-inheritance:
-
-
-management_modules.messages module
-----------------------------------
-
-**Error handling - giving out messages**
-
-.. automodule:: cwatm.management_modules.messages
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-**Handling output of CWATM**
-
-management_modules.output module
---------------------------------
-
-.. automodule:: cwatm.management_modules.output
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+    
 
 management_modules.checks module
 --------------------------------

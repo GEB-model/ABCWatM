@@ -38,16 +38,8 @@ from cwatm import (
     __status__,
 )
 
-# to work with some versions of Linux  - a workaround with pyexpat is needed
-from pyexpat import *
-
 import os
-import numpy as np
-
-# to work with some versions of Linux  - a workaround with pyexpat is needed
-import glob
 import sys
-import time
 import datetime
 
 from cwatm.management_modules.globals import (
@@ -55,16 +47,9 @@ from cwatm.management_modules.globals import (
     settingsfile,
     versioning,
     platform1,
-    CWATMRunInfo,
-    timeMesSum,
-    timeMesString,
     globalclear,
 )
-from cwatm.management_modules.data_handling import Flags, cbinding
-from cwatm.management_modules.dynamicModel import ModelFrame
-from cwatm.cwatm_model import CWATModel
-
-# ---------------------------
+from cwatm.management_modules.data_handling import Flags
 
 
 def usage():

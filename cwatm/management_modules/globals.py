@@ -23,8 +23,6 @@ import numpy as np
 # for detecting on which system it is running
 import platform
 
-from cwatm.management_modules.messages import *
-
 
 def globalclear():
 
@@ -216,7 +214,7 @@ if python_bit < 64:
         + str(python_bit)
         + "bit"
     )
-    raise CWATMError(msg)
+    raise Exception(msg)
 
 
 def globalFlags(setting, arg, settingsfile, Flags):

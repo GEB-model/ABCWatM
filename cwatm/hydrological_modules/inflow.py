@@ -84,6 +84,7 @@ class inflow(object):
             return newrecarray
 
         if checkOption("inflow"):
+            raise NotImplementedError("Inflow module not implemented")
 
             localGauges = returnBool("InLocal")
 
@@ -128,7 +129,7 @@ class inflow(object):
                         line = file.readline().strip("\n")
                         if line in inflowNames:
                             msg = line + " in: " + filename + " is used already"
-                            raise CWATMError(msg)
+                            raise Exception(msg)
 
                         inflowNames.append(line)
                         names.append(line)
@@ -170,6 +171,7 @@ class inflow(object):
         """
 
         if checkOption("inflow"):
+            raise NotImplementedError("Inflow module not implemented")
 
             # Get inflow hydrograph at each inflow point [m3/s]
             self.var.inflowM3 = globals.inZero.copy()
