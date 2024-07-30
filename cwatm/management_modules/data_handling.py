@@ -32,8 +32,6 @@ from cwatm.management_modules.globals import (
     option,
 )
 
-from cwatm.management_modules.dynamicModel import *
-
 from netCDF4 import Dataset, date2num
 
 from osgeo import osr, gdal, gdalconst

@@ -29,14 +29,13 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
-from cwatm.management_modules.dynamicModel import DynamicModel
 from cwatm.management_modules.data_handling import (
     loadsetclone,
     loadmap,
 )
 
 
-class CWATModel_ini(DynamicModel):
+class CWATModel_ini:
     """
     CWATN initial part
     this part is to initialize the variables.
@@ -49,8 +48,6 @@ class CWATModel_ini(DynamicModel):
         defines the mask map and the outlet points
         initialization of the hydrological modules
         """
-
-        DynamicModel.__init__(self)
 
         # ----------------------------------------
         ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2

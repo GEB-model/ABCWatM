@@ -8,11 +8,10 @@
 # Copyright:   (c) burekpe 2016
 # -------------------------------------------------------------------------
 
-from cwatm.management_modules.dynamicModel import DynamicModel
 from geb.workflows import TimingModule
 
 
-class CWATModel_dyn(DynamicModel):
+class CWATModel_dyn:
     def dynamic(self):
         """
         Dynamic part of CWATM
