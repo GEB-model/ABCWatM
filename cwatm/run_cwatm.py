@@ -48,8 +48,8 @@ from cwatm.management_modules.globals import (
     versioning,
     platform1,
     globalclear,
+    Flags,
 )
-from cwatm.management_modules.data_handling import Flags
 
 
 def usage():

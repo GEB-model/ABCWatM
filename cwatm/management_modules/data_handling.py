@@ -22,7 +22,15 @@ from typing import Tuple
 
 
 from . import globals
-from cwatm.management_modules.checks import *
+from cwatm.management_modules.globals import (
+    binding,
+    geotrans,
+    maskmapAttr,
+    maskinfo,
+    Flags,
+    metaNetcdfVar,
+    option,
+)
 
 from cwatm.management_modules.dynamicModel import *
 

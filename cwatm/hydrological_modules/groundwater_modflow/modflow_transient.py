@@ -9,7 +9,6 @@ from cwatm.hydrological_modules.groundwater_modflow.modflow_model import (
     ModFlowSimulation,
 )
 import rasterio
-from cwatm.management_modules.data_handling import Flags
 
 
 def is_float(s):
@@ -355,7 +354,7 @@ class groundwater_modflow:
             drainage_elevation=self.layer_boundaries[0],
             hydraulic_conductivity=self.hydraulic_conductivity,
             complexity="SIMPLE",
-            verbose=Flags["loud"],
+            verbose=False,
         )
 
         self.corrected_cwatm_cell_area = self.get_corrected_cwatm_cell_area()
