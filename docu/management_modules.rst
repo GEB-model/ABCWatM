@@ -18,16 +18,6 @@ data_handling module
     :inherited-members:
     :show-inheritance:
 
-timestep module
----------------
-
-**Managing time**
-
-.. automodule:: cwatm.management_modules.timestep
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 
 

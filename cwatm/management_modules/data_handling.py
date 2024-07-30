@@ -23,7 +23,6 @@ from typing import Tuple
 
 from . import globals
 from cwatm.management_modules.checks import *
-from cwatm.management_modules.timestep import *
 from cwatm.management_modules.messages import *
 
 from cwatm.management_modules.dynamicModel import *
