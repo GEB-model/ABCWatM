@@ -77,12 +77,3 @@ class miscInitial(object):
         # into an amount per time step)
         self.model.InvDtSec = 1 / self.model.DtSec
         # Inverse of time step [1/d]
-
-        # self.model.DtSecChannel = loadmap('DtSecChannel')
-        # Sub time step used for kinematic wave channel routing [seconds]
-        # within the model,the smallest out of DtSecChannel and DtSec is used
-
-        # Multiplier to convert water depths in mm to meters
-        self.var.MtoMM = 0.001
-        # Multiplier to convert water depths in meters to mm
-        self.var.MtoMM = 1000
