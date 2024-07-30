@@ -10,7 +10,6 @@
 
 from cwatm.management_modules.data_handling import (
     loadmap,
-    divideValues,
     checkOption,
 )
 import numpy as np
@@ -138,7 +137,7 @@ class interception(object):
         self.var.interceptEvap[bio_area] = np.minimum(
             self.var.interceptStor[bio_area],
             potTranspiration[bio_area]
-            * divideValues(self.var.interceptStor[bio_area], interceptCap[bio_area])
+            * (self.var.interceptStor[bio_area] / interceptCap[bio_area])
             ** (2.0 / 3.0),
         )
 

@@ -52,7 +52,7 @@ class CWATModel_ini:
         # ----------------------------------------
         ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2
         # set the maskmap
-        self.MaskMap = loadsetclone(self, "MaskMap")
+        self.MaskMap = loadsetclone("MaskMap")
 
         # include all the hydrological modules
         self.misc_module = miscInitial(self)

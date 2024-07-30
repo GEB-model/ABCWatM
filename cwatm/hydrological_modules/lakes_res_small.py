@@ -149,7 +149,7 @@ class lakes_res_small(object):
             self.var.smalllakeOutflow = self.var.load_initial("smalllakeOutflow", out)
 
             # lake storage ini
-            self.var.smalllakeLevel = divideValues(
+            self.var.smalllakeLevel = np.nan_to_num(
                 self.var.smalllakeVolumeM3, self.var.smalllakeArea
             )
 
@@ -254,7 +254,7 @@ class lakes_res_small(object):
             self.var.smallevapWaterBody = (
                 self.var.smallevapWaterBody / self.var.cellArea
             )  # back to [m]
-            self.var.smalllakeLevel = divideValues(
+            self.var.smalllakeLevel = np.nan_to_num(
                 self.var.smalllakeVolumeM3, self.var.smalllakeArea
             )
 
