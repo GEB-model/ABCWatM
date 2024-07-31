@@ -15,7 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 import rasterio
-from cwatm.hydrological_modules.soil import (
+from .soil import (
     get_root_ratios,
     get_maximum_water_content,
     get_critical_water_level,

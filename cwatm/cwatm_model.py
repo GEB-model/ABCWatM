@@ -1,6 +1,6 @@
 import numpy as np
-from cwatm.cwatm_initial import CWATModel_ini
-from cwatm.cwatm_dynamic import CWATModel_dyn
+from .cwatm_initial import CWATModel_ini
+from .cwatm_dynamic import CWATModel_dyn
 
 
 class CWATModel(CWATModel_ini, CWATModel_dyn):

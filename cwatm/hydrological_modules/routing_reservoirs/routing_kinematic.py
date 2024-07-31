@@ -8,13 +8,11 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
-from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
+from ..routing_reservoirs.routing_sub import (
     define_river_network,
     upstreamArea,
     kinematic,
 )
-
-import rasterio
 import numpy as np
 
 
@@ -115,10 +113,10 @@ class routing_kinematic(object):
         * calculate manning's roughness coefficient
         """
 
-        with rasterio.open(
-            self.model.model_structure["grid"]["routing/kinematic/ldd"]
-        ) as src:
-            ldd = src.read(1)
+        ldd = self.var.load(
+            self.model.model_structure["grid"]["routing/kinematic/ldd"],
+            compress=False,
+        )
 
         (
             self.var.lddCompress,

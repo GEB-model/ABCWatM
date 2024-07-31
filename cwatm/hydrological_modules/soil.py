@@ -819,7 +819,7 @@ class soil(object):
             cell_id = cell_ids_map[py, px]
 
             already_has_plantFATE_cell = False
-            from cwatm.hydrological_modules import plantFATE
+            from . import plantFATE
 
             self.model.plantFATE = []
             self.plantFATE_forest_RUs = np.zeros_like(

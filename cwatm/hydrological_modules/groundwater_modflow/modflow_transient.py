@@ -1,6 +1,6 @@
 from math import isclose
 import numpy as np
-from cwatm.hydrological_modules.groundwater_modflow.modflow_model import (
+from .modflow_model import (
     ModFlowSimulation,
 )
 import rasterio

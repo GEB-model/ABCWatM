@@ -10,7 +10,7 @@
 import pandas as pd
 import numpy as np
 
-from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
+from .routing_reservoirs.routing_sub import (
     subcatchment1,
     define_river_network,
     upstream1,

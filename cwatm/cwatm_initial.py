@@ -9,25 +9,25 @@
 # -------------------------------------------------------------------------
 
 
-from cwatm.hydrological_modules.miscInitial import miscInitial
-from cwatm.hydrological_modules.evaporationPot import evaporationPot
-from cwatm.hydrological_modules.snow_frost import snow_frost
-from cwatm.hydrological_modules.soil import soil
-from cwatm.hydrological_modules.landcoverType import landcoverType
-from cwatm.hydrological_modules.sealed_water import sealed_water
-from cwatm.hydrological_modules.evaporation import evaporation
-from cwatm.hydrological_modules.groundwater_modflow.modflow_transient import (
+from .hydrological_modules.miscInitial import miscInitial
+from .hydrological_modules.evaporationPot import evaporationPot
+from .hydrological_modules.snow_frost import snow_frost
+from .hydrological_modules.soil import soil
+from .hydrological_modules.landcoverType import landcoverType
+from .hydrological_modules.sealed_water import sealed_water
+from .hydrological_modules.evaporation import evaporation
+from .hydrological_modules.groundwater_modflow.modflow_transient import (
     groundwater_modflow,
 )
-from cwatm.hydrological_modules.water_demand import water_demand
-from cwatm.hydrological_modules.interception import interception
-from cwatm.hydrological_modules.runoff_concentration import runoff_concentration
-from cwatm.hydrological_modules.lakes_res_small import lakes_res_small
-from cwatm.hydrological_modules.waterbalance import waterbalance
-from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
+from .hydrological_modules.water_demand import water_demand
+from .hydrological_modules.interception import interception
+from .hydrological_modules.runoff_concentration import runoff_concentration
+from .hydrological_modules.lakes_res_small import lakes_res_small
+from .hydrological_modules.waterbalance import waterbalance
+from .hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
-from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
+from .hydrological_modules.lakes_reservoirs import lakes_reservoirs
 
 
 class CWATModel_ini:
@@ -43,7 +43,6 @@ class CWATModel_ini:
         defines the mask map and the outlet points
         initialization of the hydrological modules
         """
-
 
         self.misc_module = miscInitial(self)
         self.waterbalance_module = waterbalance(self)
