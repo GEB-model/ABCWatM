@@ -66,9 +66,6 @@ class miscInitial(object):
         # -----------------------------------------------------------------
         # Miscellaneous repeatedly used expressions (as suggested by GF)
 
-        # self.var.InvCellLength = 1.0 / self.var.cellLength
-        # self.var.InvCellArea = 1.0 / self.var.cellArea
-        # self.HRU.InvCellArea = 1.0 / self.HRU.cellArea  # checked
         # Inverse of pixel size [1/m]
         self.model.DtSec = 86400.0
         self.model.DtDay = self.model.DtSec / 86400

@@ -18,7 +18,6 @@ from numba import njit
 from cwatm.globals import binding
 from cwatm.data_handling import (
     checkOption,
-    loadmap,
 )
 
 from geb.workflows import TimingModule
@@ -247,88 +246,102 @@ class landcoverType(object):
         thetar3 = self.var.full_compressed(np.nan, dtype=np.float32)
 
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
+            # TODO: Change soil parameters in forests and grasslands
             land_use_indices = np.where(self.var.land_use_type == coverNum)
-            # for forest there is a special map, for the other land use types the same map is used
-            if coverType == "forest":
-                pre = "forest_"
-            else:
-                pre = ""
             # ksat in cm/d-1 -> m/dm
             self.var.KSat1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "KSat1") / 100, fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/ksat1"]
+                )
+                / 100,
+                fn=None,
+            )[land_use_indices]
             self.var.KSat2[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "KSat2") / 100, fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/ksat2"]
+                )
+                / 100,
+                fn=None,
+            )[land_use_indices]
             self.var.KSat3[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "KSat3") / 100, fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/ksat3"]
+                )
+                / 100,
+                fn=None,
+            )[land_use_indices]
             alpha1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "alpha1"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/alpha1"]
+                ),
+                fn=None,
+            )[land_use_indices]
             alpha2[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "alpha2"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/alpha2"]
+                ),
+                fn=None,
+            )[land_use_indices]
             alpha3[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "alpha3"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/alpha3"]
+                ),
+                fn=None,
+            )[land_use_indices]
             self.var.lambda1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "lambda1"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/lambda1"]
+                ),
+                fn=None,
+            )[land_use_indices]
             self.var.lambda2[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "lambda2"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/lambda2"]
+                ),
+                fn=None,
+            )[land_use_indices]
             self.var.lambda3[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "lambda3"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/lambda3"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetas1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetas1"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetas1"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetas2[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetas2"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetas2"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetas3[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetas3"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetas3"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetar1[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetar1"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetar1"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetar2[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetar2"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetar2"]
+                ),
+                fn=None,
+            )[land_use_indices]
             thetar3[land_use_indices] = self.model.data.to_HRU(
-                data=loadmap(pre + "thetar3"), fn=None
-            )[
-                land_use_indices
-            ]  # checked
+                data=self.model.data.grid.load(
+                    self.model.model_structure["grid"]["soil/thetar3"]
+                ),
+                fn=None,
+            )[land_use_indices]
 
         self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -550,9 +563,7 @@ class landcoverType(object):
         arnoBetaOro = (ElevationStD - 10.0) / (ElevationStD + 1500.0)
 
         # for CALIBRATION
-        arnoBetaOro = arnoBetaOro + self.model.data.to_HRU(
-            data=loadmap("arnoBeta_add"), fn=None
-        )  # checked
+        arnoBetaOro = arnoBetaOro + self.model.config["parameters"]["arnoBeta_add"]
         arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
 
         initial_humidy = 0.5
@@ -578,17 +589,22 @@ class landcoverType(object):
         # this is an old CWatM option that was removed. Assert that it was not configured.
         assert "rootFrac" not in binding
 
+        arnobeta_cover_types = {
+            "forest": 0.2,
+            "grassland": 0.0,
+            "irrPaddy": 0.2,
+            "irrNonPaddy": 0.2,
+        }
+
         for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
             land_use_indices = np.where(self.var.land_use_type == coverNum)[0]
 
-            arnoBeta = self.model.data.to_HRU(
-                data=loadmap(coverType + "_arnoBeta"), fn=None
-            )
+            arnoBeta = arnobeta_cover_types[coverType]
             if not isinstance(arnoBeta, float):
                 arnoBeta = arnoBeta[land_use_indices]
             self.var.arnoBeta[land_use_indices] = (arnoBetaOro + arnoBeta)[
                 land_use_indices
-            ]  # checked
+            ]
             self.var.arnoBeta[land_use_indices] = np.minimum(
                 1.2, np.maximum(0.01, self.var.arnoBeta[land_use_indices])
             )
@@ -958,7 +974,8 @@ class landcoverType(object):
             )
 
             totalstorage = (
-                np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat
+                np.sum(self.var.SnowCoverS, axis=0)
+                / self.model.snowfrost_module.numberSnowLayers
                 + self.var.interceptStor
                 + self.var.w1
                 + self.var.w2

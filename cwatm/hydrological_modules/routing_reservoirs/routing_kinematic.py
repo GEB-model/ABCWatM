@@ -9,17 +9,14 @@
 # -------------------------------------------------------------------------
 
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
-    defLdd2,
-    lddshort,
-    dirUpstream,
-    catchment1,
+    define_river_network,
     upstreamArea,
     kinematic,
 )
 
+import rasterio
 import numpy as np
-from cwatm.data_handling import loadmap, decompress, checkOption
-from cwatm.globals import maskinfo
+from cwatm.data_handling import checkOption
 
 
 class routing_kinematic(object):
@@ -37,8 +34,6 @@ class routing_kinematic(object):
     EWRef                 potential evaporation rate from water surface                                     m
     load_initial
     waterbalance_module
-    QInM3Old              Inflow from previous day                                                          m3
-    inflowM3              inflow to basin                                                                   m3
     DtSec                 number of seconds per timestep (default = 86400)                                  s
     waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --
     UpArea1               upstream area of a grid cell                                                      m2
@@ -111,55 +106,6 @@ class routing_kinematic(object):
         self.var = model.data.grid
         self.model = model
 
-    def catchment(self, point):
-        """
-        Get the catchment from "global"  LDD and a point
-
-        * load and create a river network
-        * calculate catchment upstream of point
-        """
-
-        ldd = loadmap("Ldd")
-        # self.var.lddCompress, dirshort, self.var.dirUp, self.var.dirupLen, self.var.dirupID, self.var.downstruct, self.var.catchment, self.var.dirDown, self.var.lendirDown = defLdd2(ldd)
-
-        # decompressing ldd from 1D -> 2D
-        dmap = maskinfo["maskall"].copy()
-        dmap[~maskinfo["maskflat"]] = ldd[:]
-        ldd2D = dmap.reshape(maskinfo["shape"]).astype(np.int64)
-        ldd2D[ldd2D.mask] = 0
-
-        # every cell gets an order starting from 0 ...
-        lddshortOrder = np.arange(maskinfo["mapC"][0])
-        # decompress this map to 2D
-        lddOrder = decompress(lddshortOrder)
-        lddOrder[maskinfo["mask"]] = -1
-        lddOrder = np.array(lddOrder.data, dtype=np.int64)
-
-        dirshort = lddshort(ldd2D, lddOrder)
-        dirUp, dirupLen, dirupID = dirUpstream(dirshort)
-
-        c1 = catchment1(dirUp, point)
-
-        # decompressing catchment from 1D -> 2D
-        dmap = maskinfo["maskall"].copy()
-        dmap[~maskinfo["maskflat"]] = c1[:]
-        c2 = dmap.reshape(maskinfo["shape"]).astype(np.int64)
-
-        if np.max(c2) == 0:
-            return -1, -1, -1
-
-        c3 = np.where(c2 == 1)
-
-        d1, d2 = min(c3[0]), max(c3[0] + 1)
-        d3, d4 = min(c3[1]), max(c3[1] + 1)
-
-        c4 = c2[d1:d2, d3:d4]
-
-        return c4, d3, d1
-
-    # --------------------------------------------------------------------------
-    # --------------------------------------------------------------------------
-
     def initial(self):
         """
         Initial part of the routing module
@@ -170,8 +116,10 @@ class routing_kinematic(object):
         * calculate manning's roughness coefficient
         """
 
-        ldd = loadmap("Ldd")
-        # l1 = decompress(ldd)
+        with rasterio.open(
+            self.model.model_structure["grid"]["routing/kinematic/ldd"]
+        ) as src:
+            ldd = src.read(1)
 
         (
             self.var.lddCompress,
@@ -183,7 +131,7 @@ class routing_kinematic(object):
             self.var.catchment,
             self.var.dirDown,
             self.var.lendirDown,
-        ) = defLdd2(ldd)
+        ) = define_river_network(ldd, self.model.data.grid)
 
         # self.var.ups = upstreamArea(dirDown, dirshort, self.var.cellArea)
         self.var.UpArea1 = upstreamArea(
@@ -196,23 +144,39 @@ class routing_kinematic(object):
         # ---------------------------------------------------------------
         # Calibration
         # mannings roughness factor 0.1 - 10.0
-        manningsFactor = loadmap("manningsN")
 
         # number of substep per day
         self.var.noRoutingSteps = 24
         # kinematic wave parameter: 0.6 is for broad sheet flow
-        self.var.beta = loadmap("chanBeta")
+        self.var.beta = 0.6  # TODO: Make this a parameter
         # Channel Manning's n
-        self.var.chanMan = loadmap("chanMan") * manningsFactor
+        self.var.chanMan = (
+            self.var.load(
+                self.model.model_structure["grid"]["routing/kinematic/mannings"]
+            )
+            * self.model.config["parameters"]["manningsN"]
+        )
         # Channel gradient (fraction, dy/dx)
-        self.var.chanGrad = np.maximum(loadmap("chanGrad"), loadmap("chanGradMin"))
+        minimum_channel_gradient = 0.0001
+        self.var.chanGrad = np.maximum(
+            self.var.load(
+                self.model.model_structure["grid"]["routing/kinematic/channel_slope"]
+            ),
+            minimum_channel_gradient,
+        )
         # Channel length [meters]
-        self.var.chanLength = loadmap("chanLength")
+        self.var.chanLength = self.var.load(
+            self.model.model_structure["grid"]["routing/kinematic/channel_length"]
+        )
         # Channel bottom width [meters]
-        self.var.chanWidth = loadmap("chanWidth")
+        self.var.chanWidth = self.var.load(
+            self.model.model_structure["grid"]["routing/kinematic/channel_width"]
+        )
 
         # Bankfull channel depth [meters]
-        self.var.chanDepth = loadmap("chanDepth")
+        self.var.chanDepth = self.var.load(
+            self.model.model_structure["grid"]["routing/kinematic/channel_depth"]
+        )
 
         # -----------------------------------------------
         # Inverse of beta for kinematic wave
@@ -232,7 +196,6 @@ class routing_kinematic(object):
         # Cross-sectional area at half bankfull [m2]
         # This can be used to initialise channel flow (see below)
         # TotalCrossSectionAreaHalfBankFull = 0.5 * self.var.TotalCrossSectionAreaBankFull
-        # TotalCrossSectionAreaInitValue = loadmap('TotalCrossSectionAreaInitValue')
         self.var.totalCrossSectionArea = 0.5 * self.var.totalCrossSectionAreaBankFull
         # Total cross-sectional area [m2]: if initial value in binding equals -9999 the value at half bankfull is used,
 
@@ -297,13 +260,13 @@ class routing_kinematic(object):
         #    self.var.readAvlChannelStorage = np.where(self.var.readAvlChannelStorage < (0.0005 * self.var.cellArea),0.,self.var.readAvlChannelStorage)
 
         # factor for evaporation from lakes, reservoirs and open channels
-        self.var.lakeEvaFactor = self.var.full_compressed(
-            0, dtype=np.float32
-        ) + loadmap("lakeEvaFactor")
+        self.var.lakeEvaFactor = (
+            self.var.full_compressed(0, dtype=np.float32)
+            + self.model.config["parameters"]["lakeEvaFactor"]
+        )
 
         if checkOption("calcWaterBalance"):
-            self.var.catchmentAll = (loadmap("MaskMap") * 0.0).astype(int)
-            # self.var.catchmentNo = int(loadmap('CatchmentNo'))
+            self.var.catchmentAll = self.model.data.grid.full_compressed(0.0)
             self.var.sumbalance = 0
 
     def dynamic(self, openWaterEvap, channel_abstraction_m, returnFlow):
@@ -331,9 +294,7 @@ class routing_kinematic(object):
 
         EWRefact = self.var.lakeEvaFactor * self.model.data.to_grid(
             HRU_data=self.model.data.HRU.EWRef, fn="weightedmean"
-        ) - self.model.data.to_grid(
-            HRU_data=openWaterEvap, fn="weightedmean"
-        )  # checked
+        ) - self.model.data.to_grid(HRU_data=openWaterEvap, fn="weightedmean")
         # evaporation from channel minus the calculated evaporation from rainfall
         EvapoChannel = EWRefact * channelFraction * self.var.cellArea
         # EvapoChannel = self.var.EWRef * channelFraction * self.var.cellArea
@@ -407,13 +368,6 @@ class routing_kinematic(object):
         # riverbedExchangeDt = self.var.riverbedExchangeM3 / self.var.noRoutingSteps
         # del self.var.riverbedExchangeM3
 
-        if checkOption("inflow"):
-            self.var.QDelta = (
-                self.var.inflowM3 - self.var.QInM3Old
-            ) / self.var.noRoutingSteps
-            # difference between old and new inlet flow  per sub step
-            # in order to calculate the amount of inlet flow in the routing loop
-
         WDAddM3Dt = 0
         # WDAddM3Dt = self.var.act_SurfaceWaterAbstract.copy() #MS CWatM edit Shouldn't this only be from the river abstractions? Currently includes the larger reservoir...
         WDAddMDt = channel_abstraction_m
@@ -461,13 +415,6 @@ class routing_kinematic(object):
             sideflowChanM3 -= WDAddM3Dt
             # minus waterdemand + returnflow
 
-            if checkOption("inflow"):
-                self.var.inflowDt = (
-                    self.var.QInM3Old + (subrouting_step + 1) * self.var.QDelta
-                ) / self.var.noRoutingSteps
-                # flow from inlets per sub step
-                sideflowChanM3 += self.var.inflowDt
-
             lakesResOut, lakeOutflowDis = (
                 self.model.lakes_reservoirs_module.dynamic_inloop(subrouting_step)
             )
@@ -505,9 +452,6 @@ class routing_kinematic(object):
             * self.var.chanLength
             * self.var.discharge**self.var.beta
         )
-
-        if checkOption("inflow"):
-            self.var.QInM3Old = self.var.inflowM3.copy()
 
         if checkOption("calcWaterBalance"):
             self.model.waterbalance_module.waterBalanceCheck(

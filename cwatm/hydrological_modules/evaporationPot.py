@@ -10,8 +10,6 @@
 
 import numpy as np
 from cwatm.data_handling import (
-    loadmap,
-    loadmap,
     cbinding,
 )
 from numba import njit
@@ -88,9 +86,9 @@ class evaporationPot(object):
             data=self.var.crop_factor_calibration_factor, fn=None
         )
 
-        self.var.AlbedoCanopy = loadmap("AlbedoCanopy")
-        self.var.AlbedoSoil = loadmap("AlbedoSoil")
-        self.var.AlbedoWater = loadmap("AlbedoWater")
+        self.var.AlbedoCanopy = 0.23
+        self.var.AlbedoSoil = 0.15
+        self.var.AlbedoWater = 0.05
 
     def dynamic(self):
         """

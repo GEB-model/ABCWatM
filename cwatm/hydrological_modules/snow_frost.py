@@ -8,14 +8,9 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import *
+from cwatm.data_handling import checkOption
 import numpy as np
 import math
-
-try:
-    import cupy as cp
-except (ModuleNotFoundError, ImportError):
-    pass
 
 
 class snow_frost(object):
@@ -86,11 +81,10 @@ class snow_frost(object):
         * loads the parameter for frost
         """
 
-        self.var.numberSnowLayersFloat = loadmap("NumberSnowLayers")  # default 3
-        self.var.numberSnowLayers = int(self.var.numberSnowLayersFloat)
-        self.var.glaciertransportZone = int(
-            loadmap("GlacierTransportZone")
-        )  # default 1 -> highest zone is transported to middle zone
+        self.numberSnowLayers = 3  # default 3
+        self.var.glaciertransportZone = (
+            1.0  # default 1 -> highest zone is transported to middle zone
+        )
 
         # Difference between (average) air temperature at average elevation of
         # pixel and centers of upper- and lower elevation zones [deg C]
@@ -142,16 +136,13 @@ class snow_frost(object):
             ]
         )
 
-        # divNo = 1./float(self.var.numberSnowLayers)
-        # deltaNorm = np.linspace(divNo/2, 1-divNo/2, self.var.numberSnowLayers)
+        # divNo = 1./float(self.numberSnowLayers)
+        # deltaNorm = np.linspace(divNo/2, 1-divNo/2, self.numberSnowLayers)
         # self.var.deltaInvNorm = norm.ppf(deltaNorm)
-        self.var.deltaInvNorm = dn[self.var.numberSnowLayers]
+        self.var.deltaInvNorm = dn[self.numberSnowLayers]
 
-        # self.var.DeltaTSnow =  uNorm[self.var.numberSnowLayers] * ElevationStD * loadmap('TemperatureLapseRate')
-        # self.var.DeltaTSnow = 0.9674 * ElevationStD * loadmap('TemperatureLapseRate')
-        self.var.DeltaTSnow = ElevationStD * self.model.data.to_HRU(
-            data=loadmap("TemperatureLapseRate"), fn=None
-        )  # checked
+        TemperatureLapseRate = 0.0065
+        self.var.DeltaTSnow = ElevationStD * TemperatureLapseRate
 
         self.var.SnowDayDegrees = 0.9856
         # day of the year to degrees: 360/365.25 = 0.9856
@@ -159,15 +150,16 @@ class snow_frost(object):
         # self.var.IceDayDegrees = 1.915
         self.var.IceDayDegrees = 180.0 / (259 - self.var.summerSeasonStart)
         # days of summer (15th June-15th Sept.) to degree: 180/(259-165)
-        self.var.SnowSeason = loadmap("SnowSeasonAdj") * 0.5
+        SnowSeasonAdj = 0.001
+        self.var.SnowSeason = SnowSeasonAdj * 0.5
         # default value of range  of seasonal melt factor is set to 0.001 m C-1 day-1
         # 0.5 x range of sinus function [-1,1]
-        self.var.TempSnow = loadmap("TempSnow")
-        self.var.SnowFactor = loadmap("SnowFactor")
-        self.var.SnowMeltCoef = loadmap("SnowMeltCoef")
-        self.var.IceMeltCoef = loadmap("IceMeltCoef")
+        self.var.TempSnow = 1.0
+        self.var.SnowFactor = 1.0
+        self.var.SnowMeltCoef = self.model.config["parameters"]["SnowMeltCoef"]
+        self.var.IceMeltCoef = 0.007
 
-        self.var.TempMelt = loadmap("TempMelt")
+        self.var.TempMelt = 1.0
 
         # initialize snowcovers as many as snow layers -> read them as SnowCover1 , SnowCover2 ...
         # SnowCover1 is the highest zone
@@ -175,7 +167,7 @@ class snow_frost(object):
             self.model.data.to_HRU(
                 data=self.model.data.grid.full_compressed(0, dtype=np.float32), fn=None
             ),
-            (self.var.numberSnowLayers, 1),
+            (self.numberSnowLayers, 1),
         )
         self.var.SnowCoverS = self.model.data.HRU.load_initial(
             "SnowCoverS", default=SnowCoverS
@@ -187,10 +179,9 @@ class snow_frost(object):
         # ---------------------------------------------------------------------------------
         # Initial part of frost index
 
-        # self.var.Kfrost = loadmap('Kfrost')
-        self.var.Afrost = loadmap("Afrost")
-        self.var.FrostIndexThreshold = loadmap("FrostIndexThreshold")
-        self.var.SnowWaterEquivalent = loadmap("SnowWaterEquivalent")
+        self.var.Afrost = 0.97
+        self.var.FrostIndexThreshold = 56.0
+        self.var.SnowWaterEquivalent = 0.45
 
         self.var.FrostIndex = self.model.data.HRU.load_initial(
             "FrostIndex",
@@ -249,7 +240,7 @@ class snow_frost(object):
             self.model.DtDay * 0.001 * 86400.0 * self.var.pr  # kg/m2/s to m/day
         )
 
-        for i in range(self.var.numberSnowLayers):
+        for i in range(self.numberSnowLayers):
             TavgS = tas_C + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
             # Temperature at center of each zone (temperature at zone B equals Tavg)
             # i=0 -> highest zone
@@ -322,9 +313,9 @@ class snow_frost(object):
                     self.var.frostindexS[i] + FrostIndexChangeRate * self.model.DtDay, 0
                 )
 
-        Snow /= self.var.numberSnowLayersFloat
-        self.var.Rain /= self.var.numberSnowLayersFloat
-        self.var.SnowMelt /= self.var.numberSnowLayersFloat
+        Snow /= self.numberSnowLayers
+        self.var.Rain /= self.numberSnowLayers
+        self.var.SnowMelt /= self.numberSnowLayers
         # all in pixel
 
         # DEBUG Snow
@@ -333,7 +324,7 @@ class snow_frost(object):
         #         [Snow],  # In
         #         [self.var.SnowMelt],  # Out
         #         [self.var.prevSnowCover],   # prev storage
-        #         [np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat],
+        #         [np.sum(self.var.SnowCoverS, axis=0) / self.numberSnowLayers],
         #         "Snow1", False)
 
         # ---------------------------------------------------------------------------------
@@ -347,7 +338,7 @@ class snow_frost(object):
             * Kfrost
             * np.minimum(
                 1.0,
-                (np.sum(self.var.SnowCoverS, axis=0) / self.var.numberSnowLayersFloat)
+                (np.sum(self.var.SnowCoverS, axis=0) / self.numberSnowLayers)
                 / self.var.SnowWaterEquivalent,
             )
         )

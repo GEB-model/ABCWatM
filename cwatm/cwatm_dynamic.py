@@ -31,7 +31,6 @@ class CWATModel_dyn:
         self.evaporationPot_module.dynamic()
         timer.new_split("PET")
 
-        # self.inflow_module.dynamic()
         self.lakes_reservoirs_module.dynamic()
         timer.new_split("Waterbodies")
 

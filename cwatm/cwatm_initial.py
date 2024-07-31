@@ -11,7 +11,6 @@
 
 from cwatm.hydrological_modules.miscInitial import miscInitial
 from cwatm.hydrological_modules.evaporationPot import evaporationPot
-from cwatm.hydrological_modules.inflow import inflow
 from cwatm.hydrological_modules.snow_frost import snow_frost
 from cwatm.hydrological_modules.soil import soil
 from cwatm.hydrological_modules.landcoverType import landcoverType
@@ -29,10 +28,6 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
 from cwatm.hydrological_modules.lakes_reservoirs import lakes_reservoirs
-from cwatm.data_handling import (
-    loadsetclone,
-    loadmap,
-)
 
 
 class CWATModel_ini:
@@ -49,16 +44,10 @@ class CWATModel_ini:
         initialization of the hydrological modules
         """
 
-        # ----------------------------------------
-        ## MakMap: the maskmap is flexible e.g. col,row,x1,y1  or x1,x2,y1,y2
-        # set the maskmap
-        self.MaskMap = loadsetclone("MaskMap")
 
-        # include all the hydrological modules
         self.misc_module = miscInitial(self)
         self.waterbalance_module = waterbalance(self)
         self.evaporationPot_module = evaporationPot(self)
-        self.inflow_module = inflow(self)
         self.snowfrost_module = snow_frost(self)
         self.soil_module = soil(self)
         self.landcoverType_module = landcoverType(self)
@@ -74,13 +63,12 @@ class CWATModel_ini:
 
         self.misc_module.initial()
 
-        self.inflow_module.initial()
-
         self.evaporationPot_module.initial()
 
-        ElevationStD = self.data.to_HRU(
-            data=loadmap("ElevationStD"), fn=None
-        )  # checked
+        ElevationStD = self.data.grid.load(
+            self.model_structure["grid"]["landsurface/topo/elevation_STD"]
+        )
+        ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
 
         self.snowfrost_module.initial(ElevationStD)
         self.soil_module.initial()

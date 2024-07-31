@@ -11,9 +11,6 @@
 
 import numpy as np
 from numba import njit
-from cwatm.globals import maskinfo
-from cwatm.data_handling import compressArray
-
 
 def Compress(map, mask):
     """
@@ -27,20 +24,6 @@ def Compress(map, mask):
     maskmap = np.ma.masked_array(map, mask)
     compmap = np.ma.compressed(maskmap)
     return compmap
-
-
-def decompress1(map):
-    """
-    Decompressing map from 1D to 2D with missing values
-
-    :param map: compressed map
-    :return: decompressed 2D map
-    """
-
-    dmap = maskinfo["maskall"].copy()
-    dmap[~maskinfo["maskflat"]] = map[:]
-    dmap = dmap.reshape(maskinfo["shape"])
-    return dmap
 
 
 def postorder(dirUp, catchment, node, catch, dirDown):
@@ -102,7 +85,7 @@ def dirUpstream(dirshort):
     """
 
     # -- up direction
-    dirUp = list([] for i in range(maskinfo["mapC"][0]))
+    dirUp = list([] for i in range(dirshort.shape[0]))
     for i in range(dirshort.shape[0]):
         value = dirshort[i]
         if value > -1:
@@ -134,15 +117,17 @@ def dirDownstream(dirUp, lddcomp, dirDown):
     :return: direction downstream
     """
 
-    catchment = np.array(np.zeros(maskinfo["mapC"][0]), dtype=np.int64)
+    catchment = np.zeros_like(
+        lddcomp, dtype=np.int64
+    )  # not sure whether int64 is necessary
     j = 0
-    for pit in range(maskinfo["mapC"][0]):
+    for pit in range(lddcomp.shape[0]):
         if lddcomp[pit] == 5:
             j += 1
             postorder(dirUp, catchment, pit, j, dirDown)
             dirDown.append(pit)
             catchment[pit] = j
-    return np.array(dirDown).astype(np.int64), np.array(catchment).astype(np.int64)
+    return np.array(dirDown), np.array(catchment)
 
 
 @njit(cache=True)
@@ -195,28 +180,6 @@ def downstream1(dirUp, weight):
     return downstream
 
 
-def catchment1(dirUp, points):
-    """
-    calculates all cells which belongs to a catchment from point onward
-
-    :param dirUp:
-    :param points:
-    :return: subcatchment
-    """
-
-    subcatch = np.array(np.zeros(maskinfo["mapC"][0]), dtype=np.int64)
-    # if subcatchment = true ->  calculation of subcatchment: every point is calculated
-    # if false : calculation of catchment: only point calculated which are not inside a bigger catchment from another point
-
-    for cell in range(maskinfo["mapC"][0]):
-        j = points[cell]
-        if (j > 0) and (subcatch[cell] < 1):
-            dirDown = []
-            postorder(dirUp, subcatch, cell, j, dirDown)
-            subcatch[cell] = j
-    return subcatch
-
-
 def subcatchment1(dirUp, points, ups):
     """
     calculates subcatchments of points
@@ -227,18 +190,19 @@ def subcatchment1(dirUp, points, ups):
     :return: subcatchment
     """
 
-    subcatch = np.array(np.zeros(maskinfo["mapC"][0]), dtype=np.int64)
+    subcatch = np.zeros_like(
+        points, dtype=np.int64
+    )  # not sure whether int64 is necessary
     # if subcatchment = true ->  calculation of subcatchment: every point is calculated
     # if false : calculation of catchment: only point calculated which are not inside a bigger catchment from another point
 
     subs = {}
     # sort waterbodies of reverse upstream area
-    for cell in range(maskinfo["mapC"][0]):
+    for cell in range(points.size):
         if points[cell] > 0:
             subs[points[cell]] = [cell, ups[cell]]
     subsort = sorted(list(subs.items()), key=lambda x: x[1][1], reverse=True)
 
-    # for cell in xrange(maskinfo['mapC'][0]):
     for sub in subsort:
         j = sub[0]
         cell = sub[1][0]
@@ -249,39 +213,25 @@ def subcatchment1(dirUp, points, ups):
     return subcatch
 
 
-# ----------------------------------------------------------------
-
-
-def defLdd2(ldd):
+def define_river_network(ldd2D, grid):
     """
     defines river network
 
     :param ldd: river network
     :return: ldd variables
     """
+    # every cell gets an order starting from 0
+    lddOrder = grid.decompress(np.arange(grid.compressed_size), fillvalue=-1)
 
-    # decompressing ldd from 1D -> 2D
-    dmap = maskinfo["maskall"].copy()
-    dmap[~maskinfo["maskflat"]] = ldd[:]
-    # fill all masked areas with 0
-    ldd2D = dmap.reshape(maskinfo["shape"]).astype(np.int64).filled(0)
-
-    # every cell gets an order starting from 0 ...
-    lddshortOrder = np.arange(maskinfo["mapC"][0])
-    # decompress this map to 2D
-    lddOrder = decompress1(lddshortOrder)
-    lddOrder[maskinfo["mask"]] = -1
-    lddOrder = np.array(lddOrder.data, dtype=np.int64)
-
-    lddCompress, dirshort = lddrepair(ldd2D, lddOrder)
+    lddCompress, dirshort = lddrepair(ldd2D, lddOrder, grid)
     dirUp, dirupLen, dirupID = dirUpstream(dirshort)
 
     # for upstream calculation
-    inAr = np.arange(maskinfo["mapC"][0], dtype=np.int64)
+    inAr = np.arange(grid.compressed_size, dtype=np.int64)
     # each upstream pixel gets the id of the downstream pixel
     downstruct = downstream1(dirUp, inAr).astype(np.int64)
     # all pits gets a high number
-    downstruct[lddCompress == 5] = maskinfo["mapC"][0]
+    downstruct[lddCompress == 5] = grid.compressed_size
 
     # self.var.dirDown: direction downstream - from each cell the pointer to a downstream cell (can only be 1)
     # self.var.catchment: each catchment with a pit gets a own ID
@@ -300,20 +250,6 @@ def defLdd2(ldd):
         dirDown,
         lendirDown,
     )
-
-
-def lddshort(lddnp, lddOrder):
-    """
-    return short for calculating a catchment from a river network
-
-    :param lddnp: rivernetwork as 1D array
-    :param lddOrder:
-    :return: short ldd
-    """
-    dir = dirID(lddOrder, lddnp)
-    dir_compressed = compressArray(dir).astype(np.int64)
-
-    return dir_compressed
 
 
 @njit(cache=True)
@@ -396,7 +332,7 @@ def repairLdd2(ldd, dir):
     return ldd, dir
 
 
-def lddrepair(lddnp, lddOrder):
+def lddrepair(lddnp, lddOrder, grid):
     """
     repairs a river network
 
@@ -411,8 +347,8 @@ def lddrepair(lddnp, lddOrder):
     lddnp = repairLdd1(lddnp)
     dir = dirID(lddOrder, lddnp)
 
-    dir_compressed = compressArray(dir)
-    ldd_compressed = compressArray(lddnp)
+    dir_compressed = grid.compress(dir)
+    ldd_compressed = grid.compress(lddnp)
 
     ldd_compressed, dir_compressed = repairLdd2(ldd_compressed, dir_compressed)
 

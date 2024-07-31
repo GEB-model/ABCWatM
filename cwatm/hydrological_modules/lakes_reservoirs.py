@@ -12,15 +12,11 @@ import numpy as np
 
 from cwatm.data_handling import (
     checkOption,
-    loadmap,
-    decompress,
-    compressArray,
     returnBool,
 )
-from cwatm.globals import binding
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
     subcatchment1,
-    defLdd2,
+    define_river_network,
     upstream1,
 )
 
@@ -222,7 +218,7 @@ class lakes_reservoirs(object):
             output buffer = compressed buffer
             """
 
-            waterBody = decompress(self.var.waterBodyID)
+            waterBody = self.model.data.grid.decompress(self.var.waterBodyID)
             rows, cols = waterBody.shape
             buffer = np.full((rows, cols), 1.0e15)
             for y in range(rows):
@@ -243,7 +239,7 @@ class lakes_reservoirs(object):
                                     if id < buffer[yy, xx]:
                                         buffer[yy, xx] = id
             buffer[buffer == 1.0e15] = 0.0
-            return compressArray(buffer).astype(np.int64)
+            return self.model.data.grid.compress(buffer).astype(np.int64)
 
         water_body_data = pd.read_csv(
             self.model.model_structure["table"][
@@ -260,7 +256,11 @@ class lakes_reservoirs(object):
         ).set_index("waterbody_id")
 
         # load lakes/reservoirs map with a single ID for each lake/reservoir
-        self.var.waterBodyID = loadmap("waterBodyID").astype(np.int64)
+        self.var.waterBodyID = self.var.load(
+            self.model.model_structure["grid"]["routing/lakesreservoirs/lakesResID"]
+        ).astype(
+            np.int64
+        )  # not sure whether np.int64 is necessary
 
         assert (self.var.waterBodyID >= 0).all()
 
@@ -276,8 +276,6 @@ class lakes_reservoirs(object):
 
         # Create a buffer around water bodies as command areas for lakes and reservoirs
         rectangular = 1
-        if "buffer_waterbodies" in binding:
-            rectangular = int(loadmap("buffer_waterbodies"))
         self.var.waterBodyBuffer = buffer_waterbody(rectangular)
 
         # and again calculate outlets, because ID might have changed due to the operation before
@@ -287,7 +285,9 @@ class lakes_reservoirs(object):
         )
 
         # change ldd: put pits in where lakes are:
-        self.var.ldd_LR = np.where(self.var.waterBodyID > 0, 5, self.var.lddCompress)
+        ldd_LR = self.model.data.grid.decompress(
+            np.where(self.var.waterBodyID > 0, 5, self.var.lddCompress), fillvalue=0
+        )
 
         # create new ldd without lakes reservoirs
         (
@@ -300,7 +300,10 @@ class lakes_reservoirs(object):
             self.var.catchment_LR,
             self.var.dirDown_LR,
             self.var.lendirDown_LR,
-        ) = defLdd2(self.var.ldd_LR)
+        ) = define_river_network(
+            ldd_LR,
+            self.model.data.grid,
+        )
 
         # boolean map as mask map for compressing and decompressing
         self.var.compress_LR = self.var.waterBodyOut > 0
@@ -315,7 +318,6 @@ class lakes_reservoirs(object):
         # - 2 = reservoirs (regulated discharge)
         # - 1 = lakes (weirFormula)
         # - 0 = non lakes or reservoirs (e.g. wetland)
-        # self.var.waterBodyTyp = loadmap('waterBodyTyp').astype(np.int64)
 
         # waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
         self.var.waterBodyTypC = water_body_data.loc[self.var.waterBodyIDC][
@@ -349,12 +351,16 @@ class lakes_reservoirs(object):
         chanwidth = 7.1 * np.power(self.var.lakeDis0C, 0.539)
 
         self.var.lakeAC = (
-            loadmap("lakeAFactor") * 0.612 * 2 / 3 * chanwidth * (2 * 9.81) ** 0.5
+            self.model.config["parameters"]["lakeAFactor"]
+            * 0.612
+            * 2
+            / 3
+            * chanwidth
+            * (2 * 9.81) ** 0.5
         )
 
         # ================================
         # Reservoirs
-        # REM: self.var.resVolumeC = np.compress(self.var.compress_LR, loadmap('waterBodyVolRes'))
         # if vol = 0 volu = 10 * area just to mimic all lakes are reservoirs
         # in [Million m3] -> converted to mio m3
 
@@ -371,8 +377,8 @@ class lakes_reservoirs(object):
             np.where(self.var.waterBodyTypC == 2, 1, self.var.waterBodyTypC),
         )
 
-        # a factor which increases evaporation from lake because of wind
-        self.var.lakeEvaFactor = loadmap("lakeEvaFactor")
+        # a factor which increases evaporation from lake because of wind TODO: use wind to set this factor
+        self.var.lakeEvaFactor = self.model.config["parameters"]["lakeEvaFactor"]
 
         # initial only the big arrays are set to 0, the  initial values are loaded inside the subrouines of lakes and reservoirs
         self.var.reslakeoutflow = self.model.data.grid.full_compressed(
@@ -527,31 +533,12 @@ class lakes_reservoirs(object):
         if self.model.current_timestep == 1 or (
             self.model.current_time.month == 1 and self.model.current_time.day == 1
         ):
-            year = self.model.current_time.year
-
             # - 3 = reservoirs and lakes (used as reservoirs but before the year of construction as lakes
             # - 2 = reservoirs (regulated discharge)
             # - 1 = lakes (weirFormula)
             # - 0 = non lakes or reservoirs (e.g. wetland)
             if returnBool("DynamicResAndLakes"):
                 raise NotImplementedError("DynamicResAndLakes not implemented yet")
-                if returnBool("dynamicLakesRes"):
-                    year = self.model.current_time.year
-                else:
-                    year = loadmap("fixLakesResYear")
-
-                self.var.waterBodyTypCTemp = np.where(
-                    (self.var.resYearC > year) & (self.var.waterBodyTypC == 2),
-                    0,
-                    self.var.waterBodyTypC,
-                )
-                self.var.waterBodyTypCTemp = np.where(
-                    (self.var.resYearC > year) & (self.var.waterBodyTypC == 3),
-                    1,
-                    self.var.waterBodyTypCTemp,
-                )
-                # self.var.waterBodyTypTemp = np.where((self.var.resYear > year) & (self.var.waterBodyTyp == 2), 0, self.var.waterBodyTyp)
-                # self.var.waterBodyTypTemp = np.where((self.var.resYear > year) & (self.var.waterBodyTyp == 3), 1, self.var.waterBodyTypTemp)
             else:
                 self.var.waterBodyTypCTemp = self.var.waterBodyTypC.copy()
 
@@ -815,7 +802,6 @@ class lakes_reservoirs(object):
         # 3.                  # outflow from upstream lakes
 
         # ----------
-        # outflow lakes res -> inflow ldd_LR
         # 1. out = upstream1(self_.var.downstruct, self_.var.outflow)
 
         # collect discharge from above waterbodies
@@ -833,12 +819,6 @@ class lakes_reservoirs(object):
             np.where(self.var.waterBodyOut > 0, inflow, 0.0) / self.var.noRoutingSteps
             + self.var.outLake
         )
-
-        if checkOption("inflow"):
-            # if inflow ( from module inflow) goes to a lake this is not counted, because lakes,reservoirs are dislinked from the network
-            inflow2basin = laketotal(self.var.inflowDt, self.var.waterBodyID)
-            inflow2basin = np.where(self.var.waterBodyOut > 0, inflow2basin, 0.0)
-            inflow = inflow + inflow2basin
 
         # calculate total inflow into lakes and compress it to waterbodie outflow point
         # inflow to lake is discharge from upstream network + runoff directly into lake + outflow from upstream lakes

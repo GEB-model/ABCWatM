@@ -10,7 +10,7 @@
 
 import numpy as np
 import rasterio
-from cwatm.data_handling import loadmap, checkOption
+from cwatm.data_handling import checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
 from numba import njit, prange
@@ -708,9 +708,6 @@ class soil(object):
         * Set soil depth
 
         """
-
-        # self.var.permeability = float(cbinding('permeability'))
-
         self.var.soilLayers = 3
         # set number of soil layers as global variable for numba
         global N_SOIL_LAYERS
@@ -725,10 +722,16 @@ class soil(object):
         self.var.percolationImp = self.model.data.to_HRU(
             data=np.maximum(
                 0,
-                np.minimum(1, loadmap("percolationImp") * loadmap("factor_interflow")),
+                np.minimum(
+                    1,
+                    self.model.data.grid.load(
+                        self.model.model_structure["grid"]["soil/percolation_impeded"]
+                    )
+                    * self.model.config["parameters"]["factor_interflow"],
+                ),
             ),
             fn=None,
-        )  # checked
+        )
 
         # ------------ Preferential Flow constant ------------------------------------------
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
@@ -741,9 +744,7 @@ class soil(object):
             )
 
         # ------------ Preferential Flow constant ------------------------------------------
-        self.var.cPrefFlow = self.model.data.to_HRU(
-            data=loadmap("preferentialFlowConstant"), fn=None
-        )
+        self.var.cPrefFlow = self.model.config["parameters"]["preferentialFlowConstant"]
 
         def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
             out_dir = self.model.simulation_root / "plantFATE" / f"cell_{idx}"

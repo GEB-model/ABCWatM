@@ -1,4 +1,3 @@
-global maskinfo, binding, option
-maskinfo = {}
+global binding, option
 binding = {}
 option = {}

@@ -1,10 +1,5 @@
 from math import isclose
 import numpy as np
-from cwatm.data_handling import (
-    cbinding,
-    loadmap,
-    returnBool,
-)
 from cwatm.hydrological_modules.groundwater_modflow.modflow_model import (
     ModFlowSimulation,
 )
@@ -23,6 +18,8 @@ class groundwater_modflow:
     def __init__(self, model):
         self.var = model.data.grid
         self.model = model
+
+        self.depth_underlakes = 1.5
 
     def get_corrected_modflow_cell_area(self):
         return np.bincount(
@@ -154,14 +151,8 @@ class groundwater_modflow:
 
         assert self.hydraulic_conductivity.shape == self.specific_yield.shape
 
-        thickness = cbinding("thickness")
-        if is_float(thickness):
-            thickness = float(thickness)
-            thickness = np.full(
-                (nlay, self.domain["nrow"], self.domain["ncol"]), thickness
-            )
-        else:
-            raise NotImplementedError
+        thickness = 100.0
+        thickness = np.full((nlay, self.domain["nrow"], self.domain["ncol"]), thickness)
 
         # load elevation
         with rasterio.open(
@@ -174,8 +165,9 @@ class groundwater_modflow:
             topography[self.modflow_basin_mask == True] = np.nan
 
         # load chanRatio
-        with rasterio.open(cbinding("chanRatio"), "r") as src:
-            self.var.channel_ratio = self.var.compress(src.read(1))
+        self.var.channel_ratio = self.var.load(
+            self.model.model_structure["grid"]["routing/kinematic/channel_ratio"]
+        )
 
         assert self.hydraulic_conductivity.ndim == 3
         assert self.hydraulic_conductivity.shape[0] == nlay
@@ -269,60 +261,13 @@ class groundwater_modflow:
             fn="weightedmean",
         )
 
-        if returnBool(
-            "use_soildepth_as_GWtop"
-        ):  # topographic minus soil depth map is used as groundwater upper boundary
-            if returnBool(
-                "correct_soildepth_underlakes"
-            ):  # in some regions or models soil depth is around zeros under lakes, so it should be similar than neighboring cells
-                waterBodyID_temp = loadmap("waterBodyID").astype(np.int64)
-                soil_depth_temp = np.where(
-                    waterBodyID_temp != 0,
-                    np.nanmedian(self.var.total_soil_depth)
-                    - loadmap("depth_underlakes"),
-                    self.var.total_soil_depth,
-                )
-                soil_depth_temp = np.where(
-                    self.var.total_soil_depth < 0.4,
-                    np.nanmedian(self.var.total_soil_depth),
-                    self.var.total_soil_depth,
-                )  # some cells around lake have small soil depths
-                soildepth_modflow = self.CWATM2modflow(
-                    self.var.decompress(soil_depth_temp)
-                )
-                soildepth_modflow[np.isnan(soildepth_modflow)] = 0
-            else:
-                soildepth_modflow = self.CWATM2modflow(
-                    self.var.decompress(self.var.total_soil_depth)
-                )
-                soildepth_modflow[np.isnan(soildepth_modflow)] = 0
-        else:  # topographic map is used as groundwater upper boundary
-            if returnBool(
-                "correct_soildepth_underlakes"
-            ):  # we make a manual correction
-                waterBodyID_temp = loadmap("waterBodyID").astype(np.int64)
-                soil_depth_temp = np.where(
-                    waterBodyID_temp != 0, loadmap("depth_underlakes"), 0
-                )
-                soildepth_modflow = self.CWATM2modflow(
-                    self.var.decompress(soil_depth_temp)
-                )
-                soildepth_modflow[np.isnan(soildepth_modflow)] = 0
-            else:
-                print(
-                    "=> Topography is used as upper limit of groundwater. No correction of depth under lakes"
-                )
-                soildepth_modflow = np.zeros(
-                    (self.domain["nrow"], self.domain["ncol"]), dtype=np.float32
-                )
-
         soildepth_modflow = self.CWATM2modflow(
             self.var.decompress(self.var.total_soil_depth)
         )
         soildepth_modflow[np.isnan(soildepth_modflow)] = 0
 
-        self.var.leakageriver_factor = loadmap("leakageriver_permea")  # in m/day
-        self.var.leakagelake_factor = loadmap("leakagelake_permea")  # in m/day
+        self.var.leakageriver_factor = 0.001  # in m/day
+        self.var.leakagelake_factor = 0.001  # in m/day
 
         self.layer_boundaries = np.empty(
             (nlay + 1, self.domain["nrow"], self.domain["ncol"]), dtype=np.float64
@@ -330,9 +275,9 @@ class groundwater_modflow:
         self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
         self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
 
+        self.initial_water_table_depth = 2
         self.model.data.modflow.head = self.model.data.modflow.load_initial(
-            "head",
-            default=self.layer_boundaries[0] - loadmap("initial_water_table_depth"),
+            "head", default=self.layer_boundaries[0] - self.initial_water_table_depth
         )
 
         self.modflow = ModFlowSimulation(

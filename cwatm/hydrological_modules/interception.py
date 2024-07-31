@@ -9,7 +9,6 @@
 # -------------------------------------------------------------------------
 
 from cwatm.data_handling import (
-    loadmap,
     checkOption,
 )
 import numpy as np
@@ -56,11 +55,20 @@ class interception(object):
             default=self.model.data.HRU.full_compressed(0, dtype=np.float32),
         )
 
+        minimum_intercept_capacity = {
+            "forest": 0.001,
+            "grassland": 0.001,
+            "irrPaddy": 0.001,
+            "irrNonPaddy": 0.001,
+            "sealed": 0.001,
+            "water": 0.0,
+        }
+
         for coverNum, coverType in enumerate(self.model.coverTypes):
             coverType_indices = np.where(self.var.land_use_type == coverNum)
-            self.var.minInterceptCap[coverType_indices] = self.model.data.to_HRU(
-                data=loadmap(coverType + "_minInterceptCap"), fn=None
-            )
+            self.var.minInterceptCap[coverType_indices] = minimum_intercept_capacity[
+                coverType
+            ]
 
         assert not np.isnan(self.var.interceptStor).any()
         assert not np.isnan(self.var.minInterceptCap).any()
