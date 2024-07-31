@@ -25,7 +25,6 @@ from cwatm.hydrological_modules.soil import (
 )
 from cwatm.data_handling import (
     cbinding,
-    checkOption,
 )
 
 from geb.workflows import TimingModule
@@ -474,7 +473,7 @@ class water_demand:
         )
         timer.new_split("Irrigation")
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
                 influxes=[irrigation_water_withdrawal_m],
@@ -538,7 +537,7 @@ class water_demand:
             + livestock_return_flow_m
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="sum",
                 influxes=[],

@@ -8,7 +8,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import checkOption
 import numpy as np
 import math
 
@@ -208,7 +207,7 @@ class snow_frost(object):
         Todo:
             calculate sinus shape function for the southern hemisspere
         """
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.var.prevSnowCover = np.sum(self.var.SnowCoverS, axis=0)
 
         day_of_year = self.model.current_time.timetuple().tm_yday
@@ -319,7 +318,7 @@ class snow_frost(object):
         # all in pixel
 
         # DEBUG Snow
-        # if checkOption('calcWaterBalance'):
+        # if self.model.CHECK_WATER_BALANCE:
         #     self.var.waterbalance_module.waterBalanceCheck(
         #         [Snow],  # In
         #         [self.var.SnowMelt],  # Out

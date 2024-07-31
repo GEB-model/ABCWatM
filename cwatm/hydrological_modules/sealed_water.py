@@ -9,7 +9,6 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
-from cwatm.data_handling import checkOption
 
 
 class sealed_water(object):
@@ -77,7 +76,7 @@ class sealed_water(object):
             self.var.actualET[sealed_area] + openWaterEvap[sealed_area]
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
                 influxes=[

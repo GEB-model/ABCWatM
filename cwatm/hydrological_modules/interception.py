@@ -8,9 +8,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import (
-    checkOption,
-)
 import numpy as np
 import xarray as xr
 
@@ -97,7 +94,7 @@ class interception(object):
 
         """
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             interceptStor_pre = self.var.interceptStor.copy()
 
         interceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -166,7 +163,7 @@ class interception(object):
         # interceptEvap is the first flux in ET, soil evapo and transpiration are added later
         self.var.actualET = self.var.interceptEvap + self.var.snowEvap
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],  # In

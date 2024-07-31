@@ -1,3 +1,2 @@
-global binding, option
+global binding
 binding = {}
-option = {}

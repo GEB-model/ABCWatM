@@ -10,7 +10,6 @@
 
 import numpy as np
 import rasterio
-from cwatm.data_handling import checkOption
 from pathlib import Path
 from geb.workflows import TimingModule
 from numba import njit, prange
@@ -936,7 +935,7 @@ class soil(object):
         Dependend on soil depth, soil hydraulic parameters
         """
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
             w3_pre = self.var.w3.copy()
@@ -1738,7 +1737,7 @@ class soil(object):
             + self.var.actTransTotal[bioarea]
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
                 influxes=[

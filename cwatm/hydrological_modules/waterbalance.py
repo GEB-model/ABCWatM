@@ -9,7 +9,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 import numpy as np
-from cwatm.data_handling import checkOption
 
 
 class waterbalance(object):

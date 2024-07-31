@@ -10,10 +10,6 @@
 import pandas as pd
 import numpy as np
 
-from cwatm.data_handling import (
-    checkOption,
-    returnBool,
-)
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
     subcatchment1,
     define_river_network,
@@ -407,7 +403,7 @@ class lakes_reservoirs(object):
             0, dtype=np.float32
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.var.lakedaycorrect = self.model.data.grid.full_compressed(
                 0, dtype=np.float32
             )
@@ -537,7 +533,7 @@ class lakes_reservoirs(object):
             # - 2 = reservoirs (regulated discharge)
             # - 1 = lakes (weirFormula)
             # - 0 = non lakes or reservoirs (e.g. wetland)
-            if returnBool("DynamicResAndLakes"):
+            if self.model.DynamicResAndLakes:
                 raise NotImplementedError("DynamicResAndLakes not implemented yet")
             else:
                 self.var.waterBodyTypCTemp = self.var.waterBodyTypC.copy()
@@ -569,7 +565,7 @@ class lakes_reservoirs(object):
             # ***** LAKE
             # ************************************************************
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 oldlake = self.var.lakeStorageC.copy()
 
             # Lake inflow in [m3/s]
@@ -656,7 +652,7 @@ class lakes_reservoirs(object):
                     self.var.lakeStorage, self.var.decompress_LR, self.var.lakeStorageC
                 )
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 np.put(self.var.lakedaycorrect, self.var.decompress_LR, lakedaycorrectC)
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[self.var.lakeIn],  # In [m3/s]
@@ -713,7 +709,7 @@ class lakes_reservoirs(object):
             # ***** Reservoirs
             # ************************************************************
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 oldres = self.var.reservoirStorageM3C.copy()
 
             # QResInM3Dt = inflowC
@@ -772,7 +768,7 @@ class lakes_reservoirs(object):
                     self.var.reservoirStorageM3C,
                 )
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 self.model.waterbalance_module.waterBalanceCheck(
                     influxes=[inflowC / self.var.dtRouting],  # In
                     outfluxes=[
@@ -791,7 +787,7 @@ class lakes_reservoirs(object):
         # ---------------------------------------------------------------------------------------------
         # lake and reservoirs
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             prereslake = self.var.lakeResStorageC.copy()
             prelake = self.var.lakeStorageC.copy()
 
@@ -923,8 +919,9 @@ class lakes_reservoirs(object):
         outLakein = laketotal(outLake1, self.var.waterBodyID)
         # use only the value of the outflow point
         self.var.outLake = np.where(self.var.waterBodyOut > 0, outLakein, 0.0)
-        if self.var.noRoutingSteps == (NoRoutingExecuted + 1) and checkOption(
-            "calcWaterBalance"
+        if (
+            self.var.noRoutingSteps == (NoRoutingExecuted + 1)
+            and self.model.CHECK_WATER_BALANCE
         ):
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",

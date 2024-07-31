@@ -16,7 +16,6 @@ from cwatm.hydrological_modules.routing_reservoirs.routing_sub import (
 
 import rasterio
 import numpy as np
-from cwatm.data_handling import checkOption
 
 
 class routing_kinematic(object):
@@ -254,18 +253,13 @@ class routing_kinematic(object):
         # self.var.riverbedExchangeM = self.var.load_initial("riverbedExchange", default = globals.inZero.copy())
         # self.var.discharge = self.var.chanQKin.copy()
 
-        # if checkOption('includeWaterDemand'):
-        #    self.var.readAvlChannelStorage = 0.95 * self.var.channelStorage
-        #    # to avoid small values and to avoid surface water abstractions from dry channels (>= 0.5mm)
-        #    self.var.readAvlChannelStorage = np.where(self.var.readAvlChannelStorage < (0.0005 * self.var.cellArea),0.,self.var.readAvlChannelStorage)
-
         # factor for evaporation from lakes, reservoirs and open channels
         self.var.lakeEvaFactor = (
             self.var.full_compressed(0, dtype=np.float32)
             + self.model.config["parameters"]["lakeEvaFactor"]
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.var.catchmentAll = self.model.data.grid.full_compressed(0.0)
             self.var.sumbalance = 0
 
@@ -280,7 +274,7 @@ class routing_kinematic(object):
         * calculate kinematic wave -> using C++ library for computational speed
         """
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.var.prechannelStorageM3 = self.var.channelStorageM3.copy()
             self.var.prelakeResStorage = self.var.lakeResStorage.copy()
 
@@ -453,7 +447,7 @@ class routing_kinematic(object):
             * self.var.discharge**self.var.beta
         )
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 influxes=[self.var.lakeResInflowM],  # In
                 outfluxes=[

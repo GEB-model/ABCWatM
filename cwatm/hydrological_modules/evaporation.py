@@ -8,13 +8,7 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import cbinding, checkOption
 import numpy as np
-
-try:
-    import cupy as cp
-except (ModuleNotFoundError, ImportError):
-    pass
 
 
 class evaporation(object):

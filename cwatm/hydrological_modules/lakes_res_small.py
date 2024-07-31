@@ -75,7 +75,7 @@ class lakes_res_small(object):
         area, location, initial average discharge, type: reservoir or lake) etc.
         """
 
-        if returnBool("useSmallLakes"):
+        if self.model.useSmallLakes:
 
             if returnBool("useResAndLakes") and returnBool("dynamicLakesRes"):
                 year = datetime.datetime(dateVar["currDate"].year, 1, 1)
@@ -187,7 +187,7 @@ class lakes_res_small(object):
             # ***** LAKE
             # ************************************************************
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 self.var.preSmalllakeStorage = self.var.smalllakeStorage.copy()
 
             # if (dateVar['curr'] == 998):
@@ -258,7 +258,7 @@ class lakes_res_small(object):
                 self.var.smalllakeVolumeM3, self.var.smalllakeArea
             )
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 self.var.waterbalance_module.waterBalanceCheck(
                     [self.var.smallLakeIn],  # In
                     [
@@ -280,7 +280,7 @@ class lakes_res_small(object):
         # ---------------------------------------------------------------------------------------------
         # Small lake and reservoirs
 
-        if returnBool("useSmallLakes"):
+        if self.model.useSmallLakes:
 
             # check years
             if dateVar["newStart"] or dateVar["newYear"]:
@@ -336,7 +336,7 @@ class lakes_res_small(object):
             # ------------------------------------------------------------
             # report(decompress(runoff_LR), "C:\work\output3/run.map")
 
-            if checkOption("calcWaterBalance"):
+            if self.model.CHECK_WATER_BALANCE:
                 self.var.waterbalance_module.waterBalanceCheck(
                     [self.var.smallLakeIn],  # In
                     [self.var.smallLakeout, self.var.smallevapWaterBody],  # Out

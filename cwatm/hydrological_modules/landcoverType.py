@@ -16,10 +16,6 @@ except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
 from cwatm.globals import binding
-from cwatm.data_handling import (
-    checkOption,
-)
-
 from geb.workflows import TimingModule
 
 
@@ -807,7 +803,7 @@ class landcoverType(object):
 
         timer = TimingModule("Landcover")
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             interceptStor_pre = self.var.interceptStor.copy()
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
@@ -940,7 +936,7 @@ class landcoverType(object):
         assert not np.isnan(channel_abstraction_m).any()
         assert not np.isnan(openWaterEvap).any()
 
-        if checkOption("calcWaterBalance"):
+        if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],
