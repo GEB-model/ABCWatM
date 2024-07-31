@@ -9,25 +9,25 @@
 # -------------------------------------------------------------------------
 
 
-from .hydrological_modules.miscInitial import miscInitial
-from .hydrological_modules.evaporationPot import evaporationPot
-from .hydrological_modules.snow_frost import snow_frost
-from .hydrological_modules.soil import soil
-from .hydrological_modules.landcoverType import landcoverType
-from .hydrological_modules.sealed_water import sealed_water
-from .hydrological_modules.evaporation import evaporation
-from .hydrological_modules.groundwater_modflow.modflow_transient import (
+from .modules.miscInitial import miscInitial
+from .modules.evaporationPot import evaporationPot
+from .modules.snow_frost import snow_frost
+from .modules.soil import soil
+from .modules.landcoverType import landcoverType
+from .modules.sealed_water import sealed_water
+from .modules.evaporation import evaporation
+from .modules.groundwater_modflow.modflow_transient import (
     groundwater_modflow,
 )
-from .hydrological_modules.water_demand import water_demand
-from .hydrological_modules.interception import interception
-from .hydrological_modules.runoff_concentration import runoff_concentration
-from .hydrological_modules.lakes_res_small import lakes_res_small
-from .hydrological_modules.waterbalance import waterbalance
-from .hydrological_modules.routing_reservoirs.routing_kinematic import (
+from .modules.water_demand import water_demand
+from .modules.interception import interception
+from .modules.runoff_concentration import runoff_concentration
+from .modules.lakes_res_small import lakes_res_small
+from .modules.waterbalance import waterbalance
+from .modules.routing_reservoirs.routing_kinematic import (
     routing_kinematic,
 )
-from .hydrological_modules.lakes_reservoirs import lakes_reservoirs
+from .modules.lakes_reservoirs import lakes_reservoirs
 
 
 class CWATModel_ini:

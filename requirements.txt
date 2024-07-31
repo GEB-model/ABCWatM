@@ -1,5 +1,4 @@
 numpy
-scipy
 netCDF4
 gdal
 flopy
