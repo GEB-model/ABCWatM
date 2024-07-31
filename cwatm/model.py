@@ -31,49 +31,26 @@ class CWatM:
         defines the mask map and the outlet points
         initialization of the hydrological modules
         """
+        ElevationStD = self.data.grid.load(
+            self.model_structure["grid"]["landsurface/topo/elevation_STD"]
+        )
+        ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
 
         self.misc_module = miscInitial(self)
         self.waterbalance_module = waterbalance(self)
         self.evaporationPot_module = evaporationPot(self)
-        self.snowfrost_module = snow_frost(self)
+        self.snowfrost_module = snow_frost(self, ElevationStD)
         self.soil_module = soil(self)
-        self.landcoverType_module = landcoverType(self)
+        self.landcoverType_module = landcoverType(self, ElevationStD)
         self.evaporation_module = evaporation(self)
         self.groundwater_modflow_module = groundwater_modflow(self)
-        self.waterdemand_module = water_demand(self)
         self.interception_module = interception(self)
         self.sealed_water_module = sealed_water(self)
         self.runoff_concentration_module = runoff_concentration(self)
         self.lakes_res_small_module = lakes_res_small(self)
         self.routing_kinematic_module = routing_kinematic(self)
         self.lakes_reservoirs_module = lakes_reservoirs(self)
-
-        self.misc_module.initial()
-
-        self.evaporationPot_module.initial()
-
-        ElevationStD = self.data.grid.load(
-            self.model_structure["grid"]["landsurface/topo/elevation_STD"]
-        )
-        ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
-
-        self.snowfrost_module.initial(ElevationStD)
-        self.soil_module.initial()
-
-        self.landcoverType_module.initial(ElevationStD)
-        self.groundwater_modflow_module.initial()
-        self.interception_module.initial()
-
-        self.runoff_concentration_module.initial()
-        self.lakes_res_small_module.initial()
-
-        self.routing_kinematic_module.initial()
-        self.lakes_reservoirs_module.initWaterbodies()
-        self.lakes_reservoirs_module.initial_lakes()
-        self.lakes_reservoirs_module.initial_reservoirs()
-
-        self.waterdemand_module.initial()
-        self.waterbalance_module.initial()
+        self.waterdemand_module = water_demand(self)
 
     def dynamic(self):
         """

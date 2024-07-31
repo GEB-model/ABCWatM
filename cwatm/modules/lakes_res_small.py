@@ -61,15 +61,13 @@ class lakes_res_small(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.grid
-        self.model = model
-
-    def initial(self):
         """
         Initialize small lakes and reservoirs
         Read parameters from maps e.g
         area, location, initial average discharge, type: reservoir or lake) etc.
         """
+        self.var = model.data.grid
+        self.model = model
 
         if self.model.useSmallLakes:
 

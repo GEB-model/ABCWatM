@@ -44,11 +44,6 @@ class miscInitial(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.grid
-        self.HRU = model.data.HRU
-        self.model = model
-
-    def initial(self):
         """
         Initialization of some basic parameters e.g. cellArea
 
@@ -56,6 +51,7 @@ class miscInitial(object):
         * conversion factors
         * conversion factors for precipitation and pot evaporation
         """
+        self.model = model
         # -----------------------------------------------------------------
         # Miscellaneous repeatedly used expressions (as suggested by GF)
 

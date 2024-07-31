@@ -100,10 +100,6 @@ class routing_kinematic(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.grid
-        self.model = model
-
-    def initial(self):
         """
         Initial part of the routing module
 
@@ -112,6 +108,8 @@ class routing_kinematic(object):
         * calculate initial filling
         * calculate manning's roughness coefficient
         """
+        self.var = model.data.grid
+        self.model = model
 
         ldd = self.var.load(
             self.model.model_structure["grid"]["routing/kinematic/ldd"],

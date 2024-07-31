@@ -68,12 +68,6 @@ class evaporationPot(object):
         self.var = model.data.HRU
         self.model = model
 
-    def initial(self):
-        """
-        Initial part of evaporation type module
-        Load inictial parameters
-
-        """
         self.var.AlbedoCanopy = 0.23
         self.var.AlbedoSoil = 0.15
         self.var.AlbedoWater = 0.05

@@ -197,6 +197,10 @@ class lakes_reservoirs(object):
         self.var = model.data.grid
         self.model = model
 
+        self.initWaterbodies()
+        self.initial_lakes()
+        self.initial_reservoirs()
+
     def initWaterbodies(self):
         """
         Initialize water bodies

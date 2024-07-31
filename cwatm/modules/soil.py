@@ -631,7 +631,6 @@ class soil(object):
     availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m
     potTranspiration      Potential transpiration (after removing of evaporation)                           m
     actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
-    soilLayers            Number of soil layers                                                             --
     KSat1
     KSat2
     KSat3
@@ -696,10 +695,6 @@ class soil(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.HRU
-        self.model = model
-
-    def initial(self):
         """
         Initial part of the soil module
 
@@ -707,10 +702,12 @@ class soil(object):
         * Set soil depth
 
         """
-        self.var.soilLayers = 3
+        self.var = model.data.HRU
+        self.model = model
+
         # set number of soil layers as global variable for numba
         global N_SOIL_LAYERS
-        N_SOIL_LAYERS = self.var.soilLayers
+        N_SOIL_LAYERS = self.model.soilLayers
 
         # set the frost index threshold as global variable for numba
         global FROST_INDEX_THRESHOLD

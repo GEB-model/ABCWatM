@@ -21,94 +21,6 @@ class groundwater_modflow:
 
         self.depth_underlakes = 1.5
 
-    def get_corrected_modflow_cell_area(self):
-        return np.bincount(
-            self.indices["ModFlow_index"],
-            weights=np.invert(self.var.mask.astype(bool)).ravel()[
-                self.indices["CWatM_index"]
-            ]
-            * self.indices["area"],
-            minlength=self.modflow.basin_mask.size,
-        ).reshape(self.modflow.basin_mask.shape)
-
-    def get_corrected_cwatm_cell_area(self):
-        return (
-            self.var.cell_area_uncompressed.ravel()
-            - np.bincount(
-                self.indices["CWatM_index"],
-                weights=self.modflow.basin_mask.ravel()[self.indices["ModFlow_index"]]
-                * self.indices["area"],
-                minlength=self.var.mask.size,
-            )
-        ).reshape(self.var.mask.shape)
-
-    def CWATM2modflow(self, variable, correct_boundary=False):
-        if correct_boundary:
-            modflow_cell_area = self.modflow_cell_area_corrected
-            area = self.indices["modflow_area"]
-        else:
-            modflow_cell_area = self.modflow_cell_area
-            area = self.indices["area"]
-        variable[self.var.mask == 1] = 0
-        assert not (np.isnan(variable).any())
-        array = (
-            (
-                np.bincount(
-                    self.indices["ModFlow_index"],
-                    variable.ravel()[self.indices["CWatM_index"]] * area,
-                    minlength=self.domain["nrow"] * self.domain["ncol"],
-                )
-            )
-            .reshape((self.domain["nrow"], self.domain["ncol"]))
-            .astype(variable.dtype)
-        )
-
-        # just make sure that there
-        assert (array[(modflow_cell_area == 0)] == 0).all()
-        array = array / modflow_cell_area
-        array[self.modflow_basin_mask] = 0
-        return array
-
-    def modflow2CWATM(self, variable, correct_boundary=False):
-        variable = variable.copy()
-        variable[self.modflow.basin_mask == True] = 0
-        assert not (np.isnan(variable).any())
-        if correct_boundary:
-            variable = variable / (
-                self.modflow_cell_area_corrected / self.modflow_cell_area
-            )
-        cwatm_cell_area = self.var.cell_area_uncompressed.ravel()
-        area = self.indices["area"]
-        array = (
-            (
-                np.bincount(
-                    self.indices["CWatM_index"],
-                    weights=variable.ravel()[self.indices["ModFlow_index"]] * area,
-                    minlength=self.var.mask.size,
-                )
-                / cwatm_cell_area
-            )
-            .reshape(self.var.mask.shape)
-            .astype(variable.dtype)
-        )
-        array[self.var.mask == 1] = np.nan
-        return array
-
-    @property
-    def available_groundwater_m_modflow(self):
-        groundwater_storage_available_m = (
-            self.modflow.decompress(self.modflow.head) - self.layer_boundaries[1]
-        ) * self.specific_yield[0]
-        groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
-        return groundwater_storage_available_m
-
-    @property
-    def available_groundwater_m(self):
-        return self.var.compress(
-            self.modflow2CWATM(self.available_groundwater_m_modflow)
-        )
-
-    def initial(self):
         with rasterio.open(
             self.model.model_structure["MODFLOW_grid"][
                 "groundwater/modflow/modflow_mask"
@@ -312,6 +224,93 @@ class groundwater_modflow:
         )
         self.var.groundwater_depth = self.var.compress(
             self.modflow2CWATM(self.modflow.groundwater_depth)
+        )
+
+    def get_corrected_modflow_cell_area(self):
+        return np.bincount(
+            self.indices["ModFlow_index"],
+            weights=np.invert(self.var.mask.astype(bool)).ravel()[
+                self.indices["CWatM_index"]
+            ]
+            * self.indices["area"],
+            minlength=self.modflow.basin_mask.size,
+        ).reshape(self.modflow.basin_mask.shape)
+
+    def get_corrected_cwatm_cell_area(self):
+        return (
+            self.var.cell_area_uncompressed.ravel()
+            - np.bincount(
+                self.indices["CWatM_index"],
+                weights=self.modflow.basin_mask.ravel()[self.indices["ModFlow_index"]]
+                * self.indices["area"],
+                minlength=self.var.mask.size,
+            )
+        ).reshape(self.var.mask.shape)
+
+    def CWATM2modflow(self, variable, correct_boundary=False):
+        if correct_boundary:
+            modflow_cell_area = self.modflow_cell_area_corrected
+            area = self.indices["modflow_area"]
+        else:
+            modflow_cell_area = self.modflow_cell_area
+            area = self.indices["area"]
+        variable[self.var.mask == 1] = 0
+        assert not (np.isnan(variable).any())
+        array = (
+            (
+                np.bincount(
+                    self.indices["ModFlow_index"],
+                    variable.ravel()[self.indices["CWatM_index"]] * area,
+                    minlength=self.domain["nrow"] * self.domain["ncol"],
+                )
+            )
+            .reshape((self.domain["nrow"], self.domain["ncol"]))
+            .astype(variable.dtype)
+        )
+
+        # just make sure that there
+        assert (array[(modflow_cell_area == 0)] == 0).all()
+        array = array / modflow_cell_area
+        array[self.modflow_basin_mask] = 0
+        return array
+
+    def modflow2CWATM(self, variable, correct_boundary=False):
+        variable = variable.copy()
+        variable[self.modflow.basin_mask == True] = 0
+        assert not (np.isnan(variable).any())
+        if correct_boundary:
+            variable = variable / (
+                self.modflow_cell_area_corrected / self.modflow_cell_area
+            )
+        cwatm_cell_area = self.var.cell_area_uncompressed.ravel()
+        area = self.indices["area"]
+        array = (
+            (
+                np.bincount(
+                    self.indices["CWatM_index"],
+                    weights=variable.ravel()[self.indices["ModFlow_index"]] * area,
+                    minlength=self.var.mask.size,
+                )
+                / cwatm_cell_area
+            )
+            .reshape(self.var.mask.shape)
+            .astype(variable.dtype)
+        )
+        array[self.var.mask == 1] = np.nan
+        return array
+
+    @property
+    def available_groundwater_m_modflow(self):
+        groundwater_storage_available_m = (
+            self.modflow.decompress(self.modflow.head) - self.layer_boundaries[1]
+        ) * self.specific_yield[0]
+        groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
+        return groundwater_storage_available_m
+
+    @property
+    def available_groundwater_m(self):
+        return self.var.compress(
+            self.modflow2CWATM(self.available_groundwater_m_modflow)
         )
 
     def dynamic(self, groundwater_recharge, groundwater_abstraction):

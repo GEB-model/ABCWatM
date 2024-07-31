@@ -68,17 +68,15 @@ class snow_frost(object):
     **Functions**
     """
 
-    def __init__(self, model):
-        self.var = model.data.HRU
-        self.model = model
-
-    def initial(self, ElevationStD):
+    def __init__(self, model, ElevationStD):
         """
         Initial part of the snow and frost module
 
         * loads all the parameters for the day-degree approach for rain, snow and snowmelt
         * loads the parameter for frost
         """
+        self.var = model.data.HRU
+        self.model = model
 
         self.numberSnowLayers = 3  # default 3
         self.var.glaciertransportZone = (

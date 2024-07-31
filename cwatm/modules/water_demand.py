@@ -124,6 +124,11 @@ class water_demand:
     waterDemandLost"""
 
     def __init__(self, model):
+        """
+        Initial part of the water demand module
+
+        Set the water allocation
+        """
         self.model = model
         self.var = model.data.HRU
         self.crop_farmers = model.agents.crop_farmers
@@ -131,6 +136,34 @@ class water_demand:
         self.industry = model.agents.industry
         self.households = model.agents.households
         self.reservoir_operators = model.agents.reservoir_operators
+
+        with rasterio.open(
+            self.model.model_structure["subgrid"][
+                "routing/lakesreservoirs/subcommand_areas"
+            ],
+            "r",
+        ) as src:
+            reservoir_command_areas = self.var.compress(src.read(1), method="last")
+            water_body_mapping = np.full(
+                self.model.data.grid.waterBodyID.max() + 1,
+                0,
+                dtype=np.int32,
+            )
+            water_body_ids = np.compress(
+                self.model.data.grid.compress_LR,
+                self.model.data.grid.waterBodyID,
+            )
+            water_body_mapping[water_body_ids] = np.arange(
+                0, water_body_ids.size, dtype=np.int32
+            )
+            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
+            reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
+            self.var.reservoir_command_areas = reservoir_command_areas_mapped
+
+        self.model.data.grid.leakageC = np.compress(
+            self.model.data.grid.compress_LR,
+            self.model.data.grid.full_compressed(0, dtype=np.float32),
+        )
 
     def get_potential_irrigation_consumption(self, totalPotET):
         """Calculate the potential irrigation consumption. Not that consumption
@@ -282,40 +315,6 @@ class water_demand:
             critical_water_level,
             max_water_content,
             potential_infiltration_capacity,
-        )
-
-    def initial(self):
-        """
-        Initial part of the water demand module
-
-        Set the water allocation
-        """
-        with rasterio.open(
-            self.model.model_structure["subgrid"][
-                "routing/lakesreservoirs/subcommand_areas"
-            ],
-            "r",
-        ) as src:
-            reservoir_command_areas = self.var.compress(src.read(1), method="last")
-            water_body_mapping = np.full(
-                self.model.data.grid.waterBodyID.max() + 1,
-                0,
-                dtype=np.int32,
-            )
-            water_body_ids = np.compress(
-                self.model.data.grid.compress_LR,
-                self.model.data.grid.waterBodyID,
-            )
-            water_body_mapping[water_body_ids] = np.arange(
-                0, water_body_ids.size, dtype=np.int32
-            )
-            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
-            reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
-            self.var.reservoir_command_areas = reservoir_command_areas_mapped
-
-        self.model.data.grid.leakageC = np.compress(
-            self.model.data.grid.compress_LR,
-            self.model.data.grid.full_compressed(0, dtype=np.float32),
         )
 
     def get_available_water(self):

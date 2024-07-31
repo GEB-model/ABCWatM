@@ -182,12 +182,7 @@ class landcoverType(object):
     **Functions**
     """
 
-    def __init__(self, model):
-        self.var = model.data.HRU
-        self.model = model
-        self.crop_farmers = model.agents.crop_farmers
-
-    def initial(self, ElevationStD):
+    def __init__(self, model, ElevationStD):
         """
         Initial part of the land cover type module
         Initialise the six land cover types
@@ -201,6 +196,9 @@ class landcoverType(object):
 
         And initialize the soil variables
         """
+        self.var = model.data.HRU
+        self.model = model
+        self.crop_farmers = model.agents.crop_farmers
 
         self.model.coverTypes = [
             "forest",
@@ -218,7 +216,7 @@ class landcoverType(object):
 
         self.var.soil_layer_height = np.tile(
             self.var.full_compressed(np.nan, dtype=np.float32),
-            (self.var.soilLayers, 1),
+            (self.model.soilLayers, 1),
         )
         self.var.soil_layer_height[0] = 0.05  # the top soil layer always is 5 cm.
         self.var.soil_layer_height[1] = 0.95  # middle layer extends to 100 cm

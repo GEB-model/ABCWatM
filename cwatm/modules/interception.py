@@ -43,7 +43,6 @@ class interception(object):
         self.var = model.data.HRU
         self.model = model
 
-    def initial(self):
         self.var.minInterceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.interceptStor = self.var.full_compressed(np.nan, dtype=np.float32)
 

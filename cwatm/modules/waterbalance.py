@@ -20,11 +20,6 @@ class waterbalance(object):
         self.var = model.data.grid
         self.model = model
 
-    def initial(self):
-        """
-        Initial part of the water balance module
-        """
-
     def waterBalanceCheck(
         self,
         name=None,

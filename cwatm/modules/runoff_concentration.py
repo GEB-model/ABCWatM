@@ -62,10 +62,6 @@ class runoff_concentration(object):
     """
 
     def __init__(self, model):
-        self.var = model.data.grid
-        self.model = model
-
-    def initial(self):
         """
         Initial part of the  runoff concentration module
 
@@ -80,7 +76,8 @@ class runoff_concentration(object):
         Note:
             only if option **includeRunoffConcentration** is TRUE
         """
-        return None
+        self.var = model.data.grid
+        self.model = model
 
     def dynamic(self, interflow, directRunoff):
         self.var.runoff = directRunoff + interflow + self.var.baseflow
