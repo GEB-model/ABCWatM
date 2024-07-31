@@ -33,13 +33,8 @@ setup(
     zip_safe=True,
     install_requires=[
         "numpy",
-        "netCDF4",
-        "gdal",
-        "pandas",
-        "xlrd",
         "flopy",
         "numba",
-        "rasterio",
         "xmipy>=1.4",
     ],
 )
