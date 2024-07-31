@@ -33,7 +33,7 @@ class evaporation(object):
         self.var = model.data.HRU
         self.model = model
 
-    def dynamic(self, ETRef):
+    def step(self, ETRef):
         """
         Dynamic part of the soil module
 

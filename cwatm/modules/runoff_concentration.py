@@ -79,5 +79,5 @@ class runoff_concentration(object):
         self.var = model.data.grid
         self.model = model
 
-    def dynamic(self, interflow, directRunoff):
+    def step(self, interflow, directRunoff):
         self.var.runoff = directRunoff + interflow + self.var.baseflow

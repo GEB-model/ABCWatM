@@ -155,10 +155,7 @@ class lakes_res_small(object):
             else:
                 self.var.minsmalllakeVolumeM3 = 9.0e99
 
-    # ------------------ End init ------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------------------------
-
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part to calculate outflow from small lakes and reservoirs
 

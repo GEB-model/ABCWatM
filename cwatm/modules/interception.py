@@ -82,7 +82,7 @@ class interception(object):
             ].values
             ds.close()
 
-    def dynamic(self, potTranspiration):
+    def step(self, potTranspiration):
         """
         Dynamic part of the interception module
         calculating interception for each land cover class

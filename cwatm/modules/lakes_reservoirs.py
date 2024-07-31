@@ -525,7 +525,7 @@ class lakes_reservoirs(object):
         np.put(self.var.lakeStorage, self.var.decompress_LR, self.var.lakeStorageC)
         np.put(self.var.resStorage, self.var.decompress_LR, self.var.resStorageC)
 
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part set lakes and reservoirs for each year
         """

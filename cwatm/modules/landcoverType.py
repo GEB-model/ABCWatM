@@ -781,7 +781,7 @@ class landcoverType(object):
 
         groundwater_recharge += waterbed_recharge
 
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part of the land cover type module
 
@@ -865,17 +865,17 @@ class landcoverType(object):
         self.var.cropKC[self.var.land_use_type == 1] = 0.2
 
         self.var.potTranspiration, potBareSoilEvap, totalPotET = (
-            self.model.evaporation_module.dynamic(self.var.ETRef)
+            self.model.evaporation_module.step(self.var.ETRef)
         )
 
         potTranspiration_minus_interception_evaporation = (
-            self.model.interception_module.dynamic(self.var.potTranspiration)
+            self.model.interception_module.step(self.var.potTranspiration)
         )  # first thing that evaporates is the intercepted water.
         timer.new_split("Transpiration")
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = (
-            self.model.waterdemand_module.dynamic(totalPotET)
+            self.model.waterdemand_module.step(totalPotET)
         )
         timer.new_split("Demand")
 
@@ -889,7 +889,7 @@ class landcoverType(object):
             directRunoff,
             groundwater_recharge,
             openWaterEvap,
-        ) = self.model.soil_module.dynamic(
+        ) = self.model.soil_module.step(
             capillar,
             openWaterEvap,
             potTranspiration_minus_interception_evaporation,
@@ -898,7 +898,7 @@ class landcoverType(object):
         )
         timer.new_split("Soil")
 
-        directRunoff = self.model.sealed_water_module.dynamic(
+        directRunoff = self.model.sealed_water_module.step(
             capillar, openWaterEvap, directRunoff
         )
         timer.new_split("Sealed")

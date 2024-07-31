@@ -313,7 +313,7 @@ class groundwater_modflow:
             self.modflow2CWATM(self.available_groundwater_m_modflow)
         )
 
-    def dynamic(self, groundwater_recharge, groundwater_abstraction):
+    def step(self, groundwater_recharge, groundwater_abstraction):
         assert (groundwater_abstraction + 1e-7 >= 0).all()
         groundwater_abstraction[groundwater_abstraction < 0] = 0
         assert (groundwater_recharge >= 0).all()

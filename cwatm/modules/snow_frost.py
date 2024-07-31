@@ -187,7 +187,7 @@ class snow_frost(object):
 
         self.var.extfrostindex = False
 
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part of the snow module
 

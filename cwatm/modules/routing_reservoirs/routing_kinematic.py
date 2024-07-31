@@ -259,7 +259,7 @@ class routing_kinematic(object):
             self.var.catchmentAll = self.model.data.grid.full_compressed(0.0)
             self.var.sumbalance = 0
 
-    def dynamic(self, openWaterEvap, channel_abstraction_m, returnFlow):
+    def step(self, openWaterEvap, channel_abstraction_m, returnFlow):
         """
         Dynamic part of the routing module
 

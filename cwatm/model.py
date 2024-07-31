@@ -52,7 +52,7 @@ class CWatM:
         self.lakes_reservoirs_module = lakes_reservoirs(self)
         self.waterdemand_module = water_demand(self)
 
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part of CWATM
         calls the dynamic part of the hydrological modules
@@ -68,13 +68,13 @@ class CWatM:
 
         timer = TimingModule("CWatM")
 
-        self.evaporationPot_module.dynamic()
+        self.evaporationPot_module.step()
         timer.new_split("PET")
 
-        self.lakes_reservoirs_module.dynamic()
+        self.lakes_reservoirs_module.step()
         timer.new_split("Waterbodies")
 
-        self.snowfrost_module.dynamic()
+        self.snowfrost_module.step()
         timer.new_split("Snow and frost")
 
         (
@@ -85,21 +85,21 @@ class CWatM:
             channel_abstraction,
             openWaterEvap,
             returnFlow,
-        ) = self.landcoverType_module.dynamic()
+        ) = self.landcoverType_module.step()
         timer.new_split("Landcover")
 
-        self.groundwater_modflow_module.dynamic(
+        self.groundwater_modflow_module.step(
             groundwater_recharge, groundwater_abstraction
         )
         timer.new_split("GW")
 
-        self.runoff_concentration_module.dynamic(interflow, directRunoff)
+        self.runoff_concentration_module.step(interflow, directRunoff)
         timer.new_split("Runoff concentration")
 
-        self.lakes_res_small_module.dynamic()
+        self.lakes_res_small_module.step()
         timer.new_split("Small waterbodies")
 
-        self.routing_kinematic_module.dynamic(
+        self.routing_kinematic_module.step(
             openWaterEvap, channel_abstraction, returnFlow
         )
         timer.new_split("Routing")

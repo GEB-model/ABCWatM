@@ -72,7 +72,7 @@ class evaporationPot(object):
         self.var.AlbedoSoil = 0.15
         self.var.AlbedoWater = 0.05
 
-    def dynamic(self):
+    def step(self):
         """
         Dynamic part of the potential evaporation module
         Based on Penman Monteith - FAO 56

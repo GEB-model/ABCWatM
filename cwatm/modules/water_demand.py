@@ -349,7 +349,7 @@ class water_demand:
         demand -= withdrawal  # update in place
         return withdrawal
 
-    def dynamic(self, totalPotET):
+    def step(self, totalPotET):
         """
         Dynamic part of the water demand module
 

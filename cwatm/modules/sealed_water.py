@@ -41,7 +41,7 @@ class sealed_water(object):
         self.var = model.data.HRU
         self.model = model
 
-    def dynamic(self, capillar, openWaterEvap, directRunoff):
+    def step(self, capillar, openWaterEvap, directRunoff):
         """
         Dynamic part of the sealed_water module
 

@@ -916,7 +916,7 @@ class soil(object):
         )  #  W/m2 -> umol/m2/s
         return photosynthetic_photon_flux_density
 
-    def dynamic(
+    def step(
         self,
         capillar,
         open_water_evaporation,
