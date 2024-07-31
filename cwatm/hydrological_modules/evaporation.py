@@ -50,7 +50,7 @@ class evaporation(object):
         # crop coefficient read for forest and grassland from file
 
         # calculate potential bare soil evaporation
-        potBareSoilEvap = self.var.crop_factor_calibration_factor * 0.2 * ETRef
+        potBareSoilEvap = self.model.crop_factor_calibration_factor * 0.2 * ETRef
         # calculate snow evaporation
         self.var.snowEvap = np.minimum(self.var.SnowMelt, potBareSoilEvap)
         self.var.SnowMelt = self.var.SnowMelt - self.var.snowEvap
@@ -58,7 +58,7 @@ class evaporation(object):
 
         # calculate potential ET
         ##  self.var.totalPotET total potential evapotranspiration for a reference crop for a land cover class [m]
-        totalPotET = self.var.crop_factor_calibration_factor * self.var.cropKC * ETRef
+        totalPotET = self.model.crop_factor_calibration_factor * self.var.cropKC * ETRef
 
         ## potTranspiration: Transpiration for each land cover class
         potTranspiration = np.maximum(

@@ -9,9 +9,6 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
-from cwatm.data_handling import (
-    cbinding,
-)
 from numba import njit
 
 from geb.workflows import TimingModule
@@ -42,7 +39,6 @@ class evaporationPot(object):
     ====================  ================================================================================  =========
     Variable [self.var]   Description                                                                       Unit
     ====================  ================================================================================  =========
-    crop_factor_calibration_factor           calibrated factor of crop KC factor                                               --
     pet_modus             Flag: index which ETP approach is used e.g. 1 for Penman-Monteith                 --
     AlbedoCanopy          Albedo of vegetation canopy (FAO,1998) default = 0.23                              --
     AlbedoSoil            Albedo of bare soil surface (Supit et. al. 1994) default = 0.15                   --
@@ -78,14 +74,6 @@ class evaporationPot(object):
         Load inictial parameters
 
         """
-        self.var.crop_factor_calibration_factor = cbinding(
-            "crop_factor_calibration_factor"
-        )
-
-        self.var.crop_factor_calibration_factor = self.model.data.to_HRU(
-            data=self.var.crop_factor_calibration_factor, fn=None
-        )
-
         self.var.AlbedoCanopy = 0.23
         self.var.AlbedoSoil = 0.15
         self.var.AlbedoWater = 0.05

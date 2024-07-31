@@ -9,8 +9,6 @@
 
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import *
-
 
 class miscInitial(object):
     """
@@ -58,15 +56,9 @@ class miscInitial(object):
         * conversion factors
         * conversion factors for precipitation and pot evaporation
         """
-
-        #            self.var.PixelArea = spatial(self.var.PixelArea)
-        # Convert to spatial expresion (otherwise this variable cannnot be
-        # used in areatotal function)
-
         # -----------------------------------------------------------------
         # Miscellaneous repeatedly used expressions (as suggested by GF)
 
-        # Inverse of pixel size [1/m]
         self.model.DtSec = 86400.0
         self.model.DtDay = self.model.DtSec / 86400
         # Time step, expressed as fraction of day (used to convert

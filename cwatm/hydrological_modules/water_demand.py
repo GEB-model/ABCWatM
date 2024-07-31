@@ -23,9 +23,6 @@ from cwatm.hydrological_modules.soil import (
     get_fraction_easily_available_soil_water,
     get_crop_group_number,
 )
-from cwatm.data_handling import (
-    cbinding,
-)
 
 from geb.workflows import TimingModule
 
@@ -293,7 +290,12 @@ class water_demand:
 
         Set the water allocation
         """
-        with rasterio.open(cbinding("reservoir_command_areas"), "r") as src:
+        with rasterio.open(
+            self.model.model_structure["subgrid"][
+                "routing/lakesreservoirs/subcommand_areas"
+            ],
+            "r",
+        ) as src:
             reservoir_command_areas = self.var.compress(src.read(1), method="last")
             water_body_mapping = np.full(
                 self.model.data.grid.waterBodyID.max() + 1,

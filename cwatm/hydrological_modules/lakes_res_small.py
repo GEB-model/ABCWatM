@@ -9,11 +9,7 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import *
 from cwatm.hydrological_modules.routing_reservoirs.routing_sub import *
-
-
-from cwatm.globals import *
 
 
 class lakes_res_small(object):

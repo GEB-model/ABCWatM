@@ -11,8 +11,6 @@
 # Copyright:   (c) PB 2016
 # -------------------------------------------------------------------------
 
-from cwatm.data_handling import *
-
 
 class runoff_concentration(object):
     """

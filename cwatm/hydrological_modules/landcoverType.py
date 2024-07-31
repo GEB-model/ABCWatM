@@ -15,7 +15,6 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
-from cwatm.globals import binding
 from geb.workflows import TimingModule
 
 
@@ -581,9 +580,6 @@ class landcoverType(object):
                 self.var.wwp3 + initial_humidy * (self.var.wfc3 - self.var.wwp3)
             ),
         )
-
-        # this is an old CWatM option that was removed. Assert that it was not configured.
-        assert "rootFrac" not in binding
 
         arnobeta_cover_types = {
             "forest": 0.2,

@@ -1,48 +1,6 @@
 management_modules package
 **************************
 
-Data management
-==========================
-
-
-
-
-data_handling module
---------------------
-
-**Managing data and data handling**
-
-.. automodule:: cwatm.management_modules.data_handling
-    :members:
-    :undoc-members:
-    :inherited-members:
-    :show-inheritance:
-
-
-
-
-configuration module
---------------------
-
-**Loading and parsing of the settings file**
-
-.. automodule:: cwatm.management_modules.configuration
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    
-
-management_modules.checks module
---------------------------------
-
-**Checking maps if they fit in**
-
-.. automodule:: cwatm.management_modules.checks
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
 Program management
 ==================
 
