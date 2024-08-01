@@ -52,7 +52,6 @@ class routing_kinematic(object):
     evapWaterBodyC
     sumLakeEvapWaterBody
     noRoutingSteps
-    sumResEvapWaterBodyC
     discharge             discharge                                                                         m3/s
     runoff
     cellArea              Cell area [m²] of each simulated mesh
@@ -272,7 +271,7 @@ class routing_kinematic(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.var.prechannelStorageM3 = self.var.channelStorageM3.copy()
-            self.var.prelakeResStorage = self.var.lakeResStorage.copy()
+            self.var.prelakeResStorage = self.var.storage.copy()
 
         # Evaporation from open channel
         # from big lakes/res and small lakes/res is calculated separately
@@ -349,10 +348,6 @@ class routing_kinematic(object):
             EvapoChannel,
         )
         # self.var.riverbedExchange = np.where(self.var.waterBodyID > 0, 0., self.var.riverbedExchange)
-
-        # sum of all routingsteps of evaporation from lakes and reservoirs   - set to 0 each time step
-        self.var.sumResEvapWaterBodyC = self.var.evapWaterBodyC * 0.0
-        self.var.sumLakeEvapWaterBodyC = self.var.evapWaterBodyC * 0.0
 
         EvapoChannelM3Dt = EvapoChannel / self.var.noRoutingSteps
         # riverbedExchangeDt = self.var.riverbedExchangeM3 / self.var.noRoutingSteps
@@ -442,18 +437,3 @@ class routing_kinematic(object):
             * self.var.chanLength
             * self.var.discharge**self.var.beta
         )
-
-        if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
-                influxes=[self.var.lakeResInflowM],  # In
-                outfluxes=[
-                    self.var.lakeResOutflowM,
-                    self.var.EvapWaterBodyM,
-                ],  # Out  self.var.evapWaterBodyC
-                prestorages=[
-                    self.var.prelakeResStorage / self.var.cellArea
-                ],  # prev storage
-                poststorages=[self.var.lakeResStorage / self.var.cellArea],
-                name="lake_res",
-                tollerance=1e-3,
-            )

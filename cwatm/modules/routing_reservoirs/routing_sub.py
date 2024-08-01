@@ -12,6 +12,7 @@
 import numpy as np
 from numba import njit
 
+
 def Compress(map, mask):
     """
     compressing map from 2D to 1D without missing values
