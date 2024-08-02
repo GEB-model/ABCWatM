@@ -184,7 +184,7 @@ class lakes_reservoirs(object):
         self.var.volume = self.water_body_data["volume_total"].values
 
         # TODO: load initial values from spinup
-        self.var.storage = self.var.volume
+        self.var.storage = self.var.volume.copy()
 
         # initial only the big arrays are set to 0, the  initial values are loaded inside the subrouines of lakes and reservoirs
         self.var.outflow = self.model.data.grid.full_compressed(0, dtype=np.float32)
