@@ -541,7 +541,7 @@ class lakes_reservoirs(object):
         )
 
         # evaporation from water body
-        print("check this out")
+        # TODO: Abstract evaporation in lakes reservoir module for control flow simplification
         # lakeEvaFactorC
         evaporation = np.where(
             self.var.waterBodyTypC != 0,
@@ -559,8 +559,6 @@ class lakes_reservoirs(object):
         outflow_lakes, lakedaycorrect_m3 = self.dynamic_inloop_lakes(inflowC)
         outflow_reservoirs = self.dynamic_inloop_reservoirs(inflowC)
 
-        print("")
-        print("use nans, make sure lakes are only done for actual lakes")
         outflow = outflow_lakes + outflow_reservoirs
 
         self.sum_evaporation += evaporation  # in [m3]
@@ -569,7 +567,7 @@ class lakes_reservoirs(object):
 
         np.put(self.var.outflow, self.var.decompress_LR, outflow)
         # shift outflow 1 cell downstream
-        print("CHECK THIS in GUI")
+        # TODO: Check this in GUI
         self.var.outflow_shifted = upstream1(self.var.downstruct, self.var.outflow)
 
         # everything with is not going to another lake is output to river network
