@@ -525,7 +525,7 @@ class lakes_reservoirs(object):
         # sum up all inflow from other lakes
         outLake = laketotal(outflow_to_another_lake, self.var.waterBodyID)
         if outLake.sum() > 0:
-            print("This MUST be checked before going on ...")
+            raise ValueError("This MUST be checked before going on ...")
         # use only the value of the outflow point
         self.var.outLake = np.where(self.var.waterBodyOut > 0, outLake, 0.0)
 
