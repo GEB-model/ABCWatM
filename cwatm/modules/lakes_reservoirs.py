@@ -213,10 +213,10 @@ class lakes_reservoirs(object):
         )
 
         self.var.prev_lake_inflow = self.var.load_initial(
-            "lakeInflow", default=self.var.lakeDis0C.copy()
+            "prev_lake_inflow", default=self.var.lakeDis0C.copy()
         )
         self.var.prev_lake_outflow = self.var.load_initial(
-            "lakeOutflow", default=self.var.prev_lake_inflow.copy()
+            "prev_lake_outflow", default=self.var.prev_lake_inflow.copy()
         )
 
         return None
