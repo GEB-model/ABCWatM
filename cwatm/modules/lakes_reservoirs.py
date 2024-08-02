@@ -204,11 +204,11 @@ class lakes_reservoirs(object):
     def __init__(self, model):
         """
         Initialize water bodies
-        Read parameters from maps e.g
-        area, location, initial average discharge, type 9reservoir or lake) etc.
 
-        Compress numpy array from mask map to the size of lakes+reservoirs
-        (marked as capital C at the end of the variable name)
+        water body types:
+        2 = reservoirs (regulated discharge)
+        1 = lakes (weirFormula)
+        0 = non lakes or reservoirs (e.g. wetland)
         """
 
         self.var = model.data.grid
@@ -282,11 +282,6 @@ class lakes_reservoirs(object):
             self.var.compress_LR, self.var.waterBodyOut
         )
 
-        # water body types:
-        # - 2 = reservoirs (regulated discharge)
-        # - 1 = lakes (weirFormula)
-        # - 0 = non lakes or reservoirs (e.g. wetland)
-
         # waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
         self.var.waterBodyTypC = water_body_data.loc[self.var.waterBodyIDC][
             "waterbody_type"
@@ -315,7 +310,7 @@ class lakes_reservoirs(object):
         self.var.volume = water_body_data["volume_total"].values
 
         # TODO: load initial values from spinup
-        self.var.storage = self.var.volume / 10
+        self.var.storage = self.var.volume
 
         # initial only the big arrays are set to 0, the  initial values are loaded inside the subrouines of lakes and reservoirs
         self.var.outflow = self.model.data.grid.full_compressed(0, dtype=np.float32)
