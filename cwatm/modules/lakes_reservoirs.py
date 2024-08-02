@@ -102,38 +102,27 @@ class lakes_reservoirs(object):
         self.var = model.data.grid
         self.model = model
 
-        water_body_data = pd.read_csv(
-            self.model.model_structure["table"][
-                "routing/lakesreservoirs/basin_lakes_data"
-            ],
-            dtype={
-                "waterbody_type": np.int32,
-                "volume_total": np.float64,
-                "average_discharge": np.float64,
-                "average_area": np.float64,
-                "volume_flood": np.float64,
-                "relative_area_in_region": np.float64,
-            },
-        ).set_index("waterbody_id")
-
         # load lakes/reservoirs map with a single ID for each lake/reservoir
-        self.var.waterBodyID = self.var.load(
+        waterBodyID = self.var.load(
             self.model.model_structure["grid"]["routing/lakesreservoirs/lakesResID"]
         ).astype(
             np.int64
         )  # not sure whether np.int64 is necessary
 
-        assert (self.var.waterBodyID >= 0).all()
+        assert (waterBodyID >= 0).all()
 
         # calculate biggest outlet = biggest accumulation of ldd network
-        lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
-        self.var.waterBodyOut = np.where(
-            self.var.UpArea1 == lakeResmax, self.var.waterBodyID, 0
-        )
+        lakeResmax = npareamaximum(self.var.UpArea1, waterBodyID)
+        self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax, waterBodyID, 0)
 
         # dismiss water bodies that are not a subcatchment of an outlet
         sub = subcatchment1(self.var.dirUp, self.var.waterBodyOut, self.var.UpArea1)
-        self.var.waterBodyID = np.where(self.var.waterBodyID == sub, sub, 0)
+
+        self.var.waterBodyID_original = np.where(waterBodyID == sub, sub, 0)
+        self.var.waterBodyID, self.waterbody_mapping = self.map_water_bodies_IDs(
+            self.var.waterBodyID_original
+        )
+        water_body_data = self.load_water_body_data(self.waterbody_mapping)
 
         # and again calculate outlets, because ID might have changed due to the operation before
         lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
@@ -234,6 +223,36 @@ class lakes_reservoirs(object):
         )
 
         return None
+
+    def map_water_bodies_IDs(self, original_waterbody_ids):
+        water_body_mapping = np.full(
+            original_waterbody_ids.max() + 1, -1, dtype=np.int32
+        )
+        water_body_ids = np.unique(original_waterbody_ids)
+        water_body_mapping[water_body_ids] = np.arange(
+            0, water_body_ids.size, dtype=np.int32
+        )
+        return water_body_mapping[original_waterbody_ids], water_body_mapping
+
+    def load_water_body_data(self, waterbody_mapping):
+        water_body_data = pd.read_csv(
+            self.model.model_structure["table"][
+                "routing/lakesreservoirs/basin_lakes_data"
+            ],
+            dtype={
+                "waterbody_type": np.int32,
+                "volume_total": np.float64,
+                "average_discharge": np.float64,
+                "average_area": np.float64,
+                "volume_flood": np.float64,
+                "relative_area_in_region": np.float64,
+            },
+        )
+        water_body_data["waterbody_id"] = waterbody_mapping[
+            water_body_data["waterbody_id"]
+        ]
+        water_body_data = water_body_data.set_index("waterbody_id")
+        return water_body_data
 
     def step(self):
         """

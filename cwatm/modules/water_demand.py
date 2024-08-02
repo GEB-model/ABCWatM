@@ -144,18 +144,7 @@ class water_demand:
             "r",
         ) as src:
             reservoir_command_areas = self.var.compress(src.read(1), method="last")
-            water_body_mapping = np.full(
-                self.model.data.grid.waterBodyID.max() + 1,
-                0,
-                dtype=np.int32,
-            )
-            water_body_ids = np.compress(
-                self.model.data.grid.compress_LR,
-                self.model.data.grid.waterBodyID,
-            )
-            water_body_mapping[water_body_ids] = np.arange(
-                0, water_body_ids.size, dtype=np.int32
-            )
+            water_body_mapping = self.model.lakes_reservoirs_module.waterbody_mapping
             reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
             reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
             self.var.reservoir_command_areas = reservoir_command_areas_mapped
