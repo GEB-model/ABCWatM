@@ -145,9 +145,9 @@ class water_demand:
         ) as src:
             reservoir_command_areas = self.var.compress(src.read(1), method="last")
             water_body_mapping = self.model.lakes_reservoirs_module.waterbody_mapping
-            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
-            reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
-            self.var.reservoir_command_areas = reservoir_command_areas_mapped
+            self.var.reservoir_command_areas = np.take(
+                water_body_mapping, reservoir_command_areas, mode="clip"
+            )
 
         self.model.data.grid.leakageC = np.compress(
             self.model.data.grid.compress_LR,

@@ -128,8 +128,8 @@ class routing_kinematic(object):
         ) = define_river_network(ldd, self.model.data.grid)
 
         # self.var.ups = upstreamArea(dirDown, dirshort, self.var.cellArea)
-        self.var.UpArea1 = upstreamArea(
-            self.var.dirDown, dirshort, self.var.full_compressed(1, dtype=np.float64)
+        self.var.upstream_area_n_cells = upstreamArea(
+            self.var.dirDown, dirshort, self.var.full_compressed(1, dtype=np.int32)
         )
         self.var.UpArea = upstreamArea(
             self.var.dirDown, dirshort, self.var.cellArea.astype(np.float64)
@@ -326,10 +326,10 @@ class routing_kinematic(object):
         # calculate outflow from lakes and reservoirs
 
         # average evaporation overeach lake
-        EWRefavg = (
-            np.bincount(self.var.waterBodyID, weights=EWRefact)
-            / np.bincount(self.var.waterBodyID)
-        )[self.var.waterBodyIDC]
+        EWRefavg = np.bincount(
+            self.var.waterBodyID[self.var.waterBodyID != -1],
+            weights=EWRefact[self.var.waterBodyID != -1],
+        ) / np.bincount(self.var.waterBodyID[self.var.waterBodyID != -1])
         self.var.evapWaterBodyC = (
             EWRefavg * self.var.lake_area / self.var.noRoutingSteps
         )

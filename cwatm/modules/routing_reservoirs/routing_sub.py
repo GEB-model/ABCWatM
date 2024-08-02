@@ -138,7 +138,7 @@ def upstreamArea(dirDown, dirshort, area):
 
     :param dirDown: array which point from each cell to the next downstream cell
     :param dirshort:
-    :param area: area in m2 for a single gridcell
+    :param area: area (can be any variable)
     :return: upstream area
     """
 

@@ -9,18 +9,25 @@ from .routing_reservoirs.routing_sub import (
 )
 
 
-def laketotal(values, areaclass):
+def laketotal(values, areaclass, nan_class):
     """
     numpy area total procedure
 
     :param values:
     :param areaclass:
     :return: calculates the total area of a class
+
+    TODO: This function can be optimized looking at the control flow
     """
-    return np.take(np.bincount(areaclass, weights=values), areaclass)
+    mask = areaclass != nan_class
+    # add +2 to make sure that the last entry is also 0, so that 0 maps to 0
+    class_totals = np.bincount(
+        areaclass[mask], weights=values[mask], minlength=areaclass[mask].max() + 2
+    )
+    return np.take(class_totals, areaclass)
 
 
-def npareamaximum(values, areaclass):
+def npareamaximum(values, areaclass, na_class):
     """
     numpy area maximum procedure
 
@@ -28,8 +35,13 @@ def npareamaximum(values, areaclass):
     :param areaclass:
     :return: calculates the maximum of an area of a class
     """
-    valueMax = np.zeros(areaclass.max().item() + 1)
-    np.maximum.at(valueMax, areaclass, values)
+    valueMax = np.zeros_like(values, shape=areaclass.max() + 1)
+    if na_class:
+        np.maximum.at(
+            valueMax, areaclass[areaclass != na_class], values[areaclass != na_class]
+        )
+    else:
+        np.maximum.at(valueMax, areaclass, values)
     return np.take(valueMax, areaclass)
 
 
@@ -105,34 +117,42 @@ class lakes_reservoirs(object):
         # load lakes/reservoirs map with a single ID for each lake/reservoir
         waterBodyID = self.var.load(
             self.model.model_structure["grid"]["routing/lakesreservoirs/lakesResID"]
-        ).astype(
-            np.int64
-        )  # not sure whether np.int64 is necessary
+        )
+        waterBodyID[waterBodyID == 0] = -1
 
-        assert (waterBodyID >= 0).all()
-
-        # calculate biggest outlet = biggest accumulation of ldd network
-        lakeResmax = npareamaximum(self.var.UpArea1, waterBodyID)
-        self.var.waterBodyOut = np.where(self.var.UpArea1 == lakeResmax, waterBodyID, 0)
+        waterbody_outflow_points = self.get_outflows(waterBodyID)
 
         # dismiss water bodies that are not a subcatchment of an outlet
-        sub = subcatchment1(self.var.dirUp, self.var.waterBodyOut, self.var.UpArea1)
+        # after this, this is the final set of water bodies
+        sub = subcatchment1(
+            self.var.dirUp,
+            waterbody_outflow_points,
+            self.var.upstream_area_n_cells,
+        )
+        self.var.waterBodyID_original = np.where(waterBodyID == sub, sub, -1)
 
-        self.var.waterBodyID_original = np.where(waterBodyID == sub, sub, 0)
+        # we need to re-calculate the outflows, because the ID might have changed due
+        # to the earlier operations
+        waterbody_outflow_points = self.get_outflows(waterBodyID)
+
+        compressed_waterbody_ids = np.compress(
+            waterbody_outflow_points != -1, waterbody_outflow_points
+        )
+
         self.var.waterBodyID, self.waterbody_mapping = self.map_water_bodies_IDs(
-            self.var.waterBodyID_original
+            compressed_waterbody_ids, self.var.waterBodyID_original
         )
-        self.water_body_data = self.load_water_body_data(self.waterbody_mapping)
+        self.water_body_data = self.load_water_body_data(
+            self.waterbody_mapping, self.var.waterBodyID_original
+        )
 
-        # and again calculate outlets, because ID might have changed due to the operation before
-        lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
-        self.var.waterBodyOut = np.where(
-            self.var.UpArea1 == lakeResmax, self.var.waterBodyID, 0
-        )
+        # we need to re-calculate the outflows, because the ID might have changed due
+        # to the earlier operations. This is the final one as IDs have now been mapped
+        self.var.waterbody_outflow_points = self.get_outflows(self.var.waterBodyID)
 
         # change ldd: put pits in where lakes are:
         ldd_LR = self.model.data.grid.decompress(
-            np.where(self.var.waterBodyID > 0, 5, self.var.lddCompress), fillvalue=0
+            np.where(self.var.waterBodyID != -1, 5, self.var.lddCompress), fillvalue=0
         )
 
         # create new ldd without lakes reservoirs
@@ -152,20 +172,12 @@ class lakes_reservoirs(object):
         )
 
         # boolean map as mask map for compressing and decompressing
-        self.var.compress_LR = self.var.waterBodyOut > 0
-        self.var.waterBodyIDC = np.compress(self.var.compress_LR, self.var.waterBodyOut)
-        self.var.decompress_LR = np.nonzero(self.var.waterBodyOut)[0]
-        self.var.waterBodyOutC = np.compress(
-            self.var.compress_LR, self.var.waterBodyOut
+        self.var.compress_LR = self.var.waterbody_outflow_points != -1
+        self.var.waterBodyIDC = np.compress(
+            self.var.compress_LR, self.var.waterbody_outflow_points
         )
 
-        # waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
-        self.var.waterBodyTypC = self.water_body_data.loc[self.var.waterBodyIDC][
-            "waterbody_type"
-        ].values
-        self.var.waterBodyTypC = np.where(
-            self.var.waterBodyOutC > 0, self.var.waterBodyTypC.astype(np.int64), 0
-        )
+        self.var.waterBodyTypC = self.water_body_data["waterbody_type"].values
 
         self.reservoir_operators = self.model.agents.reservoir_operators
         self.reservoir_operators.set_reservoir_data(self.water_body_data)
@@ -174,21 +186,15 @@ class lakes_reservoirs(object):
         # a factor which increases evaporation from lake because of wind TODO: use wind to set this factor
         self.var.lakeEvaFactor = self.model.config["parameters"]["lakeEvaFactor"]
 
-        # ================================
-        # Reservoirs
-        # if vol = 0 volu = 10 * area just to mimic all lakes are reservoirs
-        # in [Million m3] -> converted to mio m3
-
-        # correcting water body types if the volume is 0:
-        # correcting reservoir volume for lakes, just to run them all as reservoirs
         self.var.volume = self.water_body_data["volume_total"].values
 
         # TODO: load initial values from spinup
         self.var.storage = self.var.volume.copy()
 
-        # initial only the big arrays are set to 0, the  initial values are loaded inside the subrouines of lakes and reservoirs
-        self.var.outflow = self.model.data.grid.full_compressed(0, dtype=np.float32)
-        self.var.outLake = self.var.load_initial("outLake")
+        self.var.total_inflow_from_other_lakes = self.var.load_initial(
+            "total_inflow_from_other_lakes",
+            default=self.var.full_compressed(0, dtype=np.float32),
+        )
 
         # for Modified Puls Method the Q(inflow)1 has to be used. It is assumed that this is the same as Q(inflow)2 for the first timestep
         # has to be checked if this works in forecasting mode!
@@ -197,7 +203,7 @@ class lakes_reservoirs(object):
         # Lake parameter A (suggested  value equal to outflow width in [m])
         # multiplied with the calibration parameter LakeMultiplier
         self.var.lakeDis0C = np.maximum(
-            self.water_body_data.loc[self.var.waterBodyIDC]["average_discharge"].values,
+            self.water_body_data["average_discharge"].values,
             0.1,
         )
 
@@ -221,17 +227,16 @@ class lakes_reservoirs(object):
 
         return None
 
-    def map_water_bodies_IDs(self, original_waterbody_ids):
+    def map_water_bodies_IDs(self, compressed_waterbody_ids, waterBodyID_original):
         water_body_mapping = np.full(
-            original_waterbody_ids.max() + 1, -1, dtype=np.int32
+            compressed_waterbody_ids.max() + 2, -1, dtype=np.int32
+        )  # make sure that the last entry is also -1, so that -1 maps to -1
+        water_body_mapping[compressed_waterbody_ids] = np.arange(
+            0, compressed_waterbody_ids.size, dtype=np.int32
         )
-        water_body_ids = np.unique(original_waterbody_ids)
-        water_body_mapping[water_body_ids] = np.arange(
-            0, water_body_ids.size, dtype=np.int32
-        )
-        return water_body_mapping[original_waterbody_ids], water_body_mapping
+        return water_body_mapping[waterBodyID_original], water_body_mapping
 
-    def load_water_body_data(self, waterbody_mapping):
+    def load_water_body_data(self, waterbody_mapping, waterbody_original_ids):
         water_body_data = pd.read_csv(
             self.model.model_structure["table"][
                 "routing/lakesreservoirs/basin_lakes_data"
@@ -245,11 +250,37 @@ class lakes_reservoirs(object):
                 "relative_area_in_region": np.float64,
             },
         )
+        # drop all data that is not in the original ids
+        waterbody_original_ids_compressed = np.unique(waterbody_original_ids)
+        waterbody_original_ids_compressed = waterbody_original_ids_compressed[
+            waterbody_original_ids_compressed != -1
+        ]
+        water_body_data = water_body_data[
+            water_body_data["waterbody_id"].isin(waterbody_original_ids_compressed)
+        ]
+        # map the waterbody ids to the new ids
         water_body_data["waterbody_id"] = waterbody_mapping[
             water_body_data["waterbody_id"]
         ]
         water_body_data = water_body_data.set_index("waterbody_id")
+        # sort index to align with waterBodyID
+        water_body_data = water_body_data.sort_index()
         return water_body_data
+
+    def get_outflows(self, waterBodyID):
+        # calculate biggest outlet = biggest accumulation of ldd network
+        lakeResmax = npareamaximum(
+            self.var.upstream_area_n_cells, waterBodyID, na_class=-1
+        )
+        lakeResmax[waterBodyID == -1] = -1
+        waterbody_outflow_points = np.where(
+            self.var.upstream_area_n_cells == lakeResmax, waterBodyID, -1
+        )
+        # make sure that each water body has an outflow
+        assert np.array_equal(
+            np.unique(waterbody_outflow_points), np.unique(waterBodyID)
+        )
+        return waterbody_outflow_points
 
     def step(self):
         """
@@ -398,7 +429,7 @@ class lakes_reservoirs(object):
                 prestorages=[prestorage],
                 poststorages=[self.var.storage],
                 name="reservoirs",
-                tollerance=0.1,
+                tollerance=1e-8,
             )
 
         return outflow_m3
@@ -421,17 +452,21 @@ class lakes_reservoirs(object):
         dis_LR = upstream1(self.var.downstruct_LR, self.var.discharge)
 
         # only where lakes are and unit convered to [m]
-        dis_LR = np.where(self.var.waterBodyID > 0, dis_LR, 0.0) * self.model.DtSec
+        dis_LR = np.where(self.var.waterBodyID != -1, dis_LR, 0.0) * self.model.DtSec
 
+        # TODO: this control flow can be simplified
         # sum up runoff and discharge on the lake
         inflow = laketotal(
-            dis_LR + self.var.runoff * self.var.cellArea, self.var.waterBodyID
+            dis_LR + self.var.runoff * self.var.cellArea,
+            self.var.waterBodyID,
+            nan_class=-1,
         )
 
         # only once at the outlet
         inflow = (
-            np.where(self.var.waterBodyOut > 0, inflow, 0.0) / self.var.noRoutingSteps
-            + self.var.outLake
+            np.where(self.var.waterbody_outflow_points != -1, inflow, 0.0)
+            / self.var.noRoutingSteps
+            + self.var.total_inflow_from_other_lakes
         )
 
         # evaporation from water body
@@ -459,28 +494,32 @@ class lakes_reservoirs(object):
         self.sum_inflow += inflowC
         self.sum_outflow += outflow
 
-        np.put(self.var.outflow, self.var.decompress_LR, outflow)
+        outflow_grid = self.var.full_compressed(0, dtype=np.float32)
+        outflow_grid[self.var.compress_LR] = outflow
+
         # shift outflow 1 cell downstream
-        # TODO: Check this in GUI
-        self.var.outflow_shifted = upstream1(self.var.downstruct, self.var.outflow)
+        outflow_shifted_downstream = upstream1(self.var.downstruct, outflow_grid)
 
         # everything with is not going to another lake is output to river network
         outflow_to_river_network = np.where(
-            self.var.waterBodyID > 0, 0, self.var.outflow_shifted
+            self.var.waterBodyID != -1, 0, outflow_shifted_downstream
         )
         # everything what is not going to the network is going to another lake
         # this will be added to the inflow of the other lake in the next
         # timestep
         outflow_to_another_lake = np.where(
-            self.var.waterBodyID > 0, self.var.outflow_shifted, 0
+            self.var.waterBodyID != -1, outflow_shifted_downstream, 0
         )
 
         # sum up all inflow from other lakes
-        outLake = laketotal(outflow_to_another_lake, self.var.waterBodyID)
-        if outLake.sum() > 0:
-            raise ValueError("This MUST be checked before going on ...")
+        total_inflow_from_other_lakes = laketotal(
+            outflow_to_another_lake, self.var.waterBodyID, nan_class=-1
+        )
+
         # use only the value of the outflow point
-        self.var.outLake = np.where(self.var.waterBodyOut > 0, outLake, 0.0)
+        self.var.total_inflow_from_other_lakes = np.where(
+            self.var.waterbody_outflow_points != -1, total_inflow_from_other_lakes, 0.0
+        )
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
