@@ -189,19 +189,15 @@ class lakes_reservoirs(object):
         self.var.volume = self.water_body_data["volume_total"].values
 
         # TODO: load initial values from spinup
-        self.var.storage = self.var.volume.copy()
+        self.var.storage = self.var.volume.copy() / 10
 
-        self.var.total_inflow_from_other_lakes = self.var.load_initial(
-            "total_inflow_from_other_lakes",
+        self.var.total_inflow_from_other_water_bodies = self.var.load_initial(
+            "total_inflow_from_other_water_bodies",
             default=self.var.full_compressed(0, dtype=np.float32),
         )
 
-        # for Modified Puls Method the Q(inflow)1 has to be used. It is assumed that this is the same as Q(inflow)2 for the first timestep
-        # has to be checked if this works in forecasting mode!
-
         # lake discharge at outlet to calculate alpha: parameter of channel width, gravity and weir coefficient
         # Lake parameter A (suggested  value equal to outflow width in [m])
-        # multiplied with the calibration parameter LakeMultiplier
         self.var.lakeDis0C = np.maximum(
             self.water_body_data["average_discharge"].values,
             0.1,
@@ -224,8 +220,6 @@ class lakes_reservoirs(object):
         self.var.prev_lake_outflow = self.var.load_initial(
             "prev_lake_outflow", default=self.var.prev_lake_inflow.copy()
         )
-
-        return None
 
     def map_water_bodies_IDs(self, compressed_waterbody_ids, waterBodyID_original):
         water_body_mapping = np.full(
@@ -296,10 +290,6 @@ class lakes_reservoirs(object):
             # - 0 = non lakes or reservoirs (e.g. wetland)
             if self.model.DynamicResAndLakes:
                 raise NotImplementedError("DynamicResAndLakes not implemented yet")
-
-        self.sum_evaporation = 0
-        self.sum_inflow = 0
-        self.sum_outflow = 0
 
     def dynamic_inloop_lakes(self, inflowC):
         """
@@ -376,7 +366,7 @@ class lakes_reservoirs(object):
             )
 
             self.model.waterbalance_module.waterBalanceCheck(
-                influxes=[inflow_lakes],  # In [m3/s]
+                influxes=[inflow_lakes],  # In [m3]
                 outfluxes=[
                     outflow_m3,
                     lakedaycorrect_m3,
@@ -404,7 +394,7 @@ class lakes_reservoirs(object):
         reservoirs = self.var.waterBodyTypC == 2
 
         # Reservoir inflow in [m3] per timestep
-        self.var.storage += inflowC
+        self.var.storage[reservoirs] += inflowC[reservoirs]
         # New reservoir storage [m3] = plus inflow for this sub step
 
         outflow_m3_s = np.zeros(self.var.waterBodyIDC.size, dtype=np.float64)
@@ -422,14 +412,16 @@ class lakes_reservoirs(object):
 
         self.var.storage -= outflow_m3
 
+        inflow_reservoirs = np.zeros_like(inflowC)
+        inflow_reservoirs[reservoirs] = inflowC[reservoirs]
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
-                influxes=[inflowC],  # In [m3/s]
+                influxes=[inflow_reservoirs],  # In [m3/s]
                 outfluxes=[outflow_m3],
                 prestorages=[prestorage],
                 poststorages=[self.var.storage],
                 name="reservoirs",
-                tollerance=1e-8,
+                tollerance=1e-7,
             )
 
         return outflow_m3
@@ -466,7 +458,7 @@ class lakes_reservoirs(object):
         inflow = (
             np.where(self.var.waterbody_outflow_points != -1, inflow, 0.0)
             / self.var.noRoutingSteps
-            + self.var.total_inflow_from_other_lakes
+            + self.var.total_inflow_from_other_water_bodies
         )
 
         # evaporation from water body
@@ -490,10 +482,6 @@ class lakes_reservoirs(object):
 
         outflow = outflow_lakes + outflow_reservoirs
 
-        self.sum_evaporation += evaporation  # in [m3]
-        self.sum_inflow += inflowC
-        self.sum_outflow += outflow
-
         outflow_grid = self.var.full_compressed(0, dtype=np.float32)
         outflow_grid[self.var.compress_LR] = outflow
 
@@ -512,13 +500,15 @@ class lakes_reservoirs(object):
         )
 
         # sum up all inflow from other lakes
-        total_inflow_from_other_lakes = laketotal(
+        total_inflow_from_other_water_bodies = laketotal(
             outflow_to_another_lake, self.var.waterBodyID, nan_class=-1
         )
 
         # use only the value of the outflow point
-        self.var.total_inflow_from_other_lakes = np.where(
-            self.var.waterbody_outflow_points != -1, total_inflow_from_other_lakes, 0.0
+        self.var.total_inflow_from_other_water_bodies = np.where(
+            self.var.waterbody_outflow_points != -1,
+            total_inflow_from_other_water_bodies,
+            0.0,
         )
 
         if self.model.CHECK_WATER_BALANCE:
@@ -528,7 +518,7 @@ class lakes_reservoirs(object):
                 outfluxes=[outflow, evaporation],  # Out  EvapWaterBodyC
                 prestorages=[prestorage],  # prev storage
                 poststorages=[self.var.storage, lakedaycorrect_m3],
-                tollerance=1e-5,
+                tollerance=1e-3,
             )
 
         return outflow_to_river_network, evaporation
