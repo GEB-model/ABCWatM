@@ -122,7 +122,7 @@ class lakes_reservoirs(object):
         self.var.waterBodyID, self.waterbody_mapping = self.map_water_bodies_IDs(
             self.var.waterBodyID_original
         )
-        water_body_data = self.load_water_body_data(self.waterbody_mapping)
+        self.water_body_data = self.load_water_body_data(self.waterbody_mapping)
 
         # and again calculate outlets, because ID might have changed due to the operation before
         lakeResmax = npareamaximum(self.var.UpArea1, self.var.waterBodyID)
@@ -160,7 +160,7 @@ class lakes_reservoirs(object):
         )
 
         # waterBodyTyp = np.where(waterBodyTyp > 0., 1, waterBodyTyp)  # TODO change all to lakes for testing
-        self.var.waterBodyTypC = water_body_data.loc[self.var.waterBodyIDC][
+        self.var.waterBodyTypC = self.water_body_data.loc[self.var.waterBodyIDC][
             "waterbody_type"
         ].values
         self.var.waterBodyTypC = np.where(
@@ -168,12 +168,9 @@ class lakes_reservoirs(object):
         )
 
         self.reservoir_operators = self.model.agents.reservoir_operators
+        self.reservoir_operators.set_reservoir_data(self.water_body_data)
 
-        # ================================
-        # Lakes
-        # Surface area of each lake [m2]
-        self.var.lakeAreaC = water_body_data["average_area"].values
-
+        self.var.lake_area = self.water_body_data["average_area"].values
         # a factor which increases evaporation from lake because of wind TODO: use wind to set this factor
         self.var.lakeEvaFactor = self.model.config["parameters"]["lakeEvaFactor"]
 
@@ -184,7 +181,7 @@ class lakes_reservoirs(object):
 
         # correcting water body types if the volume is 0:
         # correcting reservoir volume for lakes, just to run them all as reservoirs
-        self.var.volume = water_body_data["volume_total"].values
+        self.var.volume = self.water_body_data["volume_total"].values
 
         # TODO: load initial values from spinup
         self.var.storage = self.var.volume
@@ -200,7 +197,7 @@ class lakes_reservoirs(object):
         # Lake parameter A (suggested  value equal to outflow width in [m])
         # multiplied with the calibration parameter LakeMultiplier
         self.var.lakeDis0C = np.maximum(
-            water_body_data.loc[self.var.waterBodyIDC]["average_discharge"].values,
+            self.water_body_data.loc[self.var.waterBodyIDC]["average_discharge"].values,
             0.1,
         )
 
@@ -301,7 +298,7 @@ class lakes_reservoirs(object):
                     self.var.prev_lake_inflow[lakes],
                     self.var.prev_lake_outflow[lakes],
                     self.lake_factor[lakes],
-                    self.var.lakeAreaC[lakes],
+                    self.var.lake_area[lakes],
                 )
             )
 
