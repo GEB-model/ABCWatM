@@ -206,6 +206,7 @@ class ModFlowSimulation:
                 )
 
                 sim.write_simulation()
+                self.write_hash_to_disk()
             except:
                 if os.path.exists(self.hash_file):
                     os.remove(self.hash_file)
@@ -216,6 +217,10 @@ class ModFlowSimulation:
 
         self.load_bmi()
 
+    def write_hash_to_disk(self):
+        with open(self.hash_file, "wb") as f:
+            f.write(self.hash)
+
     def load_from_disk(self, arguments):
         hashable_dict = {}
         for key, value in arguments.items():
@@ -223,7 +228,7 @@ class ModFlowSimulation:
                 value = str(value.tobytes())
             hashable_dict[key] = value
 
-        current_hash = hashlib.md5(
+        self.hash = hashlib.md5(
             json.dumps(hashable_dict, sort_keys=True).encode()
         ).digest()
         if not os.path.exists(self.hash_file):
@@ -231,14 +236,12 @@ class ModFlowSimulation:
         else:
             with open(self.hash_file, "rb") as f:
                 prev_hash = f.read().strip()
-        if prev_hash == current_hash:
+        if prev_hash == self.hash:
             if os.path.exists(os.path.join(self.working_directory, "mfsim.nam")):
                 return True
             else:
                 return False
         else:
-            with open(self.hash_file, "wb") as f:
-                f.write(current_hash)
             return False
 
     def bmi_return(self, success, model_ws):
