@@ -1,12 +1,3 @@
-# -------------------------------------------------------------------------
-# Name:        Lakes and reservoirs module
-# Purpose:
-#
-# Author:      PB
-#
-# Created:     01/08/2016
-# Copyright:   (c) PB 2016
-# -------------------------------------------------------------------------
 import pandas as pd
 import numpy as np
 from scipy.optimize import fsolve
@@ -98,55 +89,6 @@ def get_lake_outflow_and_storage(
 
 
 class lakes_reservoirs(object):
-    """
-    LAKES AND RESERVOIRS
-
-    **Global variables**
-
-    ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit
-    ====================  ================================================================================  =========
-    load_initial
-    waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --
-    waterBodyOut          biggest outlet (biggest accumulation of ldd network) of a waterbody               --
-    dirUp                 river network in upstream direction                                               --
-    ldd_LR                change river network (put pits in where lakes are)                                --
-    lddCompress_LR        compressed river network lakes/reservoirs (without missing values)                --
-    dirUp_LR              river network direction upstream lake/reservoirs                                  --
-    dirupLen_LR           number of bifurcation upstream lake/reservoir                                     --
-    dirupID_LR            index river upstream lake/reservoir                                               --
-    downstruct_LR         river network downstream lake/reservoir                                           --
-    catchment_LR          catchments lake/reservoir                                                         --
-    dirDown_LR            river network direktion downstream lake/reservoir                                 --
-    lendirDown_LR         number of river network connections lake/reservoir                                --
-    compress_LR           boolean map as mask map for compressing lake/reservoir                            --
-    decompress_LR         boolean map as mask map for decompressing lake/reservoir                          --
-    waterBodyOutC         compressed map biggest outlet of each lake/reservoir                              --
-    waterBodyTypC         water body types 3 reservoirs and lakes (used as reservoirs but before the year   --
-    lakeArea              area of each lake/reservoir                                                       m2
-    lakeAreaC             compressed map of the area of each lake/reservoir                                 m2
-    lakeDis0              compressed map average discharge at the outlet of a lake/reservoir                m3 s-1
-    lakeDis0C             average discharge at the outlet of a lake/reservoir                               m3 s-1
-    outLake               outflow from lakes                                                                m
-    lakeFactor            factor for the Modified Puls approach to calculate retention of the lake          --
-    lake_outflow          compressed map of lake outflow                                                    m3/s
-    sum_evaporation
-    sum_inflow
-    sum_outflow
-    lakeIn
-    lakeEvapWaterBodyC
-    resEvapWaterBodyC
-    downstruct
-    lddCompress           compressed river network (without missing values)                                 --
-    lakeEvaFactor         a factor which increases evaporation from lake because of wind                    --
-    dtRouting             number of seconds per routing timestep                                            s
-    evapWaterBodyC
-    noRoutingSteps
-    discharge             discharge                                                                         m3/s
-    runoff
-    ====================  ================================================================================  =========
-    """
-
     def __init__(self, model):
         """
         Initialize water bodies
@@ -409,11 +351,6 @@ class lakes_reservoirs(object):
         :param inflowC: inflow to reservoirs
         :return: qResOutM3DtC - reservoir outflow in [m3] per subtime step
         """
-
-        # ************************************************************
-        # ***** Reservoirs
-        # ************************************************************
-
         if self.model.CHECK_WATER_BALANCE:
             prestorage = self.var.storage.copy()
 
