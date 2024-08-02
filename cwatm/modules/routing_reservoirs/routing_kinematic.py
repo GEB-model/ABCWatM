@@ -331,7 +331,7 @@ class routing_kinematic(object):
             / np.bincount(self.var.waterBodyID)
         )[self.var.waterBodyIDC]
         self.var.evapWaterBodyC = (
-            EWRefavg * self.var.lakeAreaC / self.var.noRoutingSteps
+            EWRefavg * self.var.lake_area / self.var.noRoutingSteps
         )
         assert np.all(self.var.evapWaterBodyC >= 0.0), "evapWaterBodyC < 0.0"
 
