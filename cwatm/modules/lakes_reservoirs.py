@@ -593,4 +593,4 @@ class lakes_reservoirs(object):
                 tollerance=1e-5,
             )
 
-        return outflow_to_river_network, outflow_to_river_network
+        return outflow_to_river_network

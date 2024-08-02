@@ -400,10 +400,10 @@ class routing_kinematic(object):
             sideflowChanM3 -= WDAddM3Dt
             # minus waterdemand + returnflow
 
-            lakesResOut, lakeOutflowDis = (
+            outflow_to_river_network = (
                 self.model.lakes_reservoirs_module.dynamic_inloop(subrouting_step)
             )
-            sideflowChanM3 += lakesResOut
+            sideflowChanM3 += outflow_to_river_network
 
             sideflowChan = sideflowChanM3 * self.var.invchanLength / self.var.dtRouting
 
@@ -422,13 +422,6 @@ class routing_kinematic(object):
             self.var.discharge_substep[subrouting_step, :] = self.var.discharge.copy()
 
             self.var.sumsideflow = self.var.sumsideflow + sideflowChanM3
-
-        # if there is a lake no discharge is calculated in the routing routine.
-        # therefore this is filled up with the discharge which goes outof the lake
-        # these outflow is used for the whole lake
-        self.var.discharge = np.where(
-            self.var.waterBodyID > 0, lakeOutflowDis, self.var.discharge
-        )
 
         assert not np.isnan(self.var.discharge).any()
 
