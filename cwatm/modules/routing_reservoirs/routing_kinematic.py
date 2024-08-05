@@ -36,10 +36,6 @@ class routing_kinematic(object):
     UpArea1               upstream area of a grid cell                                                      m2
     dirUp                 river network in upstream direction                                               --
     lddCompress           compressed river network (without missing values)                                 --
-    dirupLen_LR           number of bifurcation upstream lake/reservoir                                     --
-    dirupID_LR            index river upstream lake/reservoir                                               --
-    dirDown_LR            river network direktion downstream lake/reservoir                                 --
-    lendirDown_LR         number of river network connections lake/reservoir                                --
     compress_LR           boolean map as mask map for compressing lake/reservoir                            --
     lakeArea              area of each lake/reservoir                                                       m2
     lakeEvaFactor         a factor which increases evaporation from lake because of wind                    --
@@ -60,7 +56,6 @@ class routing_kinematic(object):
     act_SurfaceWaterAbst
     fracVegCover          Fraction of area covered by the corresponding landcover type
     openWaterEvap         Simulated evaporation from open areas                                             m
-    catchmentAll
     chanLength
     totalCrossSectionAre
     dirupLen
@@ -84,7 +79,6 @@ class routing_kinematic(object):
     invchannelAlpha
     channelStorageM3
     riverbedExchange
-    sumbalance
     pre_channel_storage_m3
     EvapoChannel
     QDelta
@@ -121,13 +115,12 @@ class routing_kinematic(object):
             self.var.dirUp,
             self.var.dirupLen,
             self.var.dirupID,
-            self.var.downstruct,
-            self.var.catchment,
+            self.var.downstruct_no_water_bodies,
+            _,
             self.var.dirDown,
             self.var.lendirDown,
         ) = define_river_network(ldd, self.model.data.grid)
 
-        # self.var.ups = upstreamArea(dirDown, dirshort, self.var.cellArea)
         self.var.upstream_area_n_cells = upstreamArea(
             self.var.dirDown, dirshort, self.var.full_compressed(1, dtype=np.int32)
         )
@@ -254,10 +247,6 @@ class routing_kinematic(object):
             self.var.full_compressed(0, dtype=np.float32)
             + self.model.config["parameters"]["lakeEvaFactor"]
         )
-
-        if self.model.CHECK_WATER_BALANCE:
-            self.var.catchmentAll = self.model.data.grid.full_compressed(0.0)
-            self.var.sumbalance = 0
 
     def step(self, openWaterEvap, channel_abstraction_m, returnFlow):
         """
@@ -401,9 +390,9 @@ class routing_kinematic(object):
             self.var.discharge = kinematic(
                 self.var.discharge,
                 sideflowChan.astype(np.float32),
-                self.var.dirDown_LR,
-                self.var.dirupLen_LR,
-                self.var.dirupID_LR,
+                self.var.dirDown,
+                self.var.dirupLen,
+                self.var.dirupID,
                 self.var.channelAlpha,
                 self.var.beta,
                 self.var.dtRouting,

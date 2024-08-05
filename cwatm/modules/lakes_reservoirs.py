@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import numpy as np
 from scipy.optimize import fsolve
@@ -155,17 +157,17 @@ class lakes_reservoirs(object):
             np.where(self.var.waterBodyID != -1, 5, self.var.lddCompress), fillvalue=0
         )
 
-        # create new ldd without lakes reservoirs
+        # set new ldds without lakes reservoirs
         (
             self.var.lddCompress_LR,
-            dirshort_LR,
-            self.var.dirUp_LR,
-            self.var.dirupLen_LR,
-            self.var.dirupID_LR,
-            self.var.downstruct_LR,
-            self.var.catchment_LR,
-            self.var.dirDown_LR,
-            self.var.lendirDown_LR,
+            _,
+            self.var.dirUp,
+            self.var.dirupLen,
+            self.var.dirupID,
+            self.var.downstruct,
+            _,
+            self.var.dirDown,
+            self.var.lendirDown,
         ) = define_river_network(
             ldd_LR,
             self.model.data.grid,
@@ -441,7 +443,7 @@ class lakes_reservoirs(object):
             prestorage = self.var.storage.copy()
 
         # collect discharge from above waterbodies
-        dis_LR = upstream1(self.var.downstruct_LR, self.var.discharge)
+        dis_LR = upstream1(self.var.downstruct, self.var.discharge)
 
         # only where lakes are and unit convered to [m]
         dis_LR = np.where(self.var.waterBodyID != -1, dis_LR, 0.0) * self.model.DtSec
@@ -486,7 +488,12 @@ class lakes_reservoirs(object):
         outflow_grid[self.var.compress_LR] = outflow
 
         # shift outflow 1 cell downstream
-        outflow_shifted_downstream = upstream1(self.var.downstruct, outflow_grid)
+        outflow_shifted_downstream = upstream1(
+            self.var.downstruct_no_water_bodies, outflow_grid
+        )
+        assert math.isclose(
+            outflow_shifted_downstream.sum(), outflow_grid.sum(), rel_tol=0.00001
+        )
 
         # everything with is not going to another lake is output to river network
         outflow_to_river_network = np.where(
