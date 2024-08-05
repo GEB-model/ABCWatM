@@ -21,7 +21,6 @@ setup(
         "cwatm.modules",
         "cwatm.modules.groundwater_modflow",
         "cwatm.modules.routing_reservoirs",
-        "cwatm.management_modules",
     ],
     package_data={
         "cwatm.modules": [
