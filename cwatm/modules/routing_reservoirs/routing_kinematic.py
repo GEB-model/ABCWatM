@@ -45,7 +45,7 @@ class routing_kinematic(object):
     lakeResOutflowM
     dtRouting             number of seconds per routing timestep                                            s
     lakeResStorage
-    evapWaterBodyC
+    evaporation_from_water_bodies_per_routing_step
     sumLakeEvapWaterBody
     noRoutingSteps
     discharge             discharge                                                                         m3/s
@@ -320,10 +320,12 @@ class routing_kinematic(object):
             self.var.waterBodyID[self.var.waterBodyID != -1],
             weights=EWRefact[self.var.waterBodyID != -1],
         ) / np.bincount(self.var.waterBodyID[self.var.waterBodyID != -1])
-        self.var.evapWaterBodyC = (
+        evaporation_from_water_bodies_per_routing_step = (
             EWRefavg * self.var.lake_area / self.var.noRoutingSteps
         )
-        assert np.all(self.var.evapWaterBodyC >= 0.0), "evapWaterBodyC < 0.0"
+        assert np.all(
+            evaporation_from_water_bodies_per_routing_step >= 0.0
+        ), "evaporation_from_water_bodies_per_routing_step < 0.0"
 
         if self.model.use_gpu:
             fraction_water = cp.array(self.model.data.HRU.land_use_ratio)
@@ -379,14 +381,18 @@ class routing_kinematic(object):
             # minus waterdemand + returnflow
 
             outflow_to_river_network, waterbody_evaporation = (
-                self.model.lakes_reservoirs_module.dynamic_inloop(subrouting_step)
+                self.model.lakes_reservoirs_module.routing(
+                    subrouting_step,
+                    evaporation_from_water_bodies_per_routing_step,
+                    self.var.discharge,
+                    self.var.runoff,
+                )
             )
             sideflowChanM3 += outflow_to_river_network
             sumwaterbody_evaporation += waterbody_evaporation
 
             sideflowChan = sideflowChanM3 * self.var.invchanLength / self.var.dtRouting
 
-            # print("CHECK ROUTING PRE POST")
             self.var.discharge = kinematic(
                 self.var.discharge,
                 sideflowChan.astype(np.float32),
@@ -415,6 +421,8 @@ class routing_kinematic(object):
             * self.var.chanLength
             * self.var.discharge**self.var.beta
         )
+
+        print(self.var.channelStorageM3.sum())
 
         if self.model.CHECK_WATER_BALANCE:
             # this check the last routing step, but that's okay

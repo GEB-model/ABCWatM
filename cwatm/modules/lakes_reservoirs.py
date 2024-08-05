@@ -12,21 +12,9 @@ from .routing_reservoirs.routing_sub import (
 
 
 def laketotal(values, areaclass, nan_class):
-    """
-    numpy area total procedure
-
-    :param values:
-    :param areaclass:
-    :return: calculates the total area of a class
-
-    TODO: This function can be optimized looking at the control flow
-    """
     mask = areaclass != nan_class
-    # add +2 to make sure that the last entry is also 0, so that 0 maps to 0
-    class_totals = np.bincount(
-        areaclass[mask], weights=values[mask], minlength=areaclass[mask].max() + 2
-    )
-    return np.take(class_totals, areaclass)
+    class_totals = np.bincount(areaclass[mask], weights=values[mask])
+    return class_totals
 
 
 def npareamaximum(values, areaclass, na_class):
@@ -190,23 +178,24 @@ class lakes_reservoirs(object):
 
         self.var.volume = self.water_body_data["volume_total"].values
 
-        # TODO: load initial values from spinup
-        self.var.storage = self.var.volume.copy() / 10
+        self.var.storage = self.var.load_initial(
+            "volume", default=self.var.volume.copy() / 10
+        )
 
         self.var.total_inflow_from_other_water_bodies = self.var.load_initial(
             "total_inflow_from_other_water_bodies",
-            default=self.var.full_compressed(0, dtype=np.float32),
+            default=np.zeros_like(self.var.volume, dtype=np.float32),
         )
 
         # lake discharge at outlet to calculate alpha: parameter of channel width, gravity and weir coefficient
         # Lake parameter A (suggested  value equal to outflow width in [m])
-        self.var.lakeDis0C = np.maximum(
+        average_discharge = np.maximum(
             self.water_body_data["average_discharge"].values,
             0.1,
         )
 
         # channel width in [m]
-        channel_width = 7.1 * np.power(self.var.lakeDis0C, 0.539)
+        channel_width = 7.1 * np.power(average_discharge, 0.539)
 
         self.lake_factor = (
             self.model.config["parameters"]["lakeAFactor"]
@@ -217,7 +206,7 @@ class lakes_reservoirs(object):
         )
 
         self.var.prev_lake_inflow = self.var.load_initial(
-            "prev_lake_inflow", default=self.var.lakeDis0C.copy()
+            "prev_lake_inflow", default=average_discharge.copy()
         )
         self.var.prev_lake_outflow = self.var.load_initial(
             "prev_lake_outflow", default=self.var.prev_lake_inflow.copy()
@@ -293,7 +282,7 @@ class lakes_reservoirs(object):
             if self.model.DynamicResAndLakes:
                 raise NotImplementedError("DynamicResAndLakes not implemented yet")
 
-    def dynamic_inloop_lakes(self, inflowC):
+    def routing_lakes(self, inflowC):
         """
         Lake routine to calculate lake outflow
         :param inflowC: inflow to lakes and reservoirs [m3]
@@ -384,7 +373,7 @@ class lakes_reservoirs(object):
 
         return outflow_m3, lakedaycorrect_m3
 
-    def dynamic_inloop_reservoirs(self, inflowC):
+    def routing_reservoirs(self, inflowC):
         """
         Reservoir outflow
         :param inflowC: inflow to reservoirs
@@ -428,7 +417,9 @@ class lakes_reservoirs(object):
 
         return outflow_m3
 
-    def dynamic_inloop(self, step):
+    def routing(
+        self, step, evaporation_from_water_bodies_per_routing_step, discharge, runoff
+    ):
         """
         Dynamic part to calculate outflow from lakes and reservoirs
         * lakes with modified Puls approach
@@ -443,44 +434,30 @@ class lakes_reservoirs(object):
             prestorage = self.var.storage.copy()
 
         # collect discharge from above waterbodies
-        dis_LR = upstream1(self.var.downstruct, self.var.discharge)
+        dis_LR = upstream1(self.var.downstruct, discharge)
 
         # only where lakes are and unit convered to [m]
         dis_LR = np.where(self.var.waterBodyID != -1, dis_LR, 0.0) * self.model.DtSec
 
-        # TODO: this control flow can be simplified
-        # sum up runoff and discharge on the lake
-        inflow = laketotal(
-            dis_LR + self.var.runoff * self.var.cellArea,
-            self.var.waterBodyID,
-            nan_class=-1,
+        runoff_m3 = runoff * self.var.cellArea / self.var.noRoutingSteps
+        runoff_m3 = laketotal(runoff_m3, self.var.waterBodyID, nan_class=-1)
+
+        discharge_m3 = upstream1(self.var.downstruct, discharge) * self.var.dtRouting
+        discharge_m3 = laketotal(discharge_m3, self.var.waterBodyID, nan_class=-1)
+
+        inflow_m3 = (
+            runoff_m3 + discharge_m3 + self.var.total_inflow_from_other_water_bodies
         )
 
-        # only once at the outlet
-        inflow = (
-            np.where(self.var.waterbody_outflow_points != -1, inflow, 0.0)
-            / self.var.noRoutingSteps
-            + self.var.total_inflow_from_other_water_bodies
-        )
-
-        # evaporation from water body
-        # TODO: Abstract evaporation in lakes reservoir module for control flow simplification
         # lakeEvaFactorC
-        evaporation = np.where(
-            self.var.waterBodyTypC != 0,
-            np.minimum(
-                self.var.evapWaterBodyC, self.var.storage
-            ),  # evaporation is already in m3 per routing substep
-            0,
-        )
+        evaporation = np.minimum(
+            evaporation_from_water_bodies_per_routing_step, self.var.storage
+        )  # evaporation is already in m3 per routing substep
+        evaporation[self.var.waterBodyTypC == 0] = 0
         self.var.storage -= evaporation
 
-        # calculate total inflow into lakes and compress it to waterbodie outflow point
-        # inflow to lake is discharge from upstream network + runoff directly into lake + outflow from upstream lakes
-        inflowC = np.compress(self.var.compress_LR, inflow)
-        # ------------------------------------------------------------
-        outflow_lakes, lakedaycorrect_m3 = self.dynamic_inloop_lakes(inflowC)
-        outflow_reservoirs = self.dynamic_inloop_reservoirs(inflowC)
+        outflow_lakes, lakedaycorrect_m3 = self.routing_lakes(inflow_m3)
+        outflow_reservoirs = self.routing_reservoirs(inflow_m3)
 
         outflow = outflow_lakes + outflow_reservoirs
 
@@ -507,21 +484,14 @@ class lakes_reservoirs(object):
         )
 
         # sum up all inflow from other lakes
-        total_inflow_from_other_water_bodies = laketotal(
+        self.var.total_inflow_from_other_water_bodies = laketotal(
             outflow_to_another_lake, self.var.waterBodyID, nan_class=-1
-        )
-
-        # use only the value of the outflow point
-        self.var.total_inflow_from_other_water_bodies = np.where(
-            self.var.waterbody_outflow_points != -1,
-            total_inflow_from_other_water_bodies,
-            0.0,
         )
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
-                influxes=[inflowC],
+                influxes=[inflow_m3],
                 outfluxes=[outflow, evaporation],
                 prestorages=[prestorage],
                 poststorages=[self.var.storage, lakedaycorrect_m3],
