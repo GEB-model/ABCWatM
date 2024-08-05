@@ -17,24 +17,6 @@ def laketotal(values, areaclass, nan_class):
     return class_totals
 
 
-def npareamaximum(values, areaclass, na_class):
-    """
-    numpy area maximum procedure
-
-    :param values:
-    :param areaclass:
-    :return: calculates the maximum of an area of a class
-    """
-    valueMax = np.zeros_like(values, shape=areaclass.max() + 1)
-    if na_class:
-        np.maximum.at(
-            valueMax, areaclass[areaclass != na_class], values[areaclass != na_class]
-        )
-    else:
-        np.maximum.at(valueMax, areaclass, values)
-    return np.take(valueMax, areaclass)
-
-
 GRAVITY = 9.81
 SHAPE = "rectangular"
 # http://rcswww.urz.tu-dresden.de/~daigner/pdf/ueberf.pdf
@@ -254,12 +236,23 @@ class lakes_reservoirs(object):
 
     def get_outflows(self, waterBodyID):
         # calculate biggest outlet = biggest accumulation of ldd network
-        lakeResmax = npareamaximum(
-            self.var.upstream_area_n_cells, waterBodyID, na_class=-1
+        upstream_area_within_waterbodies = np.zeros_like(
+            self.var.upstream_area_n_cells, shape=waterBodyID.max() + 2
         )
-        lakeResmax[waterBodyID == -1] = -1
+        upstream_area_within_waterbodies[-1] = -1
+        np.maximum.at(
+            upstream_area_within_waterbodies,
+            waterBodyID[waterBodyID != -1],
+            self.var.upstream_area_n_cells[waterBodyID != -1],
+        )
+        upstream_area_within_waterbodies = np.take(
+            upstream_area_within_waterbodies, waterBodyID
+        )
+
         waterbody_outflow_points = np.where(
-            self.var.upstream_area_n_cells == lakeResmax, waterBodyID, -1
+            self.var.upstream_area_n_cells == upstream_area_within_waterbodies,
+            waterBodyID,
+            -1,
         )
         # make sure that each water body has an outflow
         assert np.array_equal(

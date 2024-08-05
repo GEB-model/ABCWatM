@@ -407,12 +407,13 @@ class routing_kinematic(object):
 
             self.var.discharge_substep[subrouting_step, :] = self.var.discharge.copy()
 
-            # Discharge at outlets and lakes and reservoirs
-            discharge_at_outlets += self.var.discharge[
-                self.var.lddCompress_LR == 5
-            ].sum()
+            if self.model.CHECK_WATER_BALANCE:
+                # Discharge at outlets and lakes and reservoirs
+                discharge_at_outlets += self.var.discharge[
+                    self.var.lddCompress_LR == 5
+                ].sum()
 
-            sumsideflow += sideflowChanM3
+                sumsideflow += sideflowChanM3
 
         assert not np.isnan(self.var.discharge).any()
 
@@ -467,5 +468,3 @@ class routing_kinematic(object):
                 name="routing_4",
                 tollerance=1e-8,
             )
-
-        return None
