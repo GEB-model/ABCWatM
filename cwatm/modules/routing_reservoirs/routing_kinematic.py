@@ -422,8 +422,6 @@ class routing_kinematic(object):
             * self.var.discharge**self.var.beta
         )
 
-        print(self.var.channelStorageM3.sum())
-
         if self.model.CHECK_WATER_BALANCE:
             # this check the last routing step, but that's okay
             self.model.waterbalance_module.waterBalanceCheck(
