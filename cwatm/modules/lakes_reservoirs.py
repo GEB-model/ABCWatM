@@ -24,17 +24,57 @@ SHAPE = "rectangular"
 if SHAPE == "rectangular":
     overflow_coefficient_mu = 0.577
 
-    def puls_equation(new_storage, dt, lake_factor, lake_area, SI):
-        return (
-            new_storage / dt + (lake_factor * (new_storage / lake_area) ** 1.5) / 2 - SI
-        )
+    def estimate_lake_outflow(lake_factor, height_above_outflow):
+        return lake_factor * height_above_outflow**1.5
+
+    def outflow_to_height_above_outflow(lake_factor, outflow):
+        """inverse function of estimate_lake_outflow"""
+        return (outflow / lake_factor) ** (2 / 3)
+
+    def puls_equation(new_storage, SI, lake_factor, lake_area, dt):
+        height = new_storage / lake_area
+        return new_storage / dt + estimate_lake_outflow(lake_factor, height) / 2 - SI
 
 else:
     raise ValueError("Invalid shape")
 
 
+def get_lake_height_above_outflow(storage, lake_area, outflow_height):
+    height_above_outflow = storage / lake_area - outflow_height
+    height_above_outflow[height_above_outflow < 0] = 0
+    return height_above_outflow
+
+
+def get_channel_width(average_discharge):
+    return 7.1 * np.power(average_discharge, 0.539)
+
+
+def get_lake_factor(channel_width, overflow_coefficient_mu, lake_a_factor):
+    return (
+        lake_a_factor
+        * overflow_coefficient_mu
+        * (2 / 3)
+        * channel_width
+        * (2 * GRAVITY) ** 0.5
+    )
+
+
+def estimate_outflow_height(lake_volume, lake_factor, lake_area, avg_outflow):
+    height_above_outflow = outflow_to_height_above_outflow(lake_factor, avg_outflow)
+    outflow_height = (lake_volume / lake_area) - height_above_outflow
+    assert (outflow_height >= 0).all()
+    return outflow_height
+
+
 def get_lake_outflow_and_storage(
-    dt, storage, inflow, inflow_prev, outflow_prev, lake_factor, lake_area
+    dt,
+    storage,
+    inflow,
+    inflow_prev,
+    outflow_prev,
+    lake_factor,
+    lake_area,
+    outflow_height,
 ):
     """
     Calculate outflow and storage for a lake using the Modified Puls method
@@ -53,6 +93,10 @@ def get_lake_outflow_and_storage(
         Outflow from the lake in the previous time step in m3/s
     lake_factor : float
         Factor for the Modified Puls approach to calculate retention of the lake
+    lake_area : float
+        Area of the lake in m2
+    outflow_height : float
+        Height of the outflow in m above the bottom of the lake in m (assuming a rectangular lake)
 
     Returns
     -------
@@ -62,14 +106,61 @@ def get_lake_outflow_and_storage(
         New storage volume in m3
 
     """
-    SI = (storage / dt + outflow_prev / 2) - outflow_prev + (inflow_prev + inflow) / 2
-    res = fsolve(
-        puls_equation, storage, args=(dt, lake_factor, lake_area, SI), full_output=True
+    height_above_outflow = get_lake_height_above_outflow(
+        storage=storage, lake_area=lake_area, outflow_height=outflow_height
     )
-    assert res[-1] == "The solution converged."
-    storage = res[0]
-    outflow = lake_factor * (storage / lake_area) ** 1.5
-    return outflow, storage
+    storage_above_outflow = height_above_outflow * lake_area
+    storage_below_outflow = storage - storage_above_outflow
+
+    SI = (
+        (storage_above_outflow / dt + outflow_prev / 2)
+        - outflow_prev
+        + (inflow_prev + inflow) / 2
+    )
+
+    negative_SI = SI <= 0
+    positive_SI = SI > 0
+
+    outflow = np.zeros_like(SI)
+    new_storage_above_outflow = np.zeros_like(SI)
+
+    if positive_SI.sum() > 0:
+        res = fsolve(
+            puls_equation,
+            storage_above_outflow[positive_SI],
+            args=(
+                SI[positive_SI],
+                lake_factor[positive_SI],
+                lake_area[positive_SI],
+                dt,
+            ),
+            full_output=True,
+        )
+
+        assert res[-2] == 1, "The solution did not converge"
+        new_storage_above_outflow_positive_SI = res[0]
+        # new_storage_above_outflow[new_storage_above_outflow < 0] = 0
+        new_height_above_outflow_positive_SI = (
+            new_storage_above_outflow_positive_SI / lake_area
+        )
+
+        outflow_positive_SI = estimate_lake_outflow(
+            lake_factor, new_height_above_outflow_positive_SI
+        )
+        outflow_positive_SI = np.minimum(
+            outflow_positive_SI, new_storage_above_outflow_positive_SI / dt
+        )
+
+        outflow[positive_SI] = outflow_positive_SI
+        new_storage_above_outflow[positive_SI] = new_storage_above_outflow_positive_SI
+
+    if negative_SI.sum() > 0:
+        outflow[negative_SI] = storage_above_outflow[negative_SI] / dt
+        new_storage_above_outflow[negative_SI] = 0
+
+    new_storage = storage_below_outflow + new_storage_above_outflow
+
+    return outflow, new_storage, height_above_outflow
 
 
 class lakes_reservoirs(object):
@@ -160,10 +251,6 @@ class lakes_reservoirs(object):
 
         self.var.volume = self.water_body_data["volume_total"].values
 
-        self.var.storage = self.var.load_initial(
-            "volume", default=self.var.volume.copy() / 10
-        )
-
         self.var.total_inflow_from_other_water_bodies = self.var.load_initial(
             "total_inflow_from_other_water_bodies",
             default=np.zeros_like(self.var.volume, dtype=np.float32),
@@ -177,14 +264,19 @@ class lakes_reservoirs(object):
         )
 
         # channel width in [m]
-        channel_width = 7.1 * np.power(average_discharge, 0.539)
+        channel_width = get_channel_width(average_discharge)
 
-        self.lake_factor = (
-            self.model.config["parameters"]["lakeAFactor"]
-            * overflow_coefficient_mu
-            * (2 / 3)
-            * channel_width
-            * (2 * GRAVITY) ** 0.5
+        self.lake_factor = get_lake_factor(
+            channel_width,
+            overflow_coefficient_mu,
+            self.model.config["parameters"]["lakeAFactor"],
+        )
+
+        self.var.storage = self.var.load_initial(
+            "storage", default=self.var.volume.copy()
+        )
+        self.var.outflow_height = estimate_outflow_height(
+            self.var.volume, self.lake_factor, self.var.lake_area, average_discharge
         )
 
         self.var.prev_lake_inflow = self.var.load_initial(
@@ -295,16 +387,19 @@ class lakes_reservoirs(object):
 
         # check if there are any lakes in the model
         if (lakes == True).any():
-            self.var.lake_outflow[lakes], self.var.storage[lakes] = (
-                get_lake_outflow_and_storage(
-                    self.var.dtRouting,
-                    self.var.storage[lakes],
-                    lake_inflow_m3_s[lakes],
-                    self.var.prev_lake_inflow[lakes],
-                    self.var.prev_lake_outflow[lakes],
-                    self.lake_factor[lakes],
-                    self.var.lake_area[lakes],
-                )
+            (
+                self.var.lake_outflow[lakes],
+                self.var.storage[lakes],
+                height_above_outflow,
+            ) = get_lake_outflow_and_storage(
+                self.var.dtRouting,
+                self.var.storage[lakes],
+                lake_inflow_m3_s[lakes],
+                self.var.prev_lake_inflow[lakes],
+                self.var.prev_lake_outflow[lakes],
+                self.lake_factor[lakes],
+                self.var.lake_area[lakes],
+                self.var.outflow_height[lakes],
             )
 
         # Difference between current and previous inflow
@@ -405,7 +500,7 @@ class lakes_reservoirs(object):
                 prestorages=[prestorage],
                 poststorages=[self.var.storage],
                 name="reservoirs",
-                tollerance=1e-7,
+                tollerance=1e-6,
             )
 
         return outflow_m3
