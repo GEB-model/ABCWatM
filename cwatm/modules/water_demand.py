@@ -144,21 +144,10 @@ class water_demand:
             "r",
         ) as src:
             reservoir_command_areas = self.var.compress(src.read(1), method="last")
-            water_body_mapping = np.full(
-                self.model.data.grid.waterBodyID.max() + 1,
-                0,
-                dtype=np.int32,
+            water_body_mapping = self.model.lakes_reservoirs_module.waterbody_mapping
+            self.var.reservoir_command_areas = np.take(
+                water_body_mapping, reservoir_command_areas, mode="clip"
             )
-            water_body_ids = np.compress(
-                self.model.data.grid.compress_LR,
-                self.model.data.grid.waterBodyID,
-            )
-            water_body_mapping[water_body_ids] = np.arange(
-                0, water_body_ids.size, dtype=np.int32
-            )
-            reservoir_command_areas_mapped = water_body_mapping[reservoir_command_areas]
-            reservoir_command_areas_mapped[reservoir_command_areas == -1] = -1
-            self.var.reservoir_command_areas = reservoir_command_areas_mapped
 
         self.model.data.grid.leakageC = np.compress(
             self.model.data.grid.compress_LR,
@@ -319,21 +308,18 @@ class water_demand:
 
     def get_available_water(self):
         assert (
-            self.model.data.grid.waterBodyIDC.size
-            == self.model.data.grid.reservoirStorageM3C.size
+            self.model.data.grid.waterBodyIDC.size == self.model.data.grid.storage.size
         )
         assert (
             self.model.data.grid.waterBodyIDC.size
             == self.model.data.grid.waterBodyTypC.size
         )
         available_reservoir_storage_m3 = np.zeros_like(
-            self.model.data.grid.reservoirStorageM3C
+            self.model.data.grid.storage, dtype=np.float32
         )
         available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = (
             self.reservoir_operators.get_available_water_reservoir_command_areas(
-                self.model.data.grid.reservoirStorageM3C[
-                    self.model.data.grid.waterBodyTypC == 2
-                ]
+                self.model.data.grid.storage[self.model.data.grid.waterBodyTypC == 2]
             )
         )
         return (
@@ -515,19 +501,7 @@ class water_demand:
         ).all()
 
         # Abstract water from reservoir
-        self.model.data.grid.lakeResStorageC -= reservoir_abstraction_m3
-        # assert (self.model.data.grid.lakeResStorageC >= 0).all()
-        self.model.data.grid.reservoirStorageM3C -= reservoir_abstraction_m3
-        # assert (self.model.data.grid.lakeResStorageC >= 0).all()
-
-        self.model.data.grid.lakeResStorage = self.model.data.grid.full_compressed(
-            0, dtype=np.float32
-        )
-        np.put(
-            self.model.data.grid.lakeResStorage,
-            self.model.data.grid.decompress_LR,
-            self.model.data.grid.lakeResStorageC,
-        )
+        self.model.data.grid.storage -= reservoir_abstraction_m3
 
         returnFlow = (
             self.model.data.to_grid(

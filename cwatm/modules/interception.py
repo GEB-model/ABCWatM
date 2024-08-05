@@ -141,7 +141,9 @@ class interception(object):
         self.var.interceptEvap[bio_area] = np.minimum(
             self.var.interceptStor[bio_area],
             potTranspiration[bio_area]
-            * (self.var.interceptStor[bio_area] / interceptCap[bio_area])
+            * np.nan_to_num(
+                self.var.interceptStor[bio_area] / interceptCap[bio_area], nan=0.0
+            )
             ** (2.0 / 3.0),
         )
 
@@ -175,7 +177,5 @@ class interception(object):
                 tollerance=1e-7,
             )
 
-        # if self.model.use_gpu:
-        # self.var.interceptEvap = self.var.interceptEvap.get()
-
+        assert not np.isnan(potTranspiration[bio_area]).any()
         return potTranspiration

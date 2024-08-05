@@ -1,5 +1,7 @@
-import numpy as np
+import sys
 import os
+
+import numpy as np
 from geb.workflows import TimingModule
 
 from .modules.miscInitial import miscInitial
@@ -37,7 +39,7 @@ class CWatM:
         )
         self.DynamicResAndLakes = False
         self.useSmallLakes = False
-        self.CHECK_WATER_BALANCE = True
+        self.CHECK_WATER_BALANCE = sys.flags.optimize == 0  # 0, means no optimizations
         self.crop_factor_calibration_factor = 1
         self.soilLayers = 3
 
