@@ -139,9 +139,8 @@ def get_lake_outflow_and_storage(
 
         assert res[-2] == 1, "The solution did not converge"
         new_storage_above_outflow_positive_SI = res[0]
-        # new_storage_above_outflow[new_storage_above_outflow < 0] = 0
         new_height_above_outflow_positive_SI = (
-            new_storage_above_outflow_positive_SI / lake_area
+            new_storage_above_outflow_positive_SI / lake_area[positive_SI]
         )
 
         outflow_positive_SI = estimate_lake_outflow(
