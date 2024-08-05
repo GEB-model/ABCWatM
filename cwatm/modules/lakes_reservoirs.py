@@ -514,11 +514,11 @@ class lakes_reservoirs(object):
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
                 how="cellwise",
-                influxes=[inflowC],  # In
-                outfluxes=[outflow, evaporation],  # Out  EvapWaterBodyC
-                prestorages=[prestorage],  # prev storage
+                influxes=[inflowC],
+                outfluxes=[outflow, evaporation],
+                prestorages=[prestorage],
                 poststorages=[self.var.storage, lakedaycorrect_m3],
-                tollerance=1e-3,
+                tollerance=1,  # 1 m3
             )
 
         return outflow_to_river_network, evaporation

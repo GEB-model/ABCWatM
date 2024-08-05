@@ -223,17 +223,18 @@ class routing_kinematic(object):
         self.var.channelStorageM3 = self.var.load_initial(
             "channelStorageM3", default=channelStorageM3Ini
         )
-        self.var.pre_channel_storage_m3 = self.var.channelStorageM3.copy()
-
         # Initialise discharge at kinematic wave pixels (note that InvBeta is
         # simply 1/beta, computational efficiency!)
         # self.var.chanQKin = np.where(self.var.channelAlpha > 0, (self.var.totalCrossSectionArea / self.var.channelAlpha) ** self.var.invbeta, 0.)
-        dischargeIni = (
-            self.var.channelStorageM3
-            * self.var.invchanLength
-            * self.var.invchannelAlpha
-        ) ** self.var.invbeta
-        self.var.discharge = self.var.load_initial("discharge", default=dischargeIni)
+        self.var.discharge = self.var.load_initial(
+            "discharge",
+            default=(
+                self.var.channelStorageM3
+                * self.var.invchanLength
+                * self.var.invchannelAlpha
+            )
+            ** self.var.invbeta,
+        )
         self.var.discharge_substep = self.var.load_initial(
             "discharge_substep",
             default=np.full(
@@ -361,26 +362,12 @@ class routing_kinematic(object):
         WDAddMDt = (
             WDAddMDt - returnFlow
         )  # Couldn't this be negative? If return flow is mainly coming from gw? Fine, then more water going in.
-        # print('min(WDAddM3Dt)', (min(WDAddM3Dt*9999999)))
         WDAddM3Dt = WDAddMDt * self.var.cellArea / self.var.noRoutingSteps
-
-        # sideflowChanM3 -= self.var.sum_act_SurfaceWaterAbstract * self.var.cellArea
-        # return flow from (m) non irrigation water demand
-        # self.var.nonIrrReturnFlow = self.var.nonIrrReturnFlowFraction * self.var.nonIrrDemand
-        # sideflowChanM3 +=  self.var.nonIrrReturnFlow * self.var.cellArea
-        # sideflowChan = sideflowChanM3 * self.var.invchanLength * self.var.invdtRouting
 
         # ------------------------------------------------------
         # ***** SIDEFLOW **************************************
 
         runoffM3 = self.var.runoff * self.var.cellArea / self.var.noRoutingSteps
-
-        # ************************************************************
-        # ***** KINEMATIC WAVE                        ****************
-        # ************************************************************
-
-        # Question: Is this fine?? It is already used above differently
-        # self.var.pre_channel_storage_m3 = self.var.channelAlpha * self.var.chanLength * self.var.discharge ** self.var.beta
 
         self.var.discharge_substep = np.full(
             (self.var.noRoutingSteps, self.var.discharge.size),
@@ -390,7 +377,7 @@ class routing_kinematic(object):
 
         sumsideflow = 0
         sumwaterbody_evaporation = 0
-        discharge_at_basin_outlets = 0
+        discharge_at_outlets = 0
         for subrouting_step in range(self.var.noRoutingSteps):
             # Runoff - Evaporation ( -riverbed exchange), this could be negative  with riverbed exhange also
             sideflowChanM3 = runoffM3.copy()
@@ -410,6 +397,7 @@ class routing_kinematic(object):
 
             sideflowChan = sideflowChanM3 * self.var.invchanLength / self.var.dtRouting
 
+            # print("CHECK ROUTING PRE POST")
             self.var.discharge = kinematic(
                 self.var.discharge,
                 sideflowChan.astype(np.float32),
@@ -424,8 +412,9 @@ class routing_kinematic(object):
 
             self.var.discharge_substep[subrouting_step, :] = self.var.discharge.copy()
 
-            discharge_at_basin_outlets += self.var.discharge[
-                self.var.lddCompress == 5
+            # Discharge at outlets and lakes and reservoirs
+            discharge_at_outlets += self.var.discharge[
+                self.var.lddCompress_LR == 5
             ].sum()
 
             sumsideflow += sideflowChanM3
@@ -464,17 +453,17 @@ class routing_kinematic(object):
             self.model.waterbalance_module.waterBalanceCheck(
                 how="sum",
                 influxes=[sumsideflow],
-                outfluxes=[discharge_at_basin_outlets * self.model.DtSec],
+                outfluxes=[discharge_at_outlets * self.model.DtSec],
                 prestorages=[pre_channel_storage_m3],
                 poststorages=[self.var.channelStorageM3],
                 name="routing_3",
                 tollerance=1e-8,
             )
-            assert self.model.waterbalance_module.waterBalanceCheck(
+            self.model.waterbalance_module.waterBalanceCheck(
                 how="sum",
                 influxes=[self.var.runoff * self.var.cellArea],
                 outfluxes=[
-                    discharge_at_basin_outlets * self.model.DtSec,
+                    discharge_at_outlets * self.model.DtSec,
                     EvapoChannel,
                     sumwaterbody_evaporation,
                 ],
