@@ -35,5 +35,6 @@ setup(
         "flopy",
         "numba",
         "xmipy>=1.4",
+        "scipy",
     ],
 )
