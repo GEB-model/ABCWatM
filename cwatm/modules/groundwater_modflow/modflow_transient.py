@@ -6,14 +6,6 @@ from .modflow_model import (
 import rasterio
 
 
-def is_float(s):
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
-
-
 class groundwater_modflow:
     def __init__(self, model):
         self.var = model.data.grid
@@ -34,9 +26,6 @@ class groundwater_modflow:
                 "nrow": src.profile["height"],
                 "ncol": src.profile["width"],
             }
-        self.modflow_cell_area = (
-            self.domain["row_resolution"] * self.domain["col_resolution"]
-        )
 
         # load hydraulic conductivity (md-1)
         with rasterio.open(
@@ -176,20 +165,14 @@ class groundwater_modflow:
         soildepth_modflow = self.CWATM2modflow(
             self.var.decompress(self.var.total_soil_depth)
         )
-        soildepth_modflow[np.isnan(soildepth_modflow)] = 0
 
         self.var.leakageriver_factor = 0.001  # in m/day
         self.var.leakagelake_factor = 0.001  # in m/day
 
-        self.layer_boundaries = np.empty(
-            (nlay + 1, self.domain["nrow"], self.domain["ncol"]), dtype=np.float64
-        )
-        self.layer_boundaries[0] = topography - soildepth_modflow - 0.05
-        self.layer_boundaries[1] = self.layer_boundaries[0] - thickness
-
         self.initial_water_table_depth = 2
-        self.model.data.modflow.head = self.model.data.modflow.load_initial(
-            "head", default=self.layer_boundaries[0] - self.initial_water_table_depth
+        head = self.model.data.modflow.load_initial(
+            "head",
+            default=topography - soildepth_modflow - self.initial_water_table_depth,
         )
 
         self.modflow = ModFlowSimulation(
@@ -203,12 +186,11 @@ class groundwater_modflow:
             ncol=self.domain["ncol"],
             row_resolution=self.domain["row_resolution"],
             col_resolution=self.domain["col_resolution"],
-            top=self.layer_boundaries[0],
             topography=topography,
-            bottom=self.layer_boundaries[1],
+            bottom_soil=topography - soildepth_modflow,
+            bottom=topography - thickness,
             basin_mask=self.modflow_basin_mask,
-            head=self.model.data.modflow.head,
-            drainage_elevation=self.layer_boundaries[0],
+            head=head,
             hydraulic_conductivity=self.hydraulic_conductivity,
             complexity="SIMPLE",
             verbose=False,
@@ -219,11 +201,9 @@ class groundwater_modflow:
 
         self.var.capillar = self.var.full_compressed(0, dtype=np.float32)
 
-        self.var.head = self.var.compress(
-            self.modflow2CWATM(self.model.data.modflow.head)
-        )
+        self.var.head = self.var.compress(self.modflow2CWATM(head))
         self.var.groundwater_depth = self.var.compress(
-            self.modflow2CWATM(self.modflow.groundwater_depth)
+            self.modflow2CWATM(head - topography)
         )
 
     def get_corrected_modflow_cell_area(self):
@@ -300,48 +280,25 @@ class groundwater_modflow:
         return array
 
     @property
-    def available_groundwater_m_modflow(self):
-        groundwater_storage_available_m = (
-            self.modflow.decompress(self.modflow.head) - self.layer_boundaries[1]
-        ) * self.specific_yield[0]
-        groundwater_storage_available_m[groundwater_storage_available_m < 0] = 0
-        return groundwater_storage_available_m
-
-    @property
     def available_groundwater_m(self):
-        return self.var.compress(
-            self.modflow2CWATM(self.available_groundwater_m_modflow)
-        )
+        return self.var.compress(self.modflow2CWATM(self.modflow.groundwater_content_m))
 
     def step(self, groundwater_recharge, groundwater_abstraction):
         assert (groundwater_abstraction + 1e-7 >= 0).all()
         groundwater_abstraction[groundwater_abstraction < 0] = 0
         assert (groundwater_recharge >= 0).all()
-        assert (groundwater_abstraction <= self.available_groundwater_m + 1e-7).all()
 
-        groundwater_storage_pre = np.nansum(
-            self.available_groundwater_m_modflow * self.modflow_cell_area
-        )
+        groundwater_storage_pre = np.nansum(self.modflow.groundwater_content_m3)
 
         groundwater_recharge_modflow = self.CWATM2modflow(
             self.var.decompress(groundwater_recharge, fillvalue=0)
         )
-        # assert isclose(
-        #     (groundwater_recharge * self.var.cellArea).sum(),
-        #     np.nansum(groundwater_recharge_modflow * self.modflow_cell_area),
-        #     rel_tol=1e-5,
-        # )
-        self.modflow.set_recharge(groundwater_recharge_modflow)
+        self.modflow.set_recharge_m(groundwater_recharge_modflow)
 
         groundwater_abstraction_modflow = self.CWATM2modflow(
             self.var.decompress(groundwater_abstraction, fillvalue=0)
         )
-        # assert isclose(
-        #     (groundwater_abstraction * self.var.cellArea).sum(),
-        #     np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area),
-        #     rel_tol=1e-5,
-        # )
-        self.modflow.set_groundwater_abstraction(groundwater_abstraction_modflow)
+        self.modflow.set_groundwater_abstraction_m(groundwater_abstraction_modflow)
 
         self.modflow.step()
 
@@ -356,46 +313,45 @@ class groundwater_modflow:
             self.modflow2CWATM(self.modflow.groundwater_depth)
         )
 
-        assert self.hydraulic_conductivity.ndim == 3
-        groundwater_outflow = np.where(
-            self.model.data.modflow.head - self.layer_boundaries[0] >= 0,
-            (self.model.data.modflow.head - self.layer_boundaries[0])
-            * self.hydraulic_conductivity[0],
-            0,
+        drainage_m3 = np.nansum(self.modflow.drainage_m3)
+        groundwater_abstraction_m3 = np.nansum(
+            groundwater_abstraction_modflow
+            * (self.domain["col_resolution"] * self.domain["row_resolution"])
         )
-        assert (groundwater_outflow >= 0).all()
+        recharge_m3 = np.nansum(
+            groundwater_recharge_modflow
+            * (self.domain["col_resolution"] * self.domain["row_resolution"])
+        )
+        groundwater_storage_post = np.nansum(self.modflow.groundwater_content_m3)
 
-        groundwater_storage_post = np.nansum(
-            self.available_groundwater_m_modflow * self.modflow_cell_area
-        )
-        storage_change = groundwater_storage_post - groundwater_storage_pre
-        outflow = (
-            np.nansum(groundwater_abstraction_modflow * self.modflow_cell_area)
-            + (groundwater_outflow * self.modflow_cell_area).sum()
-        )
-        inflow = np.nansum(groundwater_recharge_modflow * self.modflow_cell_area)
-        if not isclose(storage_change, inflow - outflow, rel_tol=0.02) and not isclose(
-            storage_change, inflow - outflow, abs_tol=10_000_000
-        ):
-            print("modflow discrepancy", storage_change, inflow - outflow)
-
-        groundwater_outflow_cwatm = self.var.compress(
-            self.modflow2CWATM(groundwater_outflow, correct_boundary=True)
-        )
-        assert isclose(
-            (groundwater_outflow_cwatm * self.var.cellArea).sum(),
-            (groundwater_outflow * self.modflow_cell_area).sum(),
-            rel_tol=0.0001,
+        self.model.waterbalance_module.waterBalanceCheck(
+            name="groundwater",
+            how="sum",
+            influxes=[recharge_m3],
+            outfluxes=[
+                groundwater_abstraction_m3,
+                drainage_m3,
+            ],
+            prestorages=[groundwater_storage_pre],
+            poststorages=[groundwater_storage_post],
+            tollerance=1e-6,
         )
 
-        self.var.capillar = groundwater_outflow_cwatm * (1 - self.var.channel_ratio)
-        self.var.baseflow = groundwater_outflow_cwatm * self.var.channel_ratio
+        groundwater_drainage = self.modflow.drainage_m3 / self.modflow_cell_area
+
+        groundwater_drainage_cwatm = self.var.compress(
+            self.modflow2CWATM(groundwater_drainage, correct_boundary=True)
+        )
+
+        self.var.capillar = groundwater_drainage_cwatm * (1 - self.var.channel_ratio)
+        self.var.baseflow = groundwater_drainage_cwatm * self.var.channel_ratio
 
         # capriseindex is 1 where capilary rise occurs
         self.model.data.HRU.capriseindex = self.model.data.to_HRU(
             data=self.var.compress(
                 self.modflow2CWATM(
-                    (groundwater_outflow > 0).astype(np.float32), correct_boundary=False
+                    (groundwater_drainage > 0).astype(np.float32),
+                    correct_boundary=False,
                 )
             ),
             fn=None,
