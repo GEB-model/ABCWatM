@@ -144,7 +144,7 @@ def get_lake_outflow_and_storage(
         )
 
         outflow_positive_SI = estimate_lake_outflow(
-            lake_factor, new_height_above_outflow_positive_SI
+            lake_factor[positive_SI], new_height_above_outflow_positive_SI
         )
         outflow_positive_SI = np.minimum(
             outflow_positive_SI, new_storage_above_outflow_positive_SI / dt
