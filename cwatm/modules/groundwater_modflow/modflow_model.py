@@ -20,7 +20,6 @@ def cd(newdir):
 
 
 class ModFlowSimulation:
-
     def __init__(
         self,
         model,
@@ -28,11 +27,10 @@ class ModFlowSimulation:
         ndays,
         specific_storage,
         specific_yield,
-        nlay,
         nrow,
         ncol,
-        row_resolution,
-        col_resolution,
+        x_coordinates_vertices,
+        y_coordinates_vertices,
         topography,
         bottom_soil,
         bottom,
@@ -45,8 +43,8 @@ class ModFlowSimulation:
         self.name = name.upper()  # MODFLOW requires the name to be uppercase
         self.nrow = nrow
         self.ncol = ncol
-        self.row_resolution = row_resolution
-        self.col_resolution = col_resolution
+        self.x_coordinates_vertices = x_coordinates_vertices
+        self.y_coordinates_vertices = y_coordinates_vertices
         self.basin_mask = basin_mask
         assert self.basin_mask.dtype == bool
         self.n_active_cells = self.basin_mask.size - self.basin_mask.sum()
@@ -56,9 +54,6 @@ class ModFlowSimulation:
 
         self.topography = topography
         self.bottom = bottom
-        assert (
-            self.bottom.ndim == 3
-        ), "Bottom should be a 3D array of shape (nlay, nrow, ncol), representing the bottom of the aquifer"
         self.specific_yield = specific_yield
         assert self.specific_yield.shape == self.bottom.shape
 
@@ -73,139 +68,16 @@ class ModFlowSimulation:
             try:
                 if self.verbose:
                     print("Creating MODFLOW model")
-                sim = flopy.mf6.MFSimulation(
-                    sim_name=self.name,
-                    version="mf6",
-                    exe_name=os.path.join("modflow", "mf6"),
-                    sim_ws=os.path.realpath(self.working_directory),
-                    memory_print_option="all",
-                )
 
-                # create tdis package
-                tdis = flopy.mf6.ModflowTdis(
-                    sim, nper=ndays, perioddata=[(1.0, 1, 1)] * ndays
-                )
-
-                # create iterative model solution and register the gwf model with it
-                ims = flopy.mf6.ModflowIms(
-                    sim,
-                    print_option=None,
-                    complexity=complexity,
-                    linear_acceleration="BICGSTAB",
-                )
-
-                # create gwf model
-                gwf = flopy.mf6.ModflowGwf(
-                    sim,
-                    modelname=self.name,
-                    newtonoptions="under_relaxation",
-                    print_input=save_flows,
-                    print_flows=save_flows,
-                )
-
-                discretization = flopy.mf6.ModflowGwfdis(
-                    gwf,
-                    nlay=nlay,
-                    nrow=self.nrow,
-                    ncol=self.ncol,
-                    delr=self.row_resolution,
-                    delc=self.col_resolution,
-                    top=self.topography,
-                    botm=self.bottom,
-                    idomain=~self.basin_mask,
-                    nogrb=True,
-                )
-
-                initial_conditions = flopy.mf6.ModflowGwfic(gwf, strt=head)
-                node_property_flow = flopy.mf6.ModflowGwfnpf(
-                    gwf, save_flows=save_flows, icelltype=1, k=hydraulic_conductivity
-                )
-
-                storage = flopy.mf6.ModflowGwfsto(
-                    gwf,
-                    save_flows=save_flows,
-                    iconvert=1,
-                    ss=specific_storage,  # specific storage
-                    sy=specific_yield,  # specific yield
-                    steady_state=False,
-                    transient=True,
-                )
-
-                recharge = np.zeros((self.n_active_cells, 4), dtype=np.float32)
-                recharge_locations = np.where(
-                    self.basin_mask == False
-                )  # only set wells where basin mask is False
-                # 0: layer, 1: y-idx, 2: x-idx, 3: rate
-                recharge[:, 0] = 0
-                recharge[:, 1] = recharge_locations[0]
-                recharge[:, 2] = recharge_locations[1]
-                recharge[:, 3] = 0.0
-                recharge = recharge.tolist()
-                recharge = [[(int(i), int(j), int(k)), l] for i, j, k, l in recharge]
-
-                recharge = flopy.mf6.ModflowGwfrch(
-                    gwf,
-                    fixed_cell=False,
-                    print_input=False,
-                    print_flows=False,
-                    save_flows=save_flows,
-                    boundnames=None,
-                    maxbound=self.n_active_cells,
-                    stress_period_data=recharge,
-                )
-
-                wells = np.zeros((self.n_active_cells, 4), dtype=np.int32)
-                well_locations = np.where(
-                    self.basin_mask == False
-                )  # only set wells where basin is False
-                # 0: layer, 1: y-idx, 2: x-idx, 3: rate
-                wells[:, 1] = well_locations[0]
-                wells[:, 2] = well_locations[1]
-                wells = wells.tolist()
-
-                wells = flopy.mf6.ModflowGwfwel(
-                    gwf,
-                    print_input=False,
-                    print_flows=False,
-                    save_flows=save_flows,
-                    maxbound=self.n_active_cells,
-                    stress_period_data=wells,
-                    boundnames=False,
-                    auto_flow_reduce=0.1,
-                )
-
-                drainage = np.zeros(
-                    (self.n_active_cells, 5)
-                )  # Only i,j,k indices should be integer
-                drainage_locations = np.where(
-                    self.basin_mask == False
-                )  # only set wells where basin is True
-                # 0: layer, 1: y-idx, 2: x-idx, 3: drainage altitude, 4: permeability
-                drainage[:, 0] = 0
-                drainage[:, 1] = drainage_locations[0]
-                drainage[:, 2] = drainage_locations[1]
-                drainage[:, 3] = bottom_soil[
-                    drainage_locations
-                ]  # This one should not be an integer
-                # the 0-th layer is the top layer, so the conductivity is the same as the top layer
-                drainage[:, 4] = (
-                    hydraulic_conductivity[0, self.basin_mask == False]
-                    * self.row_resolution
-                    * self.col_resolution
-                )
-                drainage = drainage.tolist()
-                drainage = [
-                    [(int(layer), int(row), int(column)), elevation, conductivity]
-                    for layer, row, column, elevation, conductivity in drainage
-                ]
-
-                drainage = flopy.mf6.ModflowGwfdrn(
-                    gwf,
-                    maxbound=self.n_active_cells,
-                    stress_period_data=drainage,
-                    print_input=save_flows,
-                    print_flows=save_flows,
-                    save_flows=save_flows,
+                sim = self.flexible_grid(
+                    ndays,
+                    complexity,
+                    save_flows,
+                    head,
+                    hydraulic_conductivity,
+                    specific_storage,
+                    specific_yield,
+                    bottom_soil,
                 )
 
                 sim.write_simulation()
@@ -219,6 +91,190 @@ class ModFlowSimulation:
             print("Loading MODFLOW model from disk")
 
         self.load_bmi()
+
+    def flexible_grid(
+        self,
+        ndays,
+        complexity,
+        save_flows,
+        head,
+        hydraulic_conductivity,
+        specific_storage,
+        specific_yield,
+        bottom_soil,
+    ):
+        sim = flopy.mf6.MFSimulation(
+            sim_name=self.name,
+            version="mf6",
+            exe_name=os.path.join("modflow", "mf6"),
+            sim_ws=os.path.realpath(self.working_directory),
+        )
+        time_discretization = flopy.mf6.ModflowTdis(
+            sim, nper=ndays, perioddata=[(1.0, 1, 1)] * ndays
+        )
+
+        # create iterative model solution
+        iterative_model_solution = flopy.mf6.ModflowIms(
+            sim,
+            print_option=None,
+            complexity=complexity,
+            linear_acceleration="BICGSTAB",
+        )
+
+        # create groundwater flow model
+        groundwater_flow = flopy.mf6.ModflowGwf(
+            sim,
+            modelname=self.name,
+            newtonoptions="under_relaxation",
+            print_input=save_flows,
+            print_flows=save_flows,
+        )
+
+        # 1. Create vertices
+        nrow, ncol = self.basin_mask.shape
+        vertices = [
+            [i, x, y]
+            for i, (x, y) in enumerate(
+                zip(
+                    self.x_coordinates_vertices.ravel(),
+                    self.y_coordinates_vertices.ravel(),
+                )
+            )
+        ]
+
+        # 2. Create cell2d array
+        cell2d = []
+        xy_to_cell = np.full((nrow, ncol), -1, dtype=int)
+        for row in range(nrow):
+            for column in range(ncol):
+                cell_number = row * ncol + column
+                xy_to_cell[row, column] = cell_number
+
+                v1 = row * (ncol + 1) + column  # top-left vertex
+                v2 = v1 + 1  # top-right vertex
+                v3 = v2 + (ncol + 1)  # bottom-right vertex
+                v4 = v3 - 1  # bottom-left vertex
+
+                cell_center_x = (
+                    self.x_coordinates_vertices[row, column]
+                    + self.x_coordinates_vertices[row, column + 1]
+                ) / 2
+                cell_center_y = (
+                    self.y_coordinates_vertices[row, column]
+                    + self.y_coordinates_vertices[row + 1, column]
+                ) / 2
+
+                cell = [
+                    cell_number,
+                    cell_center_x,
+                    cell_center_y,
+                    4,
+                    v1,
+                    v4,
+                    v3,
+                    v2,
+                ]
+                cell2d.append(cell)
+        active_cells = xy_to_cell[~self.basin_mask].ravel()
+
+        # Create icelltype array (assuming convertible cells i.e., that can be converted between confined and unconfined)
+        icelltype = np.ones(nrow * ncol, dtype=int)
+
+        bottom = np.zeros_like(self.basin_mask, dtype=float)
+        bottom[~self.basin_mask] = self.bottom[-1]
+
+        top = np.zeros_like(self.basin_mask, dtype=float)
+        top[~self.basin_mask] = self.topography
+
+        # Discretization for flexible grid
+        discretization = flopy.mf6.ModflowGwfdisv(
+            groundwater_flow,
+            nlay=hydraulic_conductivity.shape[0],
+            ncpl=nrow * ncol,
+            nvert=len(vertices),
+            vertices=vertices,
+            cell2d=cell2d,
+            top=top.tolist(),
+            botm=bottom.tolist(),
+            idomain=~self.basin_mask,
+        )
+
+        head2d = np.zeros_like(self.basin_mask, dtype=float)
+        head2d[~self.basin_mask] = head
+
+        # Initial conditions
+        initial_conditions = flopy.mf6.ModflowGwfic(groundwater_flow, strt=head2d)
+
+        k = np.zeros(
+            (hydraulic_conductivity.shape[0], *self.basin_mask.shape), dtype=float
+        )
+        k[:, ~self.basin_mask] = hydraulic_conductivity
+
+        # Node property flow
+        node_property_flow = flopy.mf6.ModflowGwfnpf(
+            groundwater_flow,
+            save_flows=save_flows,
+            icelltype=icelltype,
+            k=k,
+        )
+
+        sy = np.zeros((specific_yield.shape[0], *self.basin_mask.shape), dtype=float)
+        sy[:, ~self.basin_mask] = specific_yield
+
+        ss = np.zeros((specific_storage.shape[0], *self.basin_mask.shape), dtype=float)
+        ss[:, ~self.basin_mask] = specific_storage
+
+        # Storage
+        storage = flopy.mf6.ModflowGwfsto(
+            groundwater_flow,
+            save_flows=save_flows,
+            iconvert=1,
+            ss=ss,
+            sy=sy,
+            steady_state=False,
+            transient=True,
+        )
+
+        # Recharge
+        recharge = []
+        for cell in active_cells:
+            recharge.append(
+                (0, cell, 0)
+            )  # specifying the layer, cell number, and recharge rate
+
+        recharge = flopy.mf6.ModflowGwfrch(
+            groundwater_flow,
+            fixed_cell=True,
+            save_flows=True,
+            maxbound=len(recharge),
+            stress_period_data=recharge,
+        )
+
+        # Wells
+        wells = []
+        for cell in active_cells:
+            wells.append(
+                (0, cell, 0)
+            )  # specifying the layer, cell number, and well rate
+
+        wells = flopy.mf6.ModflowGwfwel(
+            groundwater_flow,
+            maxbound=len(wells),
+            stress_period_data=wells,
+        )
+
+        # Drainage
+        drainage = []
+        for idx, cell in enumerate(active_cells):
+            drainage.append((0, cell, bottom_soil[idx], hydraulic_conductivity[0, idx]))
+
+        drainage = flopy.mf6.ModflowGwfdrn(
+            groundwater_flow,
+            maxbound=len(drainage),
+            stress_period_data=drainage,
+        )
+
+        return sim
 
     def write_hash_to_disk(self):
         with open(self.hash_file, "wb") as f:
@@ -241,7 +297,7 @@ class ModFlowSimulation:
                 prev_hash = f.read().strip()
         if prev_hash == self.hash:
             if os.path.exists(os.path.join(self.working_directory, "mfsim.nam")):
-                return True
+                return False
             else:
                 return False
         else:
@@ -302,6 +358,8 @@ class ModFlowSimulation:
                 print("MODFLOW model initialized")
 
         self.end_time = self.mf6.get_end_time()
+        area_tag = self.mf6.get_var_address("AREA", self.name, "DIS")
+        self.area = self.mf6.get_value_ptr(area_tag)
 
         self.prepare_time_step()
 
@@ -312,16 +370,17 @@ class ModFlowSimulation:
 
     @property
     def groundwater_depth(self):
-        return self.topography - self.decompress(self.head)
+        return self.topography - self.head
 
     @property
     def groundwater_content_m(self):
         # use the bottom of the bottom layer
-        return (self.decompress(self.head) - self.bottom[-1]) * self.specific_yield[0]
+        assert self.specific_yield.shape[0] == 1, "Only 1 layer is supported"
+        return (self.head - self.bottom[-1]) * self.specific_yield[0]
 
     @property
     def groundwater_content_m3(self):
-        return self.groundwater_content_m * self.row_resolution * self.col_resolution
+        return self.groundwater_content_m * self.area
 
     @property
     def well_rate(self):
@@ -337,41 +396,31 @@ class ModFlowSimulation:
     def drainage_m3(self):
         drainage_tag = self.mf6.get_var_address("SIMVALS", self.name, "DRN_0")
         drainage = self.mf6.get_value_ptr(drainage_tag)
-        drainage = self.decompress(drainage)
         return -drainage
 
     @property
     def drainage_m(self):
-        return self.drainage_m3 / (self.row_resolution * self.col_resolution)
+        return self.drainage_m3 / self.area
 
     @property
     def recharge_m3(self):
         recharge_tag = self.mf6.get_var_address("BOUND", self.name, "RCH_0")
         recharge = self.mf6.get_value_ptr(recharge_tag)[:, 0]
-        recharge = self.decompress(recharge)
         return recharge
 
     @property
     def recharge_m(self):
-        return self.recharge_m3 / (self.row_resolution * self.col_resolution)
+        return self.recharge_m3 / self.area
 
     @recharge_m3.setter
     def recharge_m3(self, value):
         recharge_tag = self.mf6.get_var_address("BOUND", self.name, "RCH_0")
-        self.mf6.get_value_ptr(recharge_tag)[:, 0][:] = value
+        self.mf6.get_value_ptr(recharge_tag)[:, 0] = value
 
     @property
     def max_iter(self):
         mxit_tag = self.mf6.get_var_address("MXITER", "SLN_1")
         return self.mf6.get_value_ptr(mxit_tag)[0]
-
-    def compress(self, a):
-        return a[~self.basin_mask]
-
-    def decompress(self, a):
-        o = np.full(self.basin_mask.shape, np.nan, dtype=a.dtype)
-        o[~self.basin_mask] = a
-        return o
 
     def prepare_time_step(self):
         dt = self.mf6.get_time_step()
@@ -379,17 +428,13 @@ class ModFlowSimulation:
 
     def set_recharge_m(self, recharge):
         """Set recharge, value in m/day"""
-        self.recharge_m3 = recharge[~self.basin_mask] * (
-            self.row_resolution * self.col_resolution
-        )
+        self.recharge_m3 = recharge * self.area
 
     def set_groundwater_abstraction_m(self, groundwater_abstraction):
         """Set well rate, value in m/day"""
-        well_rate = -groundwater_abstraction[
-            ~self.basin_mask
-        ]  # modflow well rate is negative if abstraction occurs
+        well_rate = -groundwater_abstraction
         assert (well_rate <= 0).all()
-        self.well_rate = well_rate * (self.row_resolution * self.col_resolution)
+        self.well_rate = well_rate * self.area
 
     def step(self, plot=False):
         if self.mf6.get_current_time() > self.end_time:

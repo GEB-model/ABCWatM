@@ -181,7 +181,6 @@ class groundwater_modflow:
             ndays=self.model.n_timesteps,
             specific_storage=0,
             specific_yield=self.specific_yield,
-            nlay=nlay,
             nrow=self.domain["nrow"],
             ncol=self.domain["ncol"],
             row_resolution=self.domain["row_resolution"],
