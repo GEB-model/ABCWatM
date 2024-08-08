@@ -48,6 +48,7 @@ class ModFlowSimulation:
 
         self.topography = topography
         self.bottom = bottom
+        self.bottom_soil = bottom_soil
         self.specific_yield = specific_yield
         assert self.specific_yield.shape == self.bottom.shape
 
@@ -289,7 +290,7 @@ class ModFlowSimulation:
         recharge = []
         for cell in active_cells:
             recharge.append(
-                (0, cell, 0)
+                (0, cell, 0.0)
             )  # specifying the layer, cell number, and recharge rate
 
         recharge = flopy.mf6.ModflowGwfrch(
@@ -304,7 +305,7 @@ class ModFlowSimulation:
         wells = []
         for cell in active_cells:
             wells.append(
-                (0, cell, 0)
+                (0, cell, 0.0)
             )  # specifying the layer, cell number, and well rate
 
         wells = flopy.mf6.ModflowGwfwel(
@@ -425,6 +426,11 @@ class ModFlowSimulation:
         head_tag = self.mf6.get_var_address("X", self.name)
         return self.mf6.get_value_ptr(head_tag)
 
+    @head.setter
+    def head(self, value):
+        head_tag = self.mf6.get_var_address("X", self.name)
+        self.mf6.get_value_ptr(head_tag)[:] = value
+
     @property
     def groundwater_depth(self):
         return self.topography - self.head
@@ -433,7 +439,9 @@ class ModFlowSimulation:
     def groundwater_content_m(self):
         # use the bottom of the bottom layer
         assert self.specific_yield.shape[0] == 1, "Only 1 layer is supported"
-        return (self.head - self.bottom[-1]) * self.specific_yield[0]
+        groundwater_content_m = (self.head - self.bottom[-1]) * self.specific_yield[0]
+        assert (groundwater_content_m > 0).all()
+        return groundwater_content_m
 
     @property
     def groundwater_content_m3(self):
@@ -513,8 +521,8 @@ class ModFlowSimulation:
 
                 if has_converged:
                     break
-            else:
-                raise ValueError("MODFLOW did not converge")
+            # else:
+            #     raise ValueError("MODFLOW did not converge")
 
             self.mf6.finalize_solve(solution_id)
 

@@ -59,7 +59,7 @@ class groundwater:
             basin_mask=self.model.data.grid.mask,
             head=initial_head,
             hydraulic_conductivity=hydraulic_conductivity,
-            complexity="SIMPLE",
+            complexity="MODERATE",
             verbose=False,
         )
 
@@ -72,16 +72,16 @@ class groundwater:
         groundwater_abstraction[groundwater_abstraction < 0] = 0
         assert (groundwater_recharge >= 0).all()
 
-        # groundwater_storage_pre = self.modflow.groundwater_content_m3
+        groundwater_storage_pre = self.modflow.groundwater_content_m3
 
         self.modflow.set_recharge_m(groundwater_recharge)
         self.modflow.set_groundwater_abstraction_m(groundwater_abstraction)
         self.modflow.step()
 
-        # drainage_m3 = self.modflow.drainage_m3
-        # groundwater_abstraction_m3 = groundwater_abstraction * self.modflow.area
-        # recharge_m3 = groundwater_recharge * self.modflow.area
-        # groundwater_storage_post = self.modflow.groundwater_content_m3
+        drainage_m3 = self.modflow.drainage_m3
+        groundwater_abstraction_m3 = groundwater_abstraction * self.modflow.area
+        recharge_m3 = groundwater_recharge * self.modflow.area
+        groundwater_storage_post = self.modflow.groundwater_content_m3
 
         # self.model.waterbalance_module.waterBalanceCheck(
         #     name="groundwater",
