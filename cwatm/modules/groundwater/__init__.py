@@ -1,9 +1,9 @@
 import numpy as np
-from .modflow_model import ModFlowSimulation
+from .model import ModFlowSimulation
 from pyproj import CRS, Transformer
 
 
-class groundwater_modflow:
+class groundwater:
     def __init__(self, model):
         self.var = model.data.grid
         self.model = model
@@ -141,3 +141,15 @@ class groundwater_modflow:
         self.model.data.HRU.capriseindex = self.model.data.to_HRU(
             data=groundwater_drainage > 0
         )
+
+    @property
+    def head(self):
+        return self.modflow.head
+
+    @property
+    def groundwater_content_m3(self):
+        return self.modflow.groundwater_content_m3
+
+    @property
+    def groundwater_depth(self):
+        return self.modflow.groundwater_depth

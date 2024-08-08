@@ -11,7 +11,7 @@ from .modules.soil import soil
 from .modules.landcoverType import landcoverType
 from .modules.sealed_water import sealed_water
 from .modules.evaporation import evaporation
-from .modules.groundwater_modflow.modflow_transient import groundwater_modflow
+from .modules.groundwater import groundwater
 from .modules.water_demand import water_demand
 from .modules.interception import interception
 from .modules.runoff_concentration import runoff_concentration
@@ -55,7 +55,7 @@ class CWatM:
         self.soil_module = soil(self)
         self.landcoverType_module = landcoverType(self, ElevationStD)
         self.evaporation_module = evaporation(self)
-        self.groundwater_modflow_module = groundwater_modflow(self)
+        self.groundwater_module = groundwater(self)
         self.interception_module = interception(self)
         self.sealed_water_module = sealed_water(self)
         self.runoff_concentration_module = runoff_concentration(self)
@@ -100,9 +100,7 @@ class CWatM:
         ) = self.landcoverType_module.step()
         timer.new_split("Landcover")
 
-        self.groundwater_modflow_module.step(
-            groundwater_recharge, groundwater_abstraction
-        )
+        self.groundwater_module.step(groundwater_recharge, groundwater_abstraction)
         timer.new_split("GW")
 
         self.runoff_concentration_module.step(interflow, directRunoff)
@@ -124,7 +122,7 @@ class CWatM:
         Finalize the model
         """
         # finalize modflow model
-        self.groundwater_modflow_module.modflow.finalize()
+        self.groundwater_module.modflow.finalize()
 
         if self.config["general"]["simulate_forest"]:
             for plantFATE_model in self.model.plantFATE:
@@ -137,8 +135,8 @@ class CWatM:
         os.makedirs(dirname, exist_ok=True)
         np.save(
             self.init_water_table_file,
-            self.groundwater_modflow_module.modflow.decompress(
-                self.groundwater_modflow_module.modflow.head
+            self.groundwater_module.modflow.decompress(
+                self.groundwater_module.modflow.head
             ),
         )
 
