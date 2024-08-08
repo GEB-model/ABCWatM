@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy.optimize import fsolve
 
-from .routing_reservoirs.routing_sub import (
+from .routing.subroutines import (
     subcatchment1,
     define_river_network,
     upstream1,

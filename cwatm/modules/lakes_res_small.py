@@ -324,9 +324,6 @@ class lakes_res_small(object):
                 self.var.smallLakeout + (1 - self.var.smallpart) * self.var.runoff
             )  # back to [m]  # with and without in m3
 
-            # ------------------------------------------------------------
-            # report(decompress(runoff_LR), "C:\work\output3/run.map")
-
             if self.model.CHECK_WATER_BALANCE:
                 self.var.waterbalance_module.waterBalanceCheck(
                     [self.var.smallLakeIn],  # In
@@ -338,7 +335,3 @@ class lakes_res_small(object):
                 )
 
             return
-
-
-# --------------------------------------------------------------------------
-# --------------------------------------------------------------------------

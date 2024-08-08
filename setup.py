@@ -19,14 +19,14 @@ setup(
     packages=[
         "cwatm",
         "cwatm.modules",
-        "cwatm.modules.groundwater_modflow",
-        "cwatm.modules.routing_reservoirs",
+        "cwatm.modules.groundwater",
+        "cwatm.modules.routing",
     ],
     package_data={
         "cwatm.modules": [
-            "groundwater_modflow/mac/libmf6.dylib",
-            "groundwater_modflow/linux/libmf6.so",
-            "groundwater_modflow/windows/mf6.dll",
+            "groundwater/mac/libmf6.dylib",
+            "groundwater/linux/libmf6.so",
+            "groundwater/windows/mf6.dll",
         ],
     },
     zip_safe=True,

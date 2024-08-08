@@ -17,7 +17,7 @@ from .modules.interception import interception
 from .modules.runoff_concentration import runoff_concentration
 from .modules.lakes_res_small import lakes_res_small
 from .modules.waterbalance import waterbalance
-from .modules.routing_reservoirs.routing_kinematic import routing_kinematic
+from .modules.routing.routing_kinematic import routing_kinematic
 from .modules.lakes_reservoirs import lakes_reservoirs
 
 

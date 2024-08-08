@@ -8,7 +8,7 @@
 # Copyright:   (c) PB 2017
 # -------------------------------------------------------------------------
 
-from ..routing_reservoirs.routing_sub import (
+from .subroutines import (
     define_river_network,
     upstreamArea,
     kinematic,
