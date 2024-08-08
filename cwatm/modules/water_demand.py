@@ -314,9 +314,7 @@ class water_demand:
             self.model.data.grid.waterBodyIDC.size
             == self.model.data.grid.waterBodyTypC.size
         )
-        available_reservoir_storage_m3 = np.zeros_like(
-            self.model.data.grid.storage, dtype=np.float32
-        )
+        available_reservoir_storage_m3 = np.zeros_like(self.model.data.grid.storage)
         available_reservoir_storage_m3[self.model.data.grid.waterBodyTypC == 2] = (
             self.reservoir_operators.get_available_water_reservoir_command_areas(
                 self.model.data.grid.storage[self.model.data.grid.waterBodyTypC == 2]
