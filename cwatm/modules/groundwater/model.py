@@ -354,7 +354,7 @@ class ModFlowSimulation:
                 prev_hash = f.read().strip()
         if prev_hash == self.hash:
             if os.path.exists(os.path.join(self.working_directory, "mfsim.nam")):
-                return False
+                return True
             else:
                 return False
         else:
