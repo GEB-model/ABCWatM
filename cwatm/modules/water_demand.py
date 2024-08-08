@@ -325,8 +325,8 @@ class water_demand:
         return (
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
-            self.model.groundwater_modflow_module.available_groundwater_m,
-            self.model.data.grid.head,
+            self.model.groundwater_modflow_module.modflow.groundwater_content_m3,
+            self.model.groundwater_modflow_module.modflow.head,
         )
 
     def withdraw(self, source, demand):
@@ -450,7 +450,7 @@ class water_demand:
             available_channel_storage_m3=available_channel_storage_m3,
             available_groundwater_m3=available_groundwater_m3,
             groundwater_head=groundwater_head,
-            groundwater_depth=self.model.data.grid.groundwater_depth,
+            groundwater_depth=self.model.groundwater_modflow_module.modflow.groundwater_depth,
             available_reservoir_storage_m3=available_reservoir_storage_m3,
             command_areas=(
                 self.var.reservoir_command_areas.get()

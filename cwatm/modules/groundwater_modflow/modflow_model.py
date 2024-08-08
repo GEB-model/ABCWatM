@@ -27,8 +27,6 @@ class ModFlowSimulation:
         ndays,
         specific_storage,
         specific_yield,
-        nrow,
-        ncol,
         x_coordinates_vertices,
         y_coordinates_vertices,
         topography,
@@ -41,8 +39,6 @@ class ModFlowSimulation:
         verbose=False,
     ):
         self.name = name.upper()  # MODFLOW requires the name to be uppercase
-        self.nrow = nrow
-        self.ncol = ncol
         self.x_coordinates_vertices = x_coordinates_vertices
         self.y_coordinates_vertices = y_coordinates_vertices
         self.basin_mask = basin_mask
@@ -150,6 +146,7 @@ class ModFlowSimulation:
                 cell_number = row * ncol + column
                 xy_to_cell[row, column] = cell_number
 
+                # areas must be arranged clockwise
                 v1 = row * (ncol + 1) + column  # top-left vertex
                 v2 = v1 + 1  # top-right vertex
                 v3 = v2 + (ncol + 1)  # bottom-right vertex
@@ -170,9 +167,9 @@ class ModFlowSimulation:
                     cell_center_y,
                     4,
                     v1,
-                    v4,
-                    v3,
                     v2,
+                    v3,
+                    v4,
                 ]
                 cell2d.append(cell)
         active_cells = xy_to_cell[~self.basin_mask].ravel()
@@ -297,7 +294,7 @@ class ModFlowSimulation:
                 prev_hash = f.read().strip()
         if prev_hash == self.hash:
             if os.path.exists(os.path.join(self.working_directory, "mfsim.nam")):
-                return False
+                return True
             else:
                 return False
         else:
