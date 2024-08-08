@@ -7,6 +7,7 @@ import flopy
 import json
 import hashlib
 import platform
+from pyproj import CRS, Transformer
 
 
 @contextmanager
@@ -24,12 +25,11 @@ class ModFlowSimulation:
         self,
         model,
         name,
+        topography,
+        gt,
         ndays,
         specific_storage,
         specific_yield,
-        x_coordinates_vertices,
-        y_coordinates_vertices,
-        topography,
         bottom_soil,
         bottom,
         basin_mask,
@@ -39,8 +39,6 @@ class ModFlowSimulation:
         verbose=False,
     ):
         self.name = name.upper()  # MODFLOW requires the name to be uppercase
-        self.x_coordinates_vertices = x_coordinates_vertices
-        self.y_coordinates_vertices = y_coordinates_vertices
         self.basin_mask = basin_mask
         assert self.basin_mask.dtype == bool
         self.n_active_cells = self.basin_mask.size - self.basin_mask.sum()
@@ -67,6 +65,7 @@ class ModFlowSimulation:
 
                 sim = self.flexible_grid(
                     ndays,
+                    gt,
                     complexity,
                     save_flows,
                     head,
@@ -88,9 +87,44 @@ class ModFlowSimulation:
 
         self.load_bmi()
 
+    def create_vertices(self, nrows, ncols, gt):
+        x_coordinates = np.linspace(gt[0], gt[0] + gt[1] * ncols, ncols + 1)
+        y_coordinates = np.linspace(gt[3], gt[3] + gt[5] * nrows, nrows + 1)
+
+        center_longitude = (x_coordinates[0] + x_coordinates[-1]) / 2
+        center_latitude = (y_coordinates[0] + y_coordinates[-1]) / 2
+
+        utm_crs = CRS.from_dict(
+            {
+                "proj": "utm",
+                "ellps": "WGS84",
+                "lat_0": center_latitude,
+                "lon_0": center_longitude,
+                "zone": int((center_longitude + 180) / 6) + 1,
+            }
+        )
+
+        # Create a topography 2D map
+        x_vertices, y_vertices = np.meshgrid(x_coordinates, y_coordinates)
+
+        # convert to modflow coordinates
+        transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
+
+        # Transform the points
+        x_transformed, y_transformed = transformer.transform(
+            x_vertices.ravel(), y_vertices.ravel()
+        )
+
+        # Reshape back to the original grid shape
+        x_transformed = x_transformed.reshape(x_vertices.shape)
+        y_transformed = y_transformed.reshape(y_vertices.shape)
+
+        return x_transformed, y_transformed
+
     def flexible_grid(
         self,
         ndays,
+        gt,
         complexity,
         save_flows,
         head,
@@ -128,37 +162,54 @@ class ModFlowSimulation:
 
         # 1. Create vertices
         nrow, ncol = self.basin_mask.shape
+        x_coordinates_vertices, y_coordinates_vertices = self.create_vertices(
+            nrow, ncol, gt
+        )
         vertices = [
             [i, x, y]
             for i, (x, y) in enumerate(
                 zip(
-                    self.x_coordinates_vertices.ravel(),
-                    self.y_coordinates_vertices.ravel(),
+                    x_coordinates_vertices.ravel(),
+                    y_coordinates_vertices.ravel(),
                 )
             )
         ]
 
         # 2. Create cell2d array
         cell2d = []
+        nrow, ncol = self.basin_mask.shape
         xy_to_cell = np.full((nrow, ncol), -1, dtype=int)
         for row in range(nrow):
             for column in range(ncol):
                 cell_number = row * ncol + column
                 xy_to_cell[row, column] = cell_number
-
-                # areas must be arranged clockwise
-                v1 = row * (ncol + 1) + column  # top-left vertex
+                # not here that the vertices are 1 larger than the number of cells
+                # therefore an additional offset of 1 is required for each row
+                # thus adding 'row' to v1 to account for the offset
+                v1 = row * ncol + column + row  # top-left vertex
                 v2 = v1 + 1  # top-right vertex
-                v3 = v2 + (ncol + 1)  # bottom-right vertex
-                v4 = v3 - 1  # bottom-left vertex
+                v3 = v1 + ncol + 2  # bottom-right vertex
+                v4 = v1 + ncol + 1  # bottom-left vertex
+
+                # import matplotlib.pyplot as plt
+
+                # v1_point = vertices[v1][1:]
+                # v2_point = vertices[v2][1:]
+                # v3_point = vertices[v3][1:]
+                # v4_point = vertices[v4][1:]
+                # # plt.plot(*zip(*(v1_point, v2_point)), c="r")
+                # plt.plot(
+                #     *zip(*(v1_point, v2_point, v3_point, v4_point, v1_point)), c="r"
+                # )
+                # plt.savefig("plot.png")
 
                 cell_center_x = (
-                    self.x_coordinates_vertices[row, column]
-                    + self.x_coordinates_vertices[row, column + 1]
+                    x_coordinates_vertices[row, column]
+                    + x_coordinates_vertices[row, column + 1]
                 ) / 2
                 cell_center_y = (
-                    self.y_coordinates_vertices[row, column]
-                    + self.y_coordinates_vertices[row + 1, column]
+                    y_coordinates_vertices[row, column]
+                    + y_coordinates_vertices[row + 1, column]
                 ) / 2
 
                 cell = [
@@ -172,6 +223,8 @@ class ModFlowSimulation:
                     v4,
                 ]
                 cell2d.append(cell)
+
+        # plt.savefig("cells.png")
         active_cells = xy_to_cell[~self.basin_mask].ravel()
 
         # Create icelltype array (assuming convertible cells i.e., that can be converted between confined and unconfined)
@@ -271,6 +324,13 @@ class ModFlowSimulation:
             stress_period_data=drainage,
         )
 
+        sim.simulation_data.set_sci_note_upper_thres(
+            1e99
+        )  # effectively disable scientific notation
+        sim.simulation_data.set_sci_note_lower_thres(
+            1e-99
+        )  # effectively disable scientific notation
+
         return sim
 
     def write_hash_to_disk(self):
@@ -294,7 +354,7 @@ class ModFlowSimulation:
                 prev_hash = f.read().strip()
         if prev_hash == self.hash:
             if os.path.exists(os.path.join(self.working_directory, "mfsim.nam")):
-                return True
+                return False
             else:
                 return False
         else:
@@ -453,6 +513,8 @@ class ModFlowSimulation:
 
                 if has_converged:
                     break
+            else:
+                raise ValueError("MODFLOW did not converge")
 
             self.mf6.finalize_solve(solution_id)
 

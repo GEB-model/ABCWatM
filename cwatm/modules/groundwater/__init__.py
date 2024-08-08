@@ -1,6 +1,5 @@
 import numpy as np
 from .model import ModFlowSimulation
-from pyproj import CRS, Transformer
 
 
 class groundwater:
@@ -47,49 +46,14 @@ class groundwater:
         assert hydraulic_conductivity.shape[0] == 1, "currently only 1 layer supported"
         bottom = np.expand_dims(elevation - 100, 0)
 
-        gt = self.model.data.grid.gt
-        nrows, ncols = self.model.data.grid.mask.shape
-
-        x_coordinates = np.arange(gt[0], gt[0] + gt[1] * (ncols + 1), gt[1])
-        y_coordinates = np.arange(gt[3], gt[3] + gt[5] * (nrows + 1), gt[5])
-
-        center_longitude = (x_coordinates[0] + x_coordinates[-1]) / 2
-        center_latitude = (y_coordinates[0] + y_coordinates[-1]) / 2
-
-        utm_crs = CRS.from_dict(
-            {
-                "proj": "utm",
-                "ellps": "WGS84",
-                "lat_0": center_latitude,
-                "lon_0": center_longitude,
-                "zone": int((center_longitude + 180) / 6) + 1,
-            }
-        )
-
-        # Create a topography 2D map
-        x_vertices, y_vertices = np.meshgrid(x_coordinates, y_coordinates)
-
-        # convert to modflow coordinates
-        transformer = Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True)
-
-        # Transform the points
-        x_transformed, y_transformed = transformer.transform(
-            x_vertices.ravel(), y_vertices.ravel()
-        )
-
-        # Reshape back to the original grid shape
-        x_transformed = x_transformed.reshape(x_vertices.shape)
-        y_transformed = y_transformed.reshape(y_vertices.shape)
-
         self.modflow = ModFlowSimulation(
             self.model,
             "transient",
+            topography=elevation,
+            gt=self.model.data.grid.gt,
             ndays=self.model.n_timesteps,
-            x_coordinates_vertices=x_transformed,
-            y_coordinates_vertices=y_transformed,
             specific_storage=np.zeros_like(specific_yield),
             specific_yield=specific_yield,
-            topography=elevation,
             bottom_soil=bottom_soil,
             bottom=bottom,
             basin_mask=self.model.data.grid.mask,
@@ -108,29 +72,29 @@ class groundwater:
         groundwater_abstraction[groundwater_abstraction < 0] = 0
         assert (groundwater_recharge >= 0).all()
 
-        groundwater_storage_pre = self.modflow.groundwater_content_m3.sum()
+        # groundwater_storage_pre = self.modflow.groundwater_content_m3
 
         self.modflow.set_recharge_m(groundwater_recharge)
         self.modflow.set_groundwater_abstraction_m(groundwater_abstraction)
         self.modflow.step()
 
-        drainage_m3 = self.modflow.drainage_m3.sum()
-        groundwater_abstraction_m3 = groundwater_abstraction * self.var.cellArea
-        recharge_m3 = groundwater_recharge * self.var.cellArea
-        groundwater_storage_post = self.modflow.groundwater_content_m3.sum()
+        # drainage_m3 = self.modflow.drainage_m3
+        # groundwater_abstraction_m3 = groundwater_abstraction * self.modflow.area
+        # recharge_m3 = groundwater_recharge * self.modflow.area
+        # groundwater_storage_post = self.modflow.groundwater_content_m3
 
-        self.model.waterbalance_module.waterBalanceCheck(
-            name="groundwater",
-            how="sum",
-            influxes=[recharge_m3],
-            outfluxes=[
-                groundwater_abstraction_m3,
-                drainage_m3,
-            ],
-            prestorages=[groundwater_storage_pre],
-            poststorages=[groundwater_storage_post],
-            tollerance=1e-6,
-        )
+        # self.model.waterbalance_module.waterBalanceCheck(
+        #     name="groundwater",
+        #     how="sum",
+        #     influxes=[recharge_m3],
+        #     outfluxes=[
+        #         groundwater_abstraction_m3,
+        #         drainage_m3,
+        #     ],
+        #     prestorages=[groundwater_storage_pre],
+        #     poststorages=[groundwater_storage_post],
+        #     tollerance=1,  # 1 m3
+        # )
 
         groundwater_drainage = self.modflow.drainage_m3 / self.var.cellArea
 

@@ -577,6 +577,7 @@ class lakes_reservoirs(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="lakes and reservoirs",
                 how="cellwise",
                 influxes=[inflow_m3],
                 outfluxes=[outflow, evaporation],

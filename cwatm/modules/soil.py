@@ -1013,6 +1013,7 @@ class soil(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="soil_1",
                 how="cellwise",
                 influxes=[
                     self.var.natural_available_water_infiltration[bioarea],
@@ -1043,6 +1044,7 @@ class soil(object):
             )
 
             self.model.waterbalance_module.waterBalanceCheck(
+                name="soil_2",
                 how="cellwise",
                 influxes=[
                     self.var.natural_available_water_infiltration[bioarea],

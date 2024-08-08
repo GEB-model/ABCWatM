@@ -78,6 +78,7 @@ class sealed_water(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="sealed_water",
                 how="cellwise",
                 influxes=[
                     self.var.natural_available_water_infiltration[sealed_area],

@@ -932,6 +932,7 @@ class landcoverType(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="landcover_1",
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],
                 outfluxes=[
@@ -944,6 +945,7 @@ class landcoverType(object):
             )
 
             self.model.waterbalance_module.waterBalanceCheck(
+                name="landcover_2",
                 how="cellwise",
                 influxes=[
                     self.var.natural_available_water_infiltration,
@@ -982,6 +984,7 @@ class landcoverType(object):
             )
 
             self.model.waterbalance_module.waterBalanceCheck(
+                name="landcover_3",
                 how="cellwise",
                 influxes=[
                     self.var.precipitation_m_day,

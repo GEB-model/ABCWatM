@@ -462,6 +462,7 @@ class water_demand:
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="water_demand_1",
                 how="cellwise",
                 influxes=[irrigation_water_withdrawal_m],
                 outfluxes=[
@@ -514,6 +515,7 @@ class water_demand:
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="water_demand_2",
                 how="sum",
                 influxes=[],
                 outfluxes=[

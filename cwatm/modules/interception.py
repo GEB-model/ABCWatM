@@ -166,6 +166,7 @@ class interception(object):
 
         if self.model.CHECK_WATER_BALANCE:
             self.model.waterbalance_module.waterBalanceCheck(
+                name="interception",
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],  # In
                 outfluxes=[
