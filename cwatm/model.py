@@ -4,7 +4,6 @@ import os
 import numpy as np
 from geb.workflows import TimingModule
 
-from .modules.miscInitial import miscInitial
 from .modules.evaporationPot import evaporationPot
 from .modules.snow_frost import snow_frost
 from .modules.soil import soil
@@ -47,7 +46,6 @@ class CWatM:
         )
         ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
 
-        self.misc_module = miscInitial(self)
         self.evaporationPot_module = evaporationPot(self)
         self.snowfrost_module = snow_frost(self, ElevationStD)
         self.soil_module = soil(self)

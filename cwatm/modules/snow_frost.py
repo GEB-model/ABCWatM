@@ -233,9 +233,7 @@ class snow_frost(object):
         self.var.SnowMelt = self.var.full_compressed(0, dtype=np.float32)
 
         tas_C = self.var.tas - 273.15
-        self.var.precipitation_m_day = (
-            self.model.DtDay * 0.001 * 86400.0 * self.var.pr  # kg/m2/s to m/day
-        )
+        self.var.precipitation_m_day = 0.001 * 86400.0 * self.var.pr  # kg/m2/s to m/day
 
         for i in range(self.numberSnowLayers):
             TavgS = tas_C + self.var.DeltaTSnow * self.var.deltaInvNorm[i]
@@ -258,10 +256,7 @@ class snow_frost(object):
             # if it's snowing then no rain
             # snowmelt coeff in m/deg C/day
             SnowMeltS = (
-                (TavgS - self.var.TempMelt)
-                * SeasSnowMeltCoef
-                * (1 + 0.01 * RainS)
-                * self.model.DtDay
+                (TavgS - self.var.TempMelt) * SeasSnowMeltCoef * (1 + 0.01 * RainS)
             )
             SnowMeltS = np.maximum(
                 SnowMeltS, self.var.full_compressed(0, dtype=np.float32)
@@ -271,15 +266,11 @@ class snow_frost(object):
             # for the others it is calculated with the corrected temp
             # this is to mimic glacier transport to lower zones
             if i <= self.var.glaciertransportZone:
-                IceMeltS = (
-                    tas_C * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
-                )
+                IceMeltS = tas_C * self.var.IceMeltCoef * SummerSeason
                 # if i = 0 and 1 -> higher and middle zone
                 # Ice melt coeff in m/C/deg
             else:
-                IceMeltS = (
-                    TavgS * self.var.IceMeltCoef * self.model.DtDay * SummerSeason
-                )
+                IceMeltS = TavgS * self.var.IceMeltCoef * SummerSeason
 
             IceMeltS = np.maximum(
                 IceMeltS, self.var.full_compressed(0, dtype=np.float32)
@@ -307,7 +298,7 @@ class snow_frost(object):
                     )
                 )
                 self.var.frostindexS[i] = np.maximum(
-                    self.var.frostindexS[i] + FrostIndexChangeRate * self.model.DtDay, 0
+                    self.var.frostindexS[i] + FrostIndexChangeRate, 0
                 )
 
         Snow /= self.numberSnowLayers
@@ -340,9 +331,7 @@ class snow_frost(object):
             )
         )
         # Rate of change of frost index (expressed as rate, [degree days/day])
-        self.var.FrostIndex = np.maximum(
-            self.var.FrostIndex + FrostIndexChangeRate * self.model.DtDay, 0
-        )
+        self.var.FrostIndex = np.maximum(self.var.FrostIndex + FrostIndexChangeRate, 0)
         # frost index in soil [degree days] based on Molnau and Bissel (1983, A Continuous Frozen Ground Index for Flood
         # Forecasting. In: Maidment, Handbook of Hydrology, p. 7.28, 7.55)
         # if Tavg is above zero, FrostIndex will stay 0
