@@ -10,6 +10,7 @@
 
 import numpy as np
 import xarray as xr
+from geb.workflows import balance_check
 
 
 class interception(object):
@@ -165,7 +166,7 @@ class interception(object):
         self.var.actualET = self.var.interceptEvap + self.var.snowEvap
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="interception",
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],  # In

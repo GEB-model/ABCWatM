@@ -15,7 +15,7 @@ try:
 except (ModuleNotFoundError, ImportError):
     pass
 from numba import njit
-from geb.workflows import TimingModule
+from geb.workflows import TimingModule, balance_check
 
 
 @njit(cache=True)
@@ -931,7 +931,7 @@ class landcoverType(object):
         assert not np.isnan(openWaterEvap).any()
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="landcover_1",
                 how="cellwise",
                 influxes=[self.var.Rain, self.var.SnowMelt],
@@ -944,7 +944,7 @@ class landcoverType(object):
                 tollerance=1e-6,
             )
 
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="landcover_2",
                 how="cellwise",
                 influxes=[
@@ -983,7 +983,7 @@ class landcoverType(object):
                 + interceptStor_pre
             )
 
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="landcover_3",
                 how="cellwise",
                 influxes=[

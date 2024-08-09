@@ -14,6 +14,7 @@ from .subroutines import (
     kinematic,
 )
 import numpy as np
+from geb.workflows import balance_check
 
 
 class routing_kinematic(object):
@@ -425,14 +426,14 @@ class routing_kinematic(object):
 
         if self.model.CHECK_WATER_BALANCE:
             # this check the last routing step, but that's okay
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 how="sum",
                 influxes=[runoffM3, outflow_to_river_network],
                 outfluxes=[sideflowChanM3, EvapoChannelM3Dt, WDAddM3Dt],
                 name="routing_1",
                 tollerance=1e-8,
             )
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 how="sum",
                 influxes=[
                     self.var.runoff / self.var.noRoutingSteps,
@@ -446,7 +447,7 @@ class routing_kinematic(object):
                 name="routing_2",
                 tollerance=1e-8,
             )
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 how="sum",
                 influxes=[sumsideflow],
                 outfluxes=[discharge_at_outlets * self.model.DtSec],
@@ -455,7 +456,7 @@ class routing_kinematic(object):
                 name="routing_3",
                 tollerance=1e-8,
             )
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 how="sum",
                 influxes=[self.var.runoff * self.var.cellArea],
                 outfluxes=[

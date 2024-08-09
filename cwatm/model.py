@@ -16,7 +16,6 @@ from .modules.water_demand import water_demand
 from .modules.interception import interception
 from .modules.runoff_concentration import runoff_concentration
 from .modules.lakes_res_small import lakes_res_small
-from .modules.waterbalance import waterbalance
 from .modules.routing import routing_kinematic
 from .modules.lakes_reservoirs import lakes_reservoirs
 
@@ -49,7 +48,6 @@ class CWatM:
         ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
 
         self.misc_module = miscInitial(self)
-        self.waterbalance_module = waterbalance(self)
         self.evaporationPot_module = evaporationPot(self)
         self.snowfrost_module = snow_frost(self, ElevationStD)
         self.soil_module = soil(self)

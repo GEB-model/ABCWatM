@@ -24,7 +24,7 @@ from .soil import (
     get_crop_group_number,
 )
 
-from geb.workflows import TimingModule
+from geb.workflows import TimingModule, balance_check
 
 
 class water_demand:
@@ -324,7 +324,7 @@ class water_demand:
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
             self.model.groundwater_module.groundwater_content_m3,
-            self.model.groundwater_module.head,
+            self.model.groundwater_module.modflow.head,
         )
 
     def withdraw(self, source, demand):
@@ -459,7 +459,7 @@ class water_demand:
         timer.new_split("Irrigation")
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="water_demand_1",
                 how="cellwise",
                 influxes=[irrigation_water_withdrawal_m],
@@ -512,7 +512,7 @@ class water_demand:
         )
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="water_demand_2",
                 how="sum",
                 influxes=[],

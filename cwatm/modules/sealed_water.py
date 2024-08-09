@@ -9,6 +9,7 @@
 # -------------------------------------------------------------------------
 
 import numpy as np
+from geb.workflows import balance_check
 
 
 class sealed_water(object):
@@ -77,7 +78,7 @@ class sealed_water(object):
         )
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="sealed_water",
                 how="cellwise",
                 influxes=[

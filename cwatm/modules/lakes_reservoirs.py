@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import numpy as np
 from scipy.optimize import fsolve
+from geb.workflows import balance_check
 
 from .routing.subroutines import (
     subcatchment1,
@@ -416,7 +417,7 @@ class lakes_reservoirs(object):
         outflow_m3 = self.var.lake_outflow * self.var.dtRouting
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 influxes=[
                     (lake_inflow_m3_s + self.var.prev_lake_inflow) / 2
                 ],  # In [m3/s]
@@ -431,7 +432,7 @@ class lakes_reservoirs(object):
 
             inflow_lakes = np.zeros_like(inflowC)
             inflow_lakes[lakes] = inflowC[lakes]
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 influxes=[inflow_lakes / self.var.dtRouting],  # In [m3/s]
                 outfluxes=[
                     self.var.lake_outflow,
@@ -443,7 +444,7 @@ class lakes_reservoirs(object):
                 tollerance=1e-5,
             )
 
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 influxes=[inflow_lakes],  # In [m3]
                 outfluxes=[
                     outflow_m3,
@@ -493,7 +494,7 @@ class lakes_reservoirs(object):
         inflow_reservoirs = np.zeros_like(inflowC)
         inflow_reservoirs[reservoirs] = inflowC[reservoirs]
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 influxes=[inflow_reservoirs],  # In [m3/s]
                 outfluxes=[outflow_m3],
                 prestorages=[prestorage],
@@ -576,7 +577,7 @@ class lakes_reservoirs(object):
         )
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="lakes and reservoirs",
                 how="cellwise",
                 influxes=[inflow_m3],

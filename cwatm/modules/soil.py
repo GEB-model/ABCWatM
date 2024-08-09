@@ -11,7 +11,7 @@
 import numpy as np
 import rasterio
 from pathlib import Path
-from geb.workflows import TimingModule
+from geb.workflows import TimingModule, balance_check
 from numba import njit, prange
 
 
@@ -1012,7 +1012,7 @@ class soil(object):
         )
 
         if self.model.CHECK_WATER_BALANCE:
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="soil_1",
                 how="cellwise",
                 influxes=[
@@ -1043,7 +1043,7 @@ class soil(object):
                 tollerance=1e-6,
             )
 
-            self.model.waterbalance_module.waterBalanceCheck(
+            balance_check(
                 name="soil_2",
                 how="cellwise",
                 influxes=[
