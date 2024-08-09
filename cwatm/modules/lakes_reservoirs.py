@@ -19,7 +19,7 @@ def laketotal(values, areaclass, nan_class):
 
 
 GRAVITY = 9.81
-SHAPE = "rectangular"
+SHAPE = "parabola"
 # http://rcswww.urz.tu-dresden.de/~daigner/pdf/ueberf.pdf
 
 if SHAPE == "rectangular":
@@ -35,6 +35,78 @@ if SHAPE == "rectangular":
     def puls_equation(new_storage, SI, lake_factor, lake_area, dt):
         height = new_storage / lake_area
         return new_storage / dt + estimate_lake_outflow(lake_factor, height) / 2 - SI
+
+    def solve_puls_equation(storage_above_outflow, SI, lake_factor, lake_area, dt):
+        res = fsolve(
+            puls_equation,
+            storage_above_outflow,
+            args=(
+                SI,
+                lake_factor,
+                lake_area,
+                dt,
+            ),
+            full_output=True,
+        )
+
+        assert res[-2] == 1, "The solution did not converge"
+        new_storage = res[0]
+        return new_storage
+
+elif SHAPE == "parabola":
+    overflow_coefficient_mu = 0.612
+
+    def estimate_lake_outflow(lake_factor, height_above_outflow):
+        return lake_factor * height_above_outflow**2
+
+    def outflow_to_height_above_outflow(lake_factor, outflow):
+        """inverse function of estimate_lake_outflow"""
+        return np.sqrt(outflow / lake_factor)
+
+    def puls_equation(SI, lake_factor, lake_area, dt):
+        """Solving quadratic equation for the new storage (S2)
+
+        S2/dt + α/2 (S2/A)^2 - SI = 0
+
+        A = lake area
+        S2 = new storage
+        dt = time step
+        α = lake factor (function of channel width, gravity and weir coefficient)
+
+        multiply by 2dtA^2 to get rid of the denominator:
+
+        2 A^2 S2 + α S2^2 dt - 2 SI A^2 dt = 0
+
+        rearrange to a quadratic equation:
+
+        α dt S2^2 + 2 A^2 S2 - 2 SI A^2 dt = 0
+
+        solve quadratic formula:
+
+        S2 = (-b ± sqrt(b^2 - 4ac)) / 2a
+
+        where a = α dt, b = 2 A^2, c = -2 SI A^2 dt
+
+        S2 = (-2 A^2 ± sqrt(4 A^4 + 8 α SI A^2 dt^2)) / 2 α dt
+
+        simplify:
+
+        S2 = -A^2 ± A sqrt(A^2 + 2 α SI dt^2) / α dt
+
+        use positive solution
+
+        S2 = -A^2 + A sqrt(A^2 + 2 α SI dt^2) / α dt
+
+        """
+        nominator = -(lake_area**2) + lake_area * np.sqrt(
+            lake_area**2 + 2 * lake_factor * dt**2 * SI
+        )
+        denominator = lake_factor * dt
+        new_storage = nominator / denominator
+        return new_storage
+
+    def solve_puls_equation(storage_above_outflow, SI, lake_factor, lake_area, dt):
+        return puls_equation(SI, lake_factor, lake_area, dt)
 
 else:
     raise ValueError("Invalid shape")
@@ -126,20 +198,14 @@ def get_lake_outflow_and_storage(
     new_storage_above_outflow = np.zeros_like(SI)
 
     if positive_SI.sum() > 0:
-        res = fsolve(
-            puls_equation,
-            storage_above_outflow[positive_SI],
-            args=(
-                SI[positive_SI],
-                lake_factor[positive_SI],
-                lake_area[positive_SI],
-                dt,
-            ),
-            full_output=True,
-        )
 
-        assert res[-2] == 1, "The solution did not converge"
-        new_storage_above_outflow_positive_SI = res[0]
+        new_storage_above_outflow_positive_SI = solve_puls_equation(
+            storage_above_outflow[positive_SI],
+            SI[positive_SI],
+            lake_factor[positive_SI],
+            lake_area[positive_SI],
+            dt,
+        )
         new_height_above_outflow_positive_SI = (
             new_storage_above_outflow_positive_SI / lake_area[positive_SI]
         )
