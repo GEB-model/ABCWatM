@@ -11,6 +11,10 @@ from .routing.subroutines import (
     upstream1,
 )
 
+OFF = 0
+LAKE = 1
+RESERVOIR = 2
+
 
 def laketotal(values, areaclass, nan_class):
     mask = areaclass != nan_class
@@ -247,7 +251,7 @@ class lakes_reservoirs(object):
         waterBodyID = self.var.load(
             self.model.model_structure["grid"]["routing/lakesreservoirs/lakesResID"]
         )
-        waterBodyID[waterBodyID == 0] = -1
+        waterBodyID[waterBodyID == OFF] = -1
 
         waterbody_outflow_points = self.get_outflows(waterBodyID)
 
@@ -443,7 +447,7 @@ class lakes_reservoirs(object):
         if __debug__:
             prestorage = self.var.storage.copy()
 
-        lakes = self.var.waterBodyTypC == 1
+        lakes = self.var.waterBodyTypC == LAKE
 
         # Lake inflow in [m3/s]
         lake_inflow_m3_s = np.zeros_like(inflowC)
@@ -536,7 +540,7 @@ class lakes_reservoirs(object):
         if __debug__:
             prestorage = self.var.storage.copy()
 
-        reservoirs = self.var.waterBodyTypC == 2
+        reservoirs = self.var.waterBodyTypC == RESERVOIR
 
         # Reservoir inflow in [m3] per timestep
         self.var.storage[reservoirs] += inflowC[reservoirs]
@@ -610,7 +614,7 @@ class lakes_reservoirs(object):
         evaporation = np.minimum(
             evaporation_from_water_bodies_per_routing_step, self.var.storage
         )  # evaporation is already in m3 per routing substep
-        evaporation[self.var.waterBodyTypC == 0] = 0
+        evaporation[self.var.waterBodyTypC == OFF] = 0
         self.var.storage -= evaporation
 
         outflow_lakes, lakedaycorrect_m3 = self.routing_lakes(inflow_m3)
@@ -657,3 +661,11 @@ class lakes_reservoirs(object):
             )
 
         return outflow_to_river_network, evaporation
+
+    @property
+    def reservoir_storage(self):
+        return self.var.storage[self.var.waterBodyTypC == RESERVOIR]
+
+    @property
+    def lake_storage(self):
+        return self.var.storage[self.var.waterBodyTypC == LAKE]

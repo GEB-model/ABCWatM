@@ -131,3 +131,6 @@ class groundwater:
     @property
     def groundwater_depth(self):
         return self.modflow.groundwater_depth
+
+    def decompress(self, data):
+        return self.model.data.grid.decompress(data)
