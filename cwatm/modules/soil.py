@@ -18,7 +18,7 @@ from numba import njit, prange
 def get_critical_soil_moisture_content(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
-    which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
+    which water uptake is impaired and the crop begins to close its stomata. It is not a fixed
     value. Restriction of water uptake due to water stress starts at a higher water content
     when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
 
@@ -30,11 +30,34 @@ def get_critical_soil_moisture_content(p, wfc, wwp):
     return (1 - p) * (wfc - wwp) + wwp
 
 
+@njit(inline="always")
+def get_aeration_stress_threshold(
+    ws, soil_layer_height, crop_aeration_stress_threshold
+):
+    max_saturation_fraction = ws / soil_layer_height
+    # Water storage in root zone at aeration stress threshold (m)
+    return (
+        max_saturation_fraction - (crop_aeration_stress_threshold / 100)
+    ) * soil_layer_height
+
+
+@njit(inline="always")
+def get_aeration_stress_reduction_factor(
+    aeration_days_counter, crop_lag_aeration_days, ws, w, aeration_stress_threshold
+):
+    if aeration_days_counter < crop_lag_aeration_days:
+        stress = 1 - ((ws - w) / (ws - aeration_stress_threshold))
+        aeration_stress_reduction_factor = 1 - ((aeration_days_counter / 3) * stress)
+    else:
+        aeration_stress_reduction_factor = (ws - w) / (ws - aeration_stress_threshold)
+    return aeration_stress_reduction_factor
+
+
 @njit
 def get_critical_soil_moisture_content_numba(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
-    which water uptake is impaired and the crop begins to close its stornata. It is not a fixed
+    which water uptake is impaired and the crop begins to close its stomata. It is not a fixed
     value. Restriction of water uptake due to water stress starts at a higher water content
     when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
 
@@ -255,6 +278,7 @@ def update_soil_water_storage(
     wfc,
     ws,
     wres,
+    aeration_days_counter,
     soil_layer_height,
     saturated_hydraulic_conductivity,
     unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
@@ -266,6 +290,7 @@ def update_soil_water_storage(
     crop_kc,
     crop_map,
     natural_crop_groups,
+    crop_lag_aeration_days,
     EWRef,
     potential_transpiration,
     potential_bare_soil_evaporation,
@@ -302,6 +327,9 @@ def update_soil_water_storage(
     bottom_soil_layer_index = N_SOIL_LAYERS - 1
     root_ratios_matrix = np.zeros_like(soil_layer_height)
     root_distribution_per_layer_rws_corrected_matrix = np.zeros_like(soil_layer_height)
+    root_distribution_per_layer_aeration_stress_corrected_matrix = np.zeros_like(
+        soil_layer_height
+    )
     capillary_rise_soil_matrix = np.zeros_like(
         unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
     )
@@ -373,20 +401,24 @@ def update_soil_water_storage(
             root_ratios_matrix[:, i],
         )
 
-        total_transpiration_reduction_factor = 0.0
+        total_transpiration_reduction_factor_water_stress = 0.0
+        total_aeration_stress = 0.0
         total_root_length_rws_corrected = (
             0.0  # check if same as total_transpiration_reduction_factor * root_depth
         )
+        total_root_length_aeration_stress_corrected = 0.0
         for layer in range(N_SOIL_LAYERS):
+            root_length_within_layer = soil_layer_height[layer, i] * root_ratios[layer]
+
+            # Water stress
             critical_soil_moisture_content = get_critical_soil_moisture_content_numba(
                 p, wfc[layer, i], wwp[layer, i]
             )
             transpiration_reduction_factor = get_transpiration_reduction_factor_numba(
                 w[layer, i], wwp[layer, i], critical_soil_moisture_content
             )
-            root_length_within_layer = soil_layer_height[layer, i] * root_ratios[layer]
 
-            total_transpiration_reduction_factor += (
+            total_transpiration_reduction_factor_water_stress += (
                 transpiration_reduction_factor
             ) * root_length_within_layer
 
@@ -398,28 +430,78 @@ def update_soil_water_storage(
                 root_length_within_layer_rws_corrected
             )
 
-        total_transpiration_reduction_factor /= root_depth[i]
+            # Aeration stress
+            aeration_stress_threshold = get_aeration_stress_threshold(
+                ws[layer, i], soil_layer_height[layer, i], 15
+            )  # 15 is placeholder for crop_aeration_threshold
+            if w[layer, i] > aeration_stress_threshold:
+                aeration_days_counter[layer, i] += 1
+                aeration_stress_reduction_factor = get_aeration_stress_reduction_factor(
+                    aeration_days_counter[layer, i],
+                    crop_lag_aeration_days[i],
+                    ws[layer, i],
+                    w[layer, i],
+                    aeration_stress_threshold,
+                )
+            else:
+                # Reset aeration days counter where w <= waer
+                aeration_days_counter[layer, i] = 0
+                aeration_stress_reduction_factor = 1  # no stress
+
+            total_aeration_stress += (
+                aeration_stress_reduction_factor * root_length_within_layer
+            )
+
+            root_length_within_layer_aeration_stress_corrected = (
+                root_length_within_layer * aeration_stress_reduction_factor
+            )
+
+            total_root_length_aeration_stress_corrected += (
+                root_length_within_layer_aeration_stress_corrected
+            )
+
+            root_distribution_per_layer_aeration_stress_corrected_matrix[layer, i] = (
+                root_length_within_layer_aeration_stress_corrected
+            )
+
+        total_transpiration_reduction_factor_water_stress /= root_depth[i]
+        total_aeration_stress /= root_depth[i]
 
         actual_total_transpiration[i] = (
             0  # reset the total transpiration TODO: This may be confusing.
         )
-        # this is a saved array from the previous day
 
         # correct the transpiration reduction factor for water stress
         # if the soil is frozen, no transpiration occurs, so we can skip the loop
-        # likewise, if the total_transpiration_reduction_factor (full water stress) is 0, we can skip the loop
-        # this also avoids division by zero, and thus NaNs
-        if not soil_is_frozen[i] and total_transpiration_reduction_factor > 0:
-            maximum_transpiration = (
-                potential_transpiration[i] * total_transpiration_reduction_factor
+        # and thus transpiration is 0 this also avoids division by zero, and thus NaNs
+        # likewise, if the total_transpiration_reduction_factor (full water stress) is 0
+        # or full aeration stress, we can skip the loop
+        if (
+            not soil_is_frozen[i]
+            and total_transpiration_reduction_factor_water_stress > 0
+            and total_aeration_stress > 0
+        ):
+            maximum_transpiration = potential_transpiration[i] * min(
+                total_transpiration_reduction_factor_water_stress, total_aeration_stress
             )
             # distribute the transpiration over the layers, considering the root ratios
             # and the transpiration reduction factor per layer
             for layer in range(N_SOIL_LAYERS):
-                transpiration = (
+                transpiration_water_stress_corrected = (
                     maximum_transpiration
                     * root_distribution_per_layer_rws_corrected_matrix[layer, i]
                     / total_root_length_rws_corrected
+                )
+                transpiration_aeration_stress_corrected = (
+                    maximum_transpiration
+                    * root_distribution_per_layer_aeration_stress_corrected_matrix[
+                        layer, i
+                    ]
+                    / total_root_length_aeration_stress_corrected
+                )
+                transpiration = min(
+                    transpiration_water_stress_corrected,
+                    transpiration_aeration_stress_corrected,
                 )
                 w[layer, i] -= transpiration
                 if is_bioarea[i]:
@@ -729,10 +811,8 @@ class soil(object):
             fn=None,
         )
 
-        # ------------ Preferential Flow constant ------------------------------------------
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
-
         with rasterio.open(self.model.model_structure["grid"]["soil/cropgrp"]) as src:
             natural_crop_groups = self.model.data.grid.compress(src.read(1))
             self.var.natural_crop_groups = self.model.data.to_HRU(
@@ -741,6 +821,16 @@ class soil(object):
 
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cPrefFlow = self.model.config["parameters"]["preferentialFlowConstant"]
+
+        self.var.aeration_days_counter = self.var.load_initial(
+            "aeration_days_counter",
+            default=np.full(
+                (N_SOIL_LAYERS, self.var.compressed_size), 0, dtype=np.int32
+            ),
+        )
+        self.crop_lag_aeration_days = np.full_like(
+            self.var.land_use_type, 3, dtype=np.int32
+        )
 
         def create_ini(yaml, idx, plantFATE_cluster, biodiversity_scenario):
             out_dir = self.model.simulation_root / "plantFATE" / f"cell_{idx}"
@@ -964,6 +1054,7 @@ class soil(object):
             wfc,
             ws,
             wres,
+            self.var.aeration_days_counter,
             self.var.soil_layer_height,
             saturated_hydraulic_conductivity,
             unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
@@ -975,6 +1066,7 @@ class soil(object):
             self.var.cropKC,
             self.var.crop_map,
             self.var.natural_crop_groups,
+            self.crop_lag_aeration_days,
             self.var.EWRef,
             potTranspiration,
             potBareSoilEvap,
