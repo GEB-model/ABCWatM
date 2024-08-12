@@ -18,33 +18,23 @@ setup(
     author_email=__email__,
     packages=[
         "cwatm",
-        "cwatm.hydrological_modules",
-        "cwatm.hydrological_modules.groundwater_modflow",
-        "cwatm.hydrological_modules.routing_reservoirs",
-        "cwatm.management_modules",
+        "cwatm.modules",
+        "cwatm.modules.groundwater",
+        "cwatm.modules.routing",
     ],
     package_data={
-        "cwatm": [
-            "metaNetcdf.xml",
-        ],
-        "cwatm.hydrological_modules": [
-            "groundwater_modflow/mac/libmf6.dylib",
-            "groundwater_modflow/linux/libmf6.so",
-            "groundwater_modflow/windows/mf6.dll",
+        "cwatm.modules": [
+            "groundwater/mac/libmf6.dylib",
+            "groundwater/linux/libmf6.so",
+            "groundwater/windows/mf6.dll",
         ],
     },
     zip_safe=True,
     install_requires=[
         "numpy",
-        "scipy",
-        "netCDF4",
-        "gdal",
-        "pandas",
-        "xlrd",
         "flopy",
         "numba",
-        "rasterio",
         "xmipy>=1.4",
+        "scipy",
     ],
-    entry_points={"console_scripts": ["cwatm=cwatm.run_cwatm:run_from_command_line"]},
 )
