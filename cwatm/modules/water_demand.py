@@ -52,7 +52,7 @@ class water_demand:
     reservoirStorageM3C
     lakeResStorage
     waterBodyTypCTemp
-    InvDtSec
+    Invseconds_per_timestep
     cellArea              Cell area [m²] of each simulated mesh
     smalllakeVolumeM3
     smalllakeStorage
@@ -458,7 +458,7 @@ class water_demand:
         )
         timer.new_split("Irrigation")
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="water_demand_1",
                 how="cellwise",
@@ -511,7 +511,7 @@ class water_demand:
             + livestock_return_flow_m
         )
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="water_demand_2",
                 how="sum",

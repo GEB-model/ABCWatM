@@ -77,7 +77,7 @@ class sealed_water(object):
             self.var.actualET[sealed_area] + openWaterEvap[sealed_area]
         )
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="sealed_water",
                 how="cellwise",

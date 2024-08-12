@@ -32,9 +32,9 @@ class lakes_res_small(object):
     EWRef                 potential evaporation rate from water surface                                     m
     load_initial
     waterbalance_module
-    DtSec                 number of seconds per timestep (default = 86400)                                  s
+    seconds_per_timestep                 number of seconds per timestep (default = 86400)                                  s
     lakeEvaFactor         a factor which increases evaporation from lake because of wind                    --
-    InvDtSec
+    Invseconds_per_timestep
     runoff
     cellArea              Cell area [m²] of each simulated mesh
     smallpart
@@ -102,7 +102,7 @@ class lakes_res_small(object):
                     loadmap("averageRunoff")
                     * self.var.smallpart
                     * self.var.cellArea
-                    * self.model.InvDtSec
+                    * self.model.Invseconds_per_timestep
                 )
             else:
                 self.var.smalllakeDis0 = loadmap("smallwaterBodyDis")
@@ -112,7 +112,7 @@ class lakes_res_small(object):
                 loadmap("lakeAFactor") * 0.612 * 2 / 3 * chanwidth * (2 * 9.81) ** 0.5
             )
             self.var.smalllakeFactor = self.var.smalllakeArea / (
-                self.model.DtSec * np.sqrt(self.var.smalllakeA)
+                self.model.seconds_per_timestep * np.sqrt(self.var.smalllakeA)
             )
 
             self.var.smalllakeFactorSqr = np.square(self.var.smalllakeFactor)
@@ -129,7 +129,7 @@ class lakes_res_small(object):
 
             smalllakeStorageIndicator = np.maximum(
                 0.0,
-                self.var.smalllakeVolumeM3 / self.model.DtSec
+                self.var.smalllakeVolumeM3 / self.model.seconds_per_timestep
                 + self.var.smalllakeInflowOld / 2,
             )
             out = np.square(
@@ -178,19 +178,19 @@ class lakes_res_small(object):
             # ***** LAKE
             # ************************************************************
 
-            if self.model.CHECK_WATER_BALANCE:
+            if __debug__:
                 self.var.preSmalllakeStorage = self.var.smalllakeStorage.copy()
 
             # if (dateVar['curr'] == 998):
             #    ii = 1
 
-            inflowM3S = inflow / self.model.DtSec
+            inflowM3S = inflow / self.model.seconds_per_timestep
             # Lake inflow in [m3/s]
             lakeIn = (inflowM3S + self.var.smalllakeInflowOld) * 0.5
             # for Modified Puls Method: (S2/dtime + Qout2/2) = (S1/dtime + Qout1/2) - Qout1 + (Qin1 + Qin2)/2
             # here: (Qin1 + Qin2)/2
             self.var.smallLakeIn = (
-                lakeIn * self.model.DtSec / self.var.cellArea
+                lakeIn * self.model.seconds_per_timestep / self.var.cellArea
             )  # in [m]
 
             self.var.smallevapWaterBody = (
@@ -211,7 +211,7 @@ class lakes_res_small(object):
 
             lakeStorageIndicator = np.maximum(
                 0.0,
-                self.var.smalllakeVolumeM3 / self.model.DtSec
+                self.var.smalllakeVolumeM3 / self.model.seconds_per_timestep
                 - 0.5 * self.var.smalllakeOutflow
                 + lakeIn,
             )
@@ -224,16 +224,16 @@ class lakes_res_small(object):
                 + np.sqrt(self.var.smalllakeFactorSqr + 2 * lakeStorageIndicator)
             )
 
-            QsmallLakeOut = self.var.smalllakeOutflow * self.model.DtSec
+            QsmallLakeOut = self.var.smalllakeOutflow * self.model.seconds_per_timestep
 
             self.var.smalllakeVolumeM3 = (
                 lakeStorageIndicator - self.var.smalllakeOutflow * 0.5
-            ) * self.model.DtSec
+            ) * self.model.seconds_per_timestep
             # Lake storage
 
             self.var.smalllakeStorage = (
                 self.var.smalllakeStorage
-                + lakeIn * self.model.DtSec
+                + lakeIn * self.model.seconds_per_timestep
                 - QsmallLakeOut
                 - self.var.smallevapWaterBody
             )
@@ -249,7 +249,7 @@ class lakes_res_small(object):
                 self.var.smalllakeVolumeM3, self.var.smalllakeArea
             )
 
-            if self.model.CHECK_WATER_BALANCE:
+            if __debug__:
                 self.var.waterbalance_module.waterBalanceCheck(
                     [self.var.smallLakeIn],  # In
                     [
@@ -324,7 +324,7 @@ class lakes_res_small(object):
                 self.var.smallLakeout + (1 - self.var.smallpart) * self.var.runoff
             )  # back to [m]  # with and without in m3
 
-            if self.model.CHECK_WATER_BALANCE:
+            if __debug__:
                 self.var.waterbalance_module.waterBalanceCheck(
                     [self.var.smallLakeIn],  # In
                     [self.var.smallLakeout, self.var.smallevapWaterBody],  # Out

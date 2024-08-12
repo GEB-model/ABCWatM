@@ -440,7 +440,7 @@ class lakes_reservoirs(object):
         :param NoRoutingExecuted: actual number of routing substep
         :return: QLakeOutM3DtC - lake outflow in [m3] per subtime step
         """
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             prestorage = self.var.storage.copy()
 
         lakes = self.var.waterBodyTypC == 1
@@ -482,7 +482,7 @@ class lakes_reservoirs(object):
 
         outflow_m3 = self.var.lake_outflow * self.var.dtRouting
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 influxes=[
                     (lake_inflow_m3_s + self.var.prev_lake_inflow) / 2
@@ -533,7 +533,7 @@ class lakes_reservoirs(object):
         :param inflowC: inflow to reservoirs
         :return: qResOutM3DtC - reservoir outflow in [m3] per subtime step
         """
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             prestorage = self.var.storage.copy()
 
         reservoirs = self.var.waterBodyTypC == 2
@@ -559,7 +559,7 @@ class lakes_reservoirs(object):
 
         inflow_reservoirs = np.zeros_like(inflowC)
         inflow_reservoirs[reservoirs] = inflowC[reservoirs]
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 influxes=[inflow_reservoirs],  # In [m3/s]
                 outfluxes=[outflow_m3],
@@ -584,14 +584,17 @@ class lakes_reservoirs(object):
             outflow to adjected lakes and reservoirs is calculated separately
         """
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             prestorage = self.var.storage.copy()
 
         # collect discharge from above waterbodies
         dis_LR = upstream1(self.var.downstruct, discharge)
 
         # only where lakes are and unit convered to [m]
-        dis_LR = np.where(self.var.waterBodyID != -1, dis_LR, 0.0) * self.model.DtSec
+        dis_LR = (
+            np.where(self.var.waterBodyID != -1, dis_LR, 0.0)
+            * self.model.seconds_per_timestep
+        )
 
         runoff_m3 = runoff * self.var.cellArea / self.var.noRoutingSteps
         runoff_m3 = laketotal(runoff_m3, self.var.waterBodyID, nan_class=-1)
@@ -642,7 +645,7 @@ class lakes_reservoirs(object):
             outflow_to_another_lake, self.var.waterBodyID, nan_class=-1
         )
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="lakes and reservoirs",
                 how="cellwise",

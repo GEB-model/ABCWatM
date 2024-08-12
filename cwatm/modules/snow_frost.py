@@ -205,7 +205,7 @@ class snow_frost(object):
         Todo:
             calculate sinus shape function for the southern hemisspere
         """
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             self.var.prevSnowCover = np.sum(self.var.SnowCoverS, axis=0)
 
         day_of_year = self.model.current_time.timetuple().tm_yday
@@ -307,7 +307,7 @@ class snow_frost(object):
         # all in pixel
 
         # DEBUG Snow
-        # if self.model.CHECK_WATER_BALANCE:
+        # if __debug__:
         #     self.var.waterbalance_module.waterBalanceCheck(
         #         [Snow],  # In
         #         [self.var.SnowMelt],  # Out

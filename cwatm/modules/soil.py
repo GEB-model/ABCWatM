@@ -932,7 +932,7 @@ class soil(object):
         Dependend on soil depth, soil hydraulic parameters
         """
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
             w3_pre = self.var.w3.copy()
@@ -1011,7 +1011,7 @@ class soil(object):
             + self.var.actTransTotal[bioarea]
         )
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="soil_1",
                 how="cellwise",

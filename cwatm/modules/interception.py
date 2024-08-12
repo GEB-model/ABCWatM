@@ -94,7 +94,7 @@ class interception(object):
 
         """
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             interceptStor_pre = self.var.interceptStor.copy()
 
         interceptCap = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -165,7 +165,7 @@ class interception(object):
         # interceptEvap is the first flux in ET, soil evapo and transpiration are added later
         self.var.actualET = self.var.interceptEvap + self.var.snowEvap
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="interception",
                 how="cellwise",

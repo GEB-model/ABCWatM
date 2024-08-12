@@ -32,7 +32,7 @@ class routing_kinematic(object):
     EWRef                 potential evaporation rate from water surface                                     m
     load_initial
     waterbalance_module
-    DtSec                 number of seconds per timestep (default = 86400)                                  s
+    seconds_per_timestep                 number of seconds per timestep (default = 86400)                                  s
     waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --
     UpArea1               upstream area of a grid cell                                                      m2
     dirUp                 river network in upstream direction                                               --
@@ -173,7 +173,7 @@ class routing_kinematic(object):
         self.var.invchanLength = 1 / self.var.chanLength
 
         # Corresponding sub-timestep (seconds)
-        self.var.dtRouting = self.model.DtSec / self.var.noRoutingSteps
+        self.var.dtRouting = self.model.seconds_per_timestep / self.var.noRoutingSteps
         self.var.invdtRouting = 1 / self.var.dtRouting
 
         # -----------------------------------------------
@@ -260,7 +260,7 @@ class routing_kinematic(object):
         * calculate kinematic wave -> using C++ library for computational speed
         """
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             pre_channel_storage_m3 = self.var.channelStorageM3.copy()
             pre_storage = self.var.storage.copy()
 
@@ -408,7 +408,7 @@ class routing_kinematic(object):
 
             self.var.discharge_substep[subrouting_step, :] = self.var.discharge.copy()
 
-            if self.model.CHECK_WATER_BALANCE:
+            if __debug__:
                 # Discharge at outlets and lakes and reservoirs
                 discharge_at_outlets += self.var.discharge[
                     self.var.lddCompress_LR == 5
@@ -424,7 +424,7 @@ class routing_kinematic(object):
             * self.var.discharge**self.var.beta
         )
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             # this check the last routing step, but that's okay
             balance_check(
                 how="sum",
@@ -450,7 +450,7 @@ class routing_kinematic(object):
             balance_check(
                 how="sum",
                 influxes=[sumsideflow],
-                outfluxes=[discharge_at_outlets * self.model.DtSec],
+                outfluxes=[discharge_at_outlets * self.model.seconds_per_timestep],
                 prestorages=[pre_channel_storage_m3],
                 poststorages=[self.var.channelStorageM3],
                 name="routing_3",
@@ -460,7 +460,7 @@ class routing_kinematic(object):
                 how="sum",
                 influxes=[self.var.runoff * self.var.cellArea],
                 outfluxes=[
-                    discharge_at_outlets * self.model.DtSec,
+                    discharge_at_outlets * self.model.seconds_per_timestep,
                     EvapoChannel,
                     sumwaterbody_evaporation,
                 ],

@@ -125,9 +125,6 @@ class landcoverType(object):
     genuInvN1
     genuInvN2
     genuInvN3
-    invAlpha1
-    invAlpha2
-    invAlpha3
     ws1                   Maximum storage capacity in layer 1                                               m
     ws2                   Maximum storage capacity in layer 2                                               m
     ws3                   Maximum storage capacity in layer 3                                               m
@@ -336,9 +333,6 @@ class landcoverType(object):
                 fn=None,
             )[land_use_indices]
 
-        self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wwp3 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.ws1 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.ws2 = self.var.full_compressed(np.nan, dtype=np.float32)
         self.var.ws3 = self.var.full_compressed(np.nan, dtype=np.float32)
@@ -797,7 +791,7 @@ class landcoverType(object):
 
         timer = TimingModule("Landcover")
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             interceptStor_pre = self.var.interceptStor.copy()
             w1_pre = self.var.w1.copy()
             w2_pre = self.var.w2.copy()
@@ -868,10 +862,13 @@ class landcoverType(object):
             self.model.evaporation_module.step(self.var.ETRef)
         )
 
+        timer.new_split("PET")
+
         potTranspiration_minus_interception_evaporation = (
             self.model.interception_module.step(self.var.potTranspiration)
         )  # first thing that evaporates is the intercepted water.
-        timer.new_split("Transpiration")
+
+        timer.new_split("Interception")
 
         # *********  WATER Demand   *************************
         groundwater_abstaction, channel_abstraction_m, addtoevapotrans, returnFlow = (
@@ -911,12 +908,6 @@ class landcoverType(object):
                 self.var.crop_map != -1
             ] += self.var.potTranspiration.get()[self.var.crop_map != -1]
         else:
-            # print(
-            #     "act",
-            #     self.var.actTransTotal[self.var.crop_map != -1].mean(),
-            #     self.var.actTransTotal[self.var.crop_map != -1].min(),
-            #     self.var.actTransTotal[self.var.crop_map != -1].max(),
-            # )
             self.var.actual_transpiration_crop[
                 self.var.crop_map != -1
             ] += self.var.actTransTotal[self.var.crop_map != -1]
@@ -930,7 +921,7 @@ class landcoverType(object):
         assert not np.isnan(channel_abstraction_m).any()
         assert not np.isnan(openWaterEvap).any()
 
-        if self.model.CHECK_WATER_BALANCE:
+        if __debug__:
             balance_check(
                 name="landcover_1",
                 how="cellwise",

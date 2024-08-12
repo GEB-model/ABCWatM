@@ -37,7 +37,6 @@ class CWatM:
         )
         self.DynamicResAndLakes = False
         self.useSmallLakes = False
-        self.CHECK_WATER_BALANCE = sys.flags.optimize == 0  # 0, means no optimizations
         self.crop_factor_calibration_factor = 1
         self.soilLayers = 3
 
