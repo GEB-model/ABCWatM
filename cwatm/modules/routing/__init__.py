@@ -4,8 +4,7 @@
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
 #
-# Original Source:
-# Repository: https://github.com/iiasa/CWatM
+# Original source repository: https://github.com/iiasa/CWatM
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +29,7 @@ import numpy as np
 from geb.workflows import balance_check
 
 
-class routing_kinematic(object):
+class Routing(object):
     """
     ROUTING
 
@@ -395,7 +394,7 @@ class routing_kinematic(object):
             # minus waterdemand + returnflow
 
             outflow_to_river_network, waterbody_evaporation = (
-                self.model.lakes_reservoirs_module.routing(
+                self.model.lakes_reservoirs.routing(
                     subrouting_step,
                     evaporation_from_water_bodies_per_routing_step,
                     self.var.discharge,

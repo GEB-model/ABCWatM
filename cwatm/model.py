@@ -4,8 +4,7 @@
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
 #
-# Original Source:
-# Repository: https://github.com/iiasa/CWatM
+# Original source repository: https://github.com/iiasa/CWatM
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -26,19 +25,19 @@ import os
 import numpy as np
 from geb.workflows import TimingModule
 
-from .modules.evaporationPot import evaporationPot
-from .modules.snow_frost import snow_frost
-from .modules.soil import soil
-from .modules.landcoverType import landcoverType
-from .modules.sealed_water import sealed_water
-from .modules.evaporation import evaporation
-from .modules.groundwater import groundwater
-from .modules.water_demand import water_demand
-from .modules.interception import interception
-from .modules.runoff_concentration import runoff_concentration
-from .modules.lakes_res_small import lakes_res_small
-from .modules.routing import routing_kinematic
-from .modules.lakes_reservoirs import lakes_reservoirs
+from .modules.potential_evapotranspiration import PotentialEvapotranspiration
+from .modules.snow_frost import SnowFrost
+from .modules.soil import Soil
+from .modules.landcover import LandCover
+from .modules.sealed_water import SealedWater
+from .modules.evaporation import Evaporation
+from .modules.groundwater import GroundWater
+from .modules.water_demand import WaterDemand
+from .modules.interception import Interception
+from .modules.runoff_concentration import RunoffConcentration
+from .modules.lakes_res_small import SmallLakesReservoirs
+from .modules.routing import Routing
+from .modules.lakes_reservoirs import LakesReservoirs
 
 
 class CWatM:
@@ -61,24 +60,24 @@ class CWatM:
         self.useSmallLakes = False
         self.crop_factor_calibration_factor = 1
 
-        ElevationStD = self.data.grid.load(
+        elevation_std = self.data.grid.load(
             self.model_structure["grid"]["landsurface/topo/elevation_STD"]
         )
-        ElevationStD = self.data.to_HRU(data=ElevationStD, fn=None)
+        elevation_std = self.data.to_HRU(data=elevation_std, fn=None)
 
-        self.evaporationPot_module = evaporationPot(self)
-        self.snowfrost_module = snow_frost(self, ElevationStD)
-        self.landcoverType_module = landcoverType(self, ElevationStD)
-        self.soil_module = soil(self)
-        self.evaporation_module = evaporation(self)
-        self.groundwater_module = groundwater(self)
-        self.interception_module = interception(self)
-        self.sealed_water_module = sealed_water(self)
-        self.runoff_concentration_module = runoff_concentration(self)
-        self.lakes_res_small_module = lakes_res_small(self)
-        self.routing_kinematic_module = routing_kinematic(self)
-        self.lakes_reservoirs_module = lakes_reservoirs(self)
-        self.waterdemand_module = water_demand(self)
+        self.potential_evapotranspiration = PotentialEvapotranspiration(self)
+        self.snowfrost = SnowFrost(self, elevation_std)
+        self.landcover = LandCover(self)
+        self.soil = Soil(self, elevation_std)
+        self.evaporation = Evaporation(self)
+        self.groundwater = GroundWater(self)
+        self.interception = Interception(self)
+        self.sealed_water = SealedWater(self)
+        self.runoff_concentration = RunoffConcentration(self)
+        self.lakes_res_small = SmallLakesReservoirs(self)
+        self.routing_kinematic = Routing(self)
+        self.lakes_reservoirs = LakesReservoirs(self)
+        self.water_demand = WaterDemand(self)
 
     def step(self):
         """
@@ -96,13 +95,13 @@ class CWatM:
 
         timer = TimingModule("CWatM")
 
-        self.evaporationPot_module.step()
+        self.potential_evapotranspiration.step()
         timer.new_split("PET")
 
-        self.lakes_reservoirs_module.step()
+        self.lakes_reservoirs.step()
         timer.new_split("Waterbodies")
 
-        self.snowfrost_module.step()
+        self.snowfrost.step()
         timer.new_split("Snow and frost")
 
         (
@@ -113,21 +112,19 @@ class CWatM:
             channel_abstraction,
             openWaterEvap,
             returnFlow,
-        ) = self.landcoverType_module.step()
+        ) = self.landcover.step()
         timer.new_split("Landcover")
 
-        self.groundwater_module.step(groundwater_recharge, groundwater_abstraction)
+        self.groundwater.step(groundwater_recharge, groundwater_abstraction)
         timer.new_split("GW")
 
-        self.runoff_concentration_module.step(interflow, directRunoff)
+        self.runoff_concentration.step(interflow, directRunoff)
         timer.new_split("Runoff concentration")
 
-        self.lakes_res_small_module.step()
+        self.lakes_res_small.step()
         timer.new_split("Small waterbodies")
 
-        self.routing_kinematic_module.step(
-            openWaterEvap, channel_abstraction, returnFlow
-        )
+        self.routing_kinematic.step(openWaterEvap, channel_abstraction, returnFlow)
         timer.new_split("Routing")
 
         if self.timing:
@@ -138,7 +135,7 @@ class CWatM:
         Finalize the model
         """
         # finalize modflow model
-        self.groundwater_module.modflow.finalize()
+        self.groundwater.modflow.finalize()
 
         if self.config["general"]["simulate_forest"]:
             for plantFATE_model in self.model.plantFATE:
@@ -151,9 +148,7 @@ class CWatM:
         os.makedirs(dirname, exist_ok=True)
         np.save(
             self.init_water_table_file,
-            self.groundwater_module.modflow.decompress(
-                self.groundwater_module.modflow.head
-            ),
+            self.groundwater.modflow.decompress(self.groundwater.modflow.head),
         )
 
     @property
@@ -161,9 +156,7 @@ class CWatM:
         n_invidiuals_per_m2_per_HRU = np.array(
             [model.n_individuals for model in self.plantFATE if model is not None]
         )
-        land_use_ratios = self.data.HRU.land_use_ratio[
-            self.soil_module.plantFATE_forest_RUs
-        ]
+        land_use_ratios = self.data.HRU.land_use_ratio[self.soil.plantFATE_forest_RUs]
         return np.array(
             (n_invidiuals_per_m2_per_HRU * land_use_ratios).sum()
             / land_use_ratios.sum()
@@ -174,9 +167,7 @@ class CWatM:
         biomass_per_m2_per_HRU = np.array(
             [model.biomass for model in self.plantFATE if model is not None]
         )
-        land_use_ratios = self.data.HRU.land_use_ratio[
-            self.soil_module.plantFATE_forest_RUs
-        ]
+        land_use_ratios = self.data.HRU.land_use_ratio[self.soil.plantFATE_forest_RUs]
         return np.array(
             (biomass_per_m2_per_HRU * land_use_ratios).sum() / land_use_ratios.sum()
         )

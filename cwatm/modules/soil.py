@@ -4,8 +4,7 @@
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
 #
-# Original Source:
-# Repository: https://github.com/iiasa/CWatM
+# Original source repository: https://github.com/iiasa/CWatM
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -688,8 +687,8 @@ def update_soil_water_storage(
                 )
 
 
-class soil(object):
-    def __init__(self, model):
+class Soil(object):
+    def __init__(self, model, elevation_std):
         """
         Initial part of the soil module
 
@@ -784,6 +783,38 @@ class soil(object):
 
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cPrefFlow = self.model.config["parameters"]["preferentialFlowConstant"]
+
+        self.var.arnoBeta = self.var.full_compressed(np.nan, dtype=np.float32)
+
+        # Improved Arno's scheme parameters: Hageman and Gates 2003
+        # arnoBeta defines the shape of soil water capacity distribution curve as a function of  topographic variability
+        # b = max( (oh - o0)/(oh + omax), 0.01)
+        # oh: the standard deviation of orography, o0: minimum std dev, omax: max std dev
+        arnoBetaOro = (elevation_std - 10.0) / (elevation_std + 1500.0)
+
+        # for CALIBRATION
+        arnoBetaOro = arnoBetaOro + self.model.config["parameters"]["arnoBeta_add"]
+        arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
+
+        arnobeta_cover_types = {
+            "forest": 0.2,
+            "grassland": 0.0,
+            "irrPaddy": 0.2,
+            "irrNonPaddy": 0.2,
+        }
+
+        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
+            land_use_indices = np.where(self.var.land_use_type == coverNum)[0]
+
+            arnoBeta = arnobeta_cover_types[coverType]
+            if not isinstance(arnoBeta, float):
+                arnoBeta = arnoBeta[land_use_indices]
+            self.var.arnoBeta[land_use_indices] = (arnoBetaOro + arnoBeta)[
+                land_use_indices
+            ]
+            self.var.arnoBeta[land_use_indices] = np.minimum(
+                1.2, np.maximum(0.01, self.var.arnoBeta[land_use_indices])
+            )
 
         self.var.aeration_days_counter = self.var.load_initial(
             "aeration_days_counter",

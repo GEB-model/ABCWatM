@@ -4,8 +4,7 @@
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
 #
-# Original Source:
-# Repository: https://github.com/iiasa/CWatM
+# Original source repository: https://github.com/iiasa/CWatM
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +39,7 @@ from .soil import (
 from geb.workflows import TimingModule, balance_check
 
 
-class water_demand:
+class WaterDemand:
     def __init__(self, model):
         """
         Initial part of the water demand module
@@ -62,7 +61,7 @@ class water_demand:
             "r",
         ) as src:
             reservoir_command_areas = self.var.compress(src.read(1), method="last")
-            water_body_mapping = self.model.lakes_reservoirs_module.waterbody_mapping
+            water_body_mapping = self.model.lakes_reservoirs.waterbody_mapping
             self.var.reservoir_command_areas = np.take(
                 water_body_mapping, reservoir_command_areas, mode="clip"
             )
@@ -96,7 +95,7 @@ class water_demand:
             self.var.crop_map,
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
             self.var.land_use_type,
-            self.model.soil_module.natural_crop_groups,
+            self.model.soil.natural_crop_groups,
         )
 
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
@@ -107,14 +106,14 @@ class water_demand:
 
         root_ratios = get_root_ratios(
             self.var.root_depth[nonpaddy_irrigated_land],
-            self.model.soil_module.soil_layer_height[:, nonpaddy_irrigated_land],
+            self.model.soil.soil_layer_height[:, nonpaddy_irrigated_land],
         )
 
         max_water_content = self.var.full_compressed(np.nan, dtype=np.float32)
         max_water_content[nonpaddy_irrigated_land] = (
             get_maximum_water_content(
-                self.model.soil_module.wfc[:, nonpaddy_irrigated_land],
-                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+                self.model.soil.wfc[:, nonpaddy_irrigated_land],
+                self.model.soil.wwp[:, nonpaddy_irrigated_land],
             )
             * root_ratios
         ).sum(axis=0)
@@ -123,8 +122,8 @@ class water_demand:
         critical_water_level[nonpaddy_irrigated_land] = (
             get_critical_water_level(
                 p,
-                self.model.soil_module.wfc[:, nonpaddy_irrigated_land],
-                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+                self.model.soil.wfc[:, nonpaddy_irrigated_land],
+                self.model.soil.wwp[:, nonpaddy_irrigated_land],
             )
             * root_ratios
         ).sum(axis=0)
@@ -133,16 +132,16 @@ class water_demand:
         readily_available_water[nonpaddy_irrigated_land] = (
             get_available_water(
                 self.var.w[:, nonpaddy_irrigated_land],
-                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+                self.model.soil.wwp[:, nonpaddy_irrigated_land],
             )
             * root_ratios
         ).sum(axis=0)
 
         # first 2 soil layers to estimate distribution between runoff and infiltration
         soil_water_storage = self.var.w[:2, nonpaddy_irrigated_land].sum(axis=0)
-        soil_water_storage_cap = self.model.soil_module.ws[
-            :2, nonpaddy_irrigated_land
-        ].sum(axis=0)
+        soil_water_storage_cap = self.model.soil.ws[:2, nonpaddy_irrigated_land].sum(
+            axis=0
+        )
 
         relative_saturation = soil_water_storage / soil_water_storage_cap
 
@@ -189,8 +188,8 @@ class water_demand:
         return (
             self.model.data.grid.channelStorageM3.copy(),
             available_reservoir_storage_m3,
-            self.model.groundwater_module.groundwater_content_m3,
-            self.model.groundwater_module.modflow.head,
+            self.model.groundwater.groundwater_content_m3,
+            self.model.groundwater.modflow.head,
         )
 
     def withdraw(self, source, demand):
@@ -306,7 +305,7 @@ class water_demand:
             available_channel_storage_m3=available_channel_storage_m3,
             available_groundwater_m3=available_groundwater_m3,
             groundwater_head=groundwater_head,
-            groundwater_depth=self.model.groundwater_module.groundwater_depth,
+            groundwater_depth=self.model.groundwater.groundwater_depth,
             available_reservoir_storage_m3=available_reservoir_storage_m3,
             command_areas=(
                 self.var.reservoir_command_areas.get()
