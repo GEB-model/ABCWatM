@@ -1,3 +1,26 @@
+# --------------------------------------------------------------------------------
+# Description:
+# This file contains code that has been adapted from an original source available
+# in a public repository under the GNU General Public License. The original code
+# has been modified to fit the specific needs of this project.
+#
+# Original Source:
+# Repository: https://github.com/iiasa/CWatM
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
+
 import numpy as np
 from .model import ModFlowSimulation
 from geb.workflows import balance_check
@@ -49,7 +72,7 @@ class groundwater:
         self.var.leakagelake_factor = 0.001  # in m/day
 
         soil_depth = self.model.data.to_grid(
-            HRU_data=self.model.data.HRU.soil_layer_height.sum(axis=0),
+            HRU_data=self.model.soil_module.soil_layer_height.sum(axis=0),
             fn="weightedmean",
         )
         bottom_soil = elevation - soil_depth

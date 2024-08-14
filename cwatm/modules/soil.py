@@ -1,15 +1,27 @@
-# -------------------------------------------------------------------------
-# Name:        Soil module
-# Purpose:
+# --------------------------------------------------------------------------------
+# Description:
+# This file contains code that has been adapted from an original source available
+# in a public repository under the GNU General Public License. The original code
+# has been modified to fit the specific needs of this project.
 #
-# Author:      PB
+# Original Source:
+# Repository: https://github.com/iiasa/CWatM
 #
-# Created:     15/07/2016
-# Copyright:   (c) PB 2016 based on PCRGLOBE, LISFLOOD, HBV
-# -------------------------------------------------------------------------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
 
 import numpy as np
-import rasterio
 from pathlib import Path
 from geb.workflows import TimingModule, balance_check
 from numba import njit, prange
@@ -53,7 +65,7 @@ def get_aeration_stress_reduction_factor(
     return aeration_stress_reduction_factor
 
 
-@njit
+@njit(inline="always")
 def get_critical_soil_moisture_content_numba(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
@@ -232,24 +244,15 @@ def get_crop_group_number(
     return crop_group_map
 
 
+@njit
 def get_unsaturated_hydraulic_conductivity(
     w, wres, ws, lambda_, saturated_hydraulic_conductivity
 ):
-    saturation_term = np.clip((w - wres) / (ws - wres), 0, 1)
-    residual_moisture = lambda_ / (lambda_ + 1)
+    """This function calculates the unsaturated hydraulic conductivity based on the soil moisture content
+    following van Genuchten (1980) and Mualem (1976)
 
-    return (
-        saturated_hydraulic_conductivity
-        * saturation_term**0.5
-        * (1 - (1 - saturation_term ** (1 / residual_moisture)) ** residual_moisture)
-        ** 2
-    )
-
-
-@njit
-def get_unsaturated_hydraulic_conductivity_numba(
-    w, wres, ws, lambda_, saturated_hydraulic_conductivity
-):
+    See https://archive.org/details/watershedmanagem0000unse_d4j9/page/295/mode/1up?view=theater (p. 295)
+    """
     saturation_term = (w - wres) / (ws - wres)
     if saturation_term < 0:
         saturation_term = 0
@@ -258,9 +261,11 @@ def get_unsaturated_hydraulic_conductivity_numba(
 
     saturation_term_sqrt = saturation_term**0.5
 
-    residual_moisture = lambda_ / (lambda_ + 1)
-    inner_term = saturation_term ** (1 / residual_moisture)
-    outer_term = 1 - (1 - inner_term) ** residual_moisture
+    n = lambda_ + 1
+    m = 1 - 1 / n
+
+    inner_term = saturation_term ** (1 / m)
+    outer_term = 1 - (1 - inner_term) ** m
 
     return (
         saturated_hydraulic_conductivity
@@ -281,7 +286,6 @@ def update_soil_water_storage(
     aeration_days_counter,
     soil_layer_height,
     saturated_hydraulic_conductivity,
-    unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
     lambda_,
     land_use_type,
     root_depth,
@@ -330,9 +334,7 @@ def update_soil_water_storage(
     root_distribution_per_layer_aeration_stress_corrected_matrix = np.zeros_like(
         soil_layer_height
     )
-    capillary_rise_soil_matrix = np.zeros_like(
-        unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers
-    )
+    capillary_rise_soil_matrix = np.zeros_like(soil_layer_height)
     percolation_matrix = np.zeros_like(soil_layer_height)
     preferential_flow = np.zeros_like(land_use_type, dtype=np.float32)
     available_water_infiltration = np.zeros_like(land_use_type, dtype=np.float32)
@@ -598,7 +600,7 @@ def update_soil_water_storage(
                 0,
             )
             unsaturated_hydraulic_conductivity_layer_below = (
-                get_unsaturated_hydraulic_conductivity_numba(
+                get_unsaturated_hydraulic_conductivity(
                     w[layer + 1, i],
                     wres[layer + 1, i],
                     ws[layer + 1, i],
@@ -606,15 +608,9 @@ def update_soil_water_storage(
                     saturated_hydraulic_conductivity[layer + 1, i],
                 )
             )
-            capillary_rise_soil = min(
-                max(
-                    0.0,
-                    (1 - saturation_ratio)
-                    * unsaturated_hydraulic_conductivity_layer_below,
-                ),
-                unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers[
-                    layer, i
-                ],
+            capillary_rise_soil = max(
+                0.0,
+                (1 - saturation_ratio) * unsaturated_hydraulic_conductivity_layer_below,
             )
             # penultimate layer, limit capillary rise to available water in bottom layer
             if layer == N_SOIL_LAYERS - 2:
@@ -639,7 +635,7 @@ def update_soil_water_storage(
         for _ in range(PERCOLATION_SUBSTEPS):
             for layer in range(N_SOIL_LAYERS):
                 unsaturated_hydraulic_conductivity = (
-                    get_unsaturated_hydraulic_conductivity_numba(
+                    get_unsaturated_hydraulic_conductivity(
                         w[layer, i],
                         wres[layer, i],
                         ws[layer, i],
@@ -693,89 +689,6 @@ def update_soil_water_storage(
 
 
 class soil(object):
-    """
-    **SOIL**
-
-
-    Calculation vertical transfer of water based on Arno scheme
-
-
-    **Global variables**
-
-    ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit
-    ====================  ================================================================================  =========
-    storGroundwater       simulated groundwater storage                                                     m
-    capRiseFrac           fraction of a grid cell where capillar rise may happen                            m
-    cropKC                crop coefficient for each of the 4 different land cover types (forest, irrigated  --
-    EWRef                 potential evaporation rate from water surface                                     m
-    capillar              Simulated flow from groundwater to the third CWATM soil layer                     m
-    availWaterInfiltrati  quantity of water reaching the soil after interception, more snowmelt             m
-    potTranspiration      Potential transpiration (after removing of evaporation)                           m
-    actualET              simulated evapotranspiration from soil, flooded area and vegetation               m
-    KSat1
-    KSat2
-    KSat3
-    genuM1
-    genuM2
-    genuM3
-    genuInvM1
-    genuInvM2
-    genuInvM3
-    ws1                   Maximum storage capacity in layer 1                                               m
-    ws2                   Maximum storage capacity in layer 2                                               m
-    ws3                   Maximum storage capacity in layer 3                                               m
-    wres1                 Residual storage capacity in layer 1                                              m
-    wres2                 Residual storage capacity in layer 2                                              m
-    wres3                 Residual storage capacity in layer 3                                              m
-    wrange1
-    wrange2
-    wrange3
-    wfc1                  Soil moisture at field capacity in layer 1
-    wfc2                  Soil moisture at field capacity in layer 2
-    wfc3                  Soil moisture at field capacity in layer 3
-    wwp1                  Soil moisture at wilting point in layer 1
-    wwp2                  Soil moisture at wilting point in layer 2
-    wwp3                  Soil moisture at wilting point in layer 3
-    kunSatFC12
-    kunSatFC23
-    w1                    Simulated water storage in the layer 1                                            m
-    w2                    Simulated water storage in the layer 2                                            m
-    w3                    Simulated water storage in the layer 3                                            m
-    topwater              quantity of water above the soil (flooding)                                       m
-    arnoBeta
-    directRunoff          Simulated surface runoff                                                          m
-    interflow             Simulated flow reaching runoff instead of groundwater                             m
-    openWaterEvap         Simulated evaporation from open areas                                             m
-    actTransTotal         Total actual transpiration from the three soil layers                             m
-    actBareSoilEvap       Simulated evaporation from the first soil layer                                   m
-    FrostIndexThreshold   Degree Days Frost Threshold (stops infiltration, percolation and capillary rise)  --
-    FrostIndex            FrostIndex - Molnau and Bissel (1983), A Continuous Frozen Ground Index for Floo  --
-    percolationImp        Fraction of area covered by the corresponding landcover type                      m
-    cropGroupNumber       soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Dooren  --
-    cPrefFlow             Factor influencing preferential flow (flow from surface to GW)                    --
-    act_irrConsumption    actual irrgation water consumption                                                m
-    potBareSoilEvap       potential bare soil evaporation (calculated with minus snow evaporation)          m
-    totalPotET            Potential evaporation per land use class                                          m
-    rws                   Transpiration reduction factor (in case of water stress)                          --
-    prefFlow              Flow going directly from rainfall to groundwater                                  m
-    infiltration          Water actually infiltrating the soil                                              m
-    capRiseFromGW         Simulated capillary rise from groundwater                                         m
-    NoSubSteps            Number of sub steps to calculate soil percolation                                 --
-    perc1to2              Simulated water flow from soil layer 1 to soil layer 2                            m
-    perc2to3              Simulated water flow from soil layer 2 to soil layer 3                            m
-    perc3toGW             Simulated water flow from soil layer 3 to groundwater                             m
-    actTransTotal_forest
-    actTransTotal_grassl
-    actTransTotal_paddy
-    actTransTotal_nonpad
-    before
-    gwRecharge            groundwater recharge                                                              m
-    ====================  ================================================================================  =========
-
-    **Functions**
-    """
-
     def __init__(self, model):
         """
         Initial part of the soil module
@@ -787,14 +700,65 @@ class soil(object):
         self.var = model.data.HRU
         self.model = model
 
+        self.soil_layer_height = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/soil_layer_height"],
+            layer=None,
+        )
+        self.soil_layer_height = self.model.data.to_HRU(
+            data=self.soil_layer_height, fn=None
+        )
+
         # set number of soil layers as global variable for numba
         global N_SOIL_LAYERS
-        N_SOIL_LAYERS = self.model.soilLayers
+        N_SOIL_LAYERS = self.soil_layer_height.shape[0]
 
         # set the frost index threshold as global variable for numba
         global FROST_INDEX_THRESHOLD
         FROST_INDEX_THRESHOLD = self.var.FrostIndexThreshold
-        # --- Topography -----------------------------------------------------
+
+        # θ saturation, field capacity, wilting point and residual moisture content
+        thetas = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/thetas"], layer=None
+        )
+        thetas = self.model.data.to_HRU(data=thetas, fn=None)
+        thetafc = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/thetafc"], layer=None
+        )
+        thetafc = self.model.data.to_HRU(data=thetafc, fn=None)
+        thetawp = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/thetawp"], layer=None
+        )
+        thetawp = self.model.data.to_HRU(data=thetawp, fn=None)
+        thetar = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/thetar"], layer=None
+        )
+        thetar = self.model.data.to_HRU(data=thetar, fn=None)
+
+        self.ws = thetas * self.soil_layer_height
+        self.wfc = thetafc * self.soil_layer_height
+        self.wwp = thetawp * self.soil_layer_height
+        self.wres = thetar * self.soil_layer_height
+
+        # initial soil water storage between field capacity and wilting point
+        self.var.w = self.model.data.HRU.load_initial(
+            "w",
+            default=(self.wfc + self.wwp) / 2,
+        )
+        # for paddy irrigation flooded paddy fields
+        self.var.topwater = self.model.data.HRU.load_initial(
+            "topwater", default=self.var.full_compressed(0, dtype=np.float32)
+        )
+
+        lambda_pore_size_distribution = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/lambda"], layer=None
+        )
+        self.lambda_pore_size_distribution = self.model.data.to_HRU(
+            data=lambda_pore_size_distribution, fn=None
+        )
+        ksat = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/ksat"], layer=None
+        )
+        self.ksat = self.model.data.to_HRU(data=ksat, fn=None)
 
         # Fraction of area where percolation to groundwater is impeded [dimensionless]
         self.var.percolationImp = self.model.data.to_HRU(
@@ -813,11 +777,10 @@ class soil(object):
 
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
-        with rasterio.open(self.model.model_structure["grid"]["soil/cropgrp"]) as src:
-            natural_crop_groups = self.model.data.grid.compress(src.read(1))
-            self.var.natural_crop_groups = self.model.data.to_HRU(
-                data=natural_crop_groups
-            )
+        self.natural_crop_groups = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/cropgrp"]
+        )
+        self.natural_crop_groups = self.model.data.to_HRU(data=self.natural_crop_groups)
 
         # ------------ Preferential Flow constant ------------------------------------------
         self.var.cPrefFlow = self.model.config["parameters"]["preferentialFlowConstant"]
@@ -931,7 +894,6 @@ class soil(object):
                         self.model.plantFATE.append(plantFATE.Model(ini_path))
                 else:
                     self.model.plantFATE.append(None)
-        return None
 
     def calculate_soil_water_potential_MPa(
         self,
@@ -1023,25 +985,8 @@ class soil(object):
         """
 
         if __debug__:
-            w1_pre = self.var.w1.copy()
-            w2_pre = self.var.w2.copy()
-            w3_pre = self.var.w3.copy()
+            w_pre = self.var.w.copy()
             topwater_pre = self.var.topwater.copy()
-
-        w = np.stack([self.var.w1, self.var.w2, self.var.w3], axis=0)
-        ws = np.stack([self.var.ws1, self.var.ws2, self.var.ws3], axis=0)
-        wfc = np.stack([self.var.wfc1, self.var.wfc2, self.var.wfc3], axis=0)
-        wwp = np.stack([self.var.wwp1, self.var.wwp2, self.var.wwp3], axis=0)
-        wres = np.stack([self.var.wres1, self.var.wres2, self.var.wres3], axis=0)
-        lambda_ = np.stack(
-            [self.var.lambda1, self.var.lambda2, self.var.lambda3], axis=0
-        )
-        saturated_hydraulic_conductivity = np.stack(
-            [self.var.KSat1, self.var.KSat2, self.var.KSat3], axis=0
-        )
-        unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers = (
-            np.stack([self.var.kunSatFC12, self.var.kunSatFC23], axis=0)
-        )
 
         groundwater_recharge = self.var.full_compressed(0, dtype=np.float32)
         direct_runoff = self.var.full_compressed(0, dtype=np.float32)
@@ -1050,22 +995,21 @@ class soil(object):
         timer = TimingModule("Soil")
 
         update_soil_water_storage(
-            wwp,
-            wfc,
-            ws,
-            wres,
+            self.wwp,
+            self.wfc,
+            self.ws,
+            self.wres,
             self.var.aeration_days_counter,
-            self.var.soil_layer_height,
-            saturated_hydraulic_conductivity,
-            unsatured_hydraulic_conductivity_at_field_capacity_between_soil_layers,
-            lambda_,
+            self.soil_layer_height,
+            self.ksat,
+            self.lambda_pore_size_distribution,
             self.var.land_use_type,
             self.var.root_depth,
             self.var.actual_irrigation_consumption,
             self.var.natural_available_water_infiltration,
             self.var.cropKC,
             self.var.crop_map,
-            self.var.natural_crop_groups,
+            self.natural_crop_groups,
             self.crop_lag_aeration_days,
             self.var.EWRef,
             potTranspiration,
@@ -1080,7 +1024,7 @@ class soil(object):
                 np.float32
             ),
             self.var.cPrefFlow,
-            w,
+            self.var.w,
             self.var.topwater,
             open_water_evaporation,
             self.var.actBareSoilEvap,
@@ -1089,11 +1033,8 @@ class soil(object):
             interflow,
             direct_runoff,
         )
-        self.var.w1 = w[0]
-        self.var.w2 = w[1]
-        self.var.w3 = w[2]
 
-        timer.new_split("Vectorized")
+        timer.new_split("Update soil water storage")
 
         bioarea = np.where(self.var.land_use_type < 4)[0].astype(np.int32)
         self.var.actualET[bioarea] = (
@@ -1121,15 +1062,11 @@ class soil(object):
                     open_water_evaporation[bioarea],
                 ],
                 prestorages=[
-                    w1_pre[bioarea],
-                    w2_pre[bioarea],
-                    w3_pre[bioarea],
+                    w_pre[:, bioarea].sum(axis=0),
                     topwater_pre[bioarea],
                 ],
                 poststorages=[
-                    self.var.w1[bioarea],
-                    self.var.w2[bioarea],
-                    self.var.w3[bioarea],
+                    self.var.w[:, bioarea].sum(axis=0),
                     self.var.topwater[bioarea],
                 ],
                 tollerance=1e-6,
@@ -1152,15 +1089,11 @@ class soil(object):
                     self.var.actualET[bioarea],
                 ],
                 prestorages=[
-                    w1_pre[bioarea],
-                    w2_pre[bioarea],
-                    w3_pre[bioarea],
+                    w_pre[:, bioarea].sum(axis=0),
                     topwater_pre[bioarea],
                 ],
                 poststorages=[
-                    self.var.w1[bioarea],
-                    self.var.w2[bioarea],
-                    self.var.w3[bioarea],
+                    self.var.w[:, bioarea].sum(axis=0),
                     self.var.topwater[bioarea],
                 ],
                 tollerance=1e-6,

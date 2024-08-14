@@ -1,12 +1,26 @@
-# -------------------------------------------------------------------------
-# Name:        Land Cover Type module
-# Purpose:
+# --------------------------------------------------------------------------------
+# Description:
+# This file contains code that has been adapted from an original source available
+# in a public repository under the GNU General Public License. The original code
+# has been modified to fit the specific needs of this project.
 #
-# Author:      PB
+# Original Source:
+# Repository: https://github.com/iiasa/CWatM
 #
-# Created:     15/07/2016
-# Copyright:   (c) PB 2016
-# -------------------------------------------------------------------------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
+
 import numpy as np
 import xarray as xr
 
@@ -68,117 +82,6 @@ def get_crop_kc_and_root_depths(
 
 
 class landcoverType(object):
-    """
-    LAND COVER TYPE
-
-    runs the 6 land cover types through soil procedures
-
-    This routine calls the soil routine for each land cover type
-
-
-    **Global variables**
-
-    ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit
-    ====================  ================================================================================  =========
-    maxGWCapRise          influence of capillary rise above groundwater level                               m
-    load_initial
-    baseflow              simulated baseflow (= groundwater discharge to river)                             m
-    waterbalance_module
-    coverTypes            land cover types - forest - grassland - irrPaddy - irrNonPaddy - water - sealed   --
-    minInterceptCap       Maximum interception read from file for forest and grassland land cover           m
-    interceptStor         simulated vegetation interception storage                                         m
-    Rain                  Precipitation less snow                                                           m
-    SnowMelt              total snow melt from all layers                                                   m
-    snowEvap              total evaporation from snow for a snow layers                                     m
-    cellArea              Cell area [m²] of each simulated mesh
-    soilLayers            Number of soil layers                                                             --
-    landcoverSum
-    totalET               Total evapotranspiration for each cell including all landcover types              m
-    act_SurfaceWaterAbst
-    sum_interceptStor     Total of simulated vegetation interception storage including all landcover types  m
-    fracVegCover          Fraction of area covered by the corresponding landcover type
-    rootFraction1
-    soildepth             Thickness of the first soil layer                                                 m
-    soildepth12           Total thickness of layer 2 and 3                                                  m
-    KSat1
-    KSat2
-    KSat3
-    alpha1
-    alpha2
-    alpha3
-    lambda1
-    lambda2
-    lambda3
-    thetas1
-    thetas2
-    thetas3
-    thetar1
-    thetar2
-    thetar3
-    genuM1
-    genuM2
-    genuM3
-    genuInvM1
-    genuInvM2
-    genuInvM3
-    genuInvN1
-    genuInvN2
-    genuInvN3
-    ws1                   Maximum storage capacity in layer 1                                               m
-    ws2                   Maximum storage capacity in layer 2                                               m
-    ws3                   Maximum storage capacity in layer 3                                               m
-    wres1                 Residual storage capacity in layer 1                                              m
-    wres2                 Residual storage capacity in layer 2                                              m
-    wres3                 Residual storage capacity in layer 3                                              m
-    wrange1
-    wrange2
-    wrange3
-    wfc1                  Soil moisture at field capacity in layer 1
-    wfc2                  Soil moisture at field capacity in layer 2
-    wfc3                  Soil moisture at field capacity in layer 3
-    wwp1                  Soil moisture at wilting point in layer 1
-    wwp2                  Soil moisture at wilting point in layer 2
-    wwp3                  Soil moisture at wilting point in layer 3
-    kUnSat3FC
-    kunSatFC12
-    kunSatFC23
-    cropCoefficientNC_fi
-    interceptCapNC_filen
-    coverFractionNC_file
-    w1                    Simulated water storage in the layer 1                                            m
-    w2                    Simulated water storage in the layer 2                                            m
-    w3                    Simulated water storage in the layer 3                                            m
-    topwater              quantity of water above the soil (flooding)                                       m
-    sum_topwater          quantity of water on the soil (flooding) (weighted sum for all landcover types)   m
-    totalSto              Total soil,snow and vegetation storage for each cell including all landcover typ  m
-    SnowCover             snow cover (sum over all layers)                                                  m
-    sum_w1
-    sum_w2
-    sum_w3
-    arnoBetaOro
-    ElevationStD
-    arnoBeta
-    adjRoot
-    landcoverSumSum
-    totAvlWater
-    modflow_timestep      Chosen ModFlow model timestep (1day, 7days, 30days…)
-    pretotalSto           Previous totalSto                                                                 m
-    sum_actTransTotal
-    sum_actBareSoilEvap
-    sum_interceptEvap
-    addtoevapotrans
-    sum_runoff            Runoff above the soil, more interflow, including all landcover types              m
-    sum_directRunoff
-    sum_interflow
-    Precipitation         Precipitation (input for the model)                                               m
-    GWVolumeVariation
-    sum_availWaterInfilt
-    ====================  ================================================================================  =========
-
-    **Functions**
-    """
-
     def __init__(self, model, ElevationStD):
         """
         Initial part of the land cover type module
@@ -190,8 +93,6 @@ class landcoverType(object):
         * non-Paddy irrigation No.3
         * Sealed area No.4
         * Water covered area No.5
-
-        And initialize the soil variables
         """
         self.var = model.data.HRU
         self.model = model
@@ -211,336 +112,6 @@ class landcoverType(object):
         self.var.actBareSoilEvap = self.var.full_compressed(0, dtype=np.float32)
         self.var.actTransTotal = self.var.full_compressed(0, dtype=np.float32)
 
-        self.var.soil_layer_height = np.tile(
-            self.var.full_compressed(np.nan, dtype=np.float32),
-            (self.model.soilLayers, 1),
-        )
-        self.var.soil_layer_height[0] = 0.05  # the top soil layer always is 5 cm.
-        self.var.soil_layer_height[1] = 0.95  # middle layer extends to 100 cm
-        self.var.soil_layer_height[2] = 2.00  # bottom layer extends to 300 cm
-
-        self.var.KSat1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.KSat2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.KSat3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        alpha1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        alpha2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        alpha3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.lambda1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.lambda2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.lambda3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetas1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetas2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetas3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetar1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetar2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        thetar3 = self.var.full_compressed(np.nan, dtype=np.float32)
-
-        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            # TODO: Change soil parameters in forests and grasslands
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
-            # ksat in cm/d-1 -> m/dm
-            self.var.KSat1[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/ksat1"]
-                )
-                / 100,
-                fn=None,
-            )[land_use_indices]
-            self.var.KSat2[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/ksat2"]
-                )
-                / 100,
-                fn=None,
-            )[land_use_indices]
-            self.var.KSat3[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/ksat3"]
-                )
-                / 100,
-                fn=None,
-            )[land_use_indices]
-            alpha1[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/alpha1"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            alpha2[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/alpha2"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            alpha3[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/alpha3"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            self.var.lambda1[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/lambda1"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            self.var.lambda2[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/lambda2"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            self.var.lambda3[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/lambda3"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetas1[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetas1"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetas2[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetas2"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetas3[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetas3"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetar1[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetar1"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetar2[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetar2"]
-                ),
-                fn=None,
-            )[land_use_indices]
-            thetar3[land_use_indices] = self.model.data.to_HRU(
-                data=self.model.data.grid.load(
-                    self.model.model_structure["grid"]["soil/thetar3"]
-                ),
-                fn=None,
-            )[land_use_indices]
-
-        self.var.ws1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.ws2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.ws3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wres1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wres2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wres3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wfc1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wfc2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wfc3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wwp1 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wwp2 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.wwp3 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.kunSatFC12 = self.var.full_compressed(np.nan, dtype=np.float32)
-        self.var.kunSatFC23 = self.var.full_compressed(np.nan, dtype=np.float32)
-
-        for coverNum, coverType in enumerate(self.model.coverTypes[:4]):
-            land_use_indices = np.where(self.var.land_use_type == coverNum)
-            self.var.ws1[land_use_indices] = (
-                thetas1[land_use_indices]
-                * self.var.soil_layer_height[0, land_use_indices]
-            )
-            self.var.ws2[land_use_indices] = (
-                thetas2[land_use_indices]
-                * self.var.soil_layer_height[1, land_use_indices]
-            )
-            self.var.ws3[land_use_indices] = (
-                thetas3[land_use_indices]
-                * self.var.soil_layer_height[2, land_use_indices]
-            )
-
-            self.var.wres1[land_use_indices] = (
-                thetar1[land_use_indices]
-                * self.var.soil_layer_height[0, land_use_indices]
-            )
-            self.var.wres2[land_use_indices] = (
-                thetar2[land_use_indices]
-                * self.var.soil_layer_height[1, land_use_indices]
-            )
-            self.var.wres3[land_use_indices] = (
-                thetar3[land_use_indices]
-                * self.var.soil_layer_height[2, land_use_indices]
-            )
-
-            # Soil moisture at field capacity (pF2, 100 cm) [mm water slice]    # Mualem equation (van Genuchten, 1980)
-            self.var.wfc1[land_use_indices] = self.var.wres1[land_use_indices] + (
-                self.var.ws1[land_use_indices] - self.var.wres1[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha1[land_use_indices] * 100)
-                    ** (self.var.lambda1[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda1[land_use_indices]
-                    / (self.var.lambda1[land_use_indices] + 1)
-                )
-            )
-            self.var.wfc2[land_use_indices] = self.var.wres2[land_use_indices] + (
-                self.var.ws2[land_use_indices] - self.var.wres2[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha2[land_use_indices] * 100)
-                    ** (self.var.lambda2[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda2[land_use_indices]
-                    / (self.var.lambda2[land_use_indices] + 1)
-                )
-            )
-            self.var.wfc3[land_use_indices] = self.var.wres3[land_use_indices] + (
-                self.var.ws3[land_use_indices] - self.var.wres3[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha3[land_use_indices] * 100)
-                    ** (self.var.lambda3[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda3[land_use_indices]
-                    / (self.var.lambda3[land_use_indices] + 1)
-                )
-            )
-
-            # Soil moisture at wilting point (pF4.2, 10**4.2 cm) [mm water slice]    # Mualem equation (van Genuchten, 1980)
-            self.var.wwp1[land_use_indices] = self.var.wres1[land_use_indices] + (
-                self.var.ws1[land_use_indices] - self.var.wres1[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha1[land_use_indices] * (10**4.2))
-                    ** (self.var.lambda1[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda1[land_use_indices]
-                    / (self.var.lambda1[land_use_indices] + 1)
-                )
-            )
-            self.var.wwp2[land_use_indices] = self.var.wres2[land_use_indices] + (
-                self.var.ws2[land_use_indices] - self.var.wres2[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha2[land_use_indices] * (10**4.2))
-                    ** (self.var.lambda2[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda2[land_use_indices]
-                    / (self.var.lambda2[land_use_indices] + 1)
-                )
-            )
-            self.var.wwp3[land_use_indices] = self.var.wres3[land_use_indices] + (
-                self.var.ws3[land_use_indices] - self.var.wres3[land_use_indices]
-            ) / (
-                (
-                    1
-                    + (alpha3[land_use_indices] * (10**4.2))
-                    ** (self.var.lambda3[land_use_indices] + 1)
-                )
-                ** (
-                    self.var.lambda3[land_use_indices]
-                    / (self.var.lambda3[land_use_indices] + 1)
-                )
-            )
-
-            satTerm1FC = np.maximum(
-                0.0, self.var.wfc1[land_use_indices] - self.var.wres1[land_use_indices]
-            ) / (self.var.ws1[land_use_indices] - self.var.wres1[land_use_indices])
-            satTerm2FC = np.maximum(
-                0.0, self.var.wfc2[land_use_indices] - self.var.wres2[land_use_indices]
-            ) / (self.var.ws2[land_use_indices] - self.var.wres2[land_use_indices])
-            satTerm3FC = np.maximum(
-                0.0, self.var.wfc3[land_use_indices] - self.var.wres3[land_use_indices]
-            ) / (self.var.ws3[land_use_indices] - self.var.wres3[land_use_indices])
-            kUnSat1FC = (
-                self.var.KSat1[land_use_indices]
-                * np.sqrt(satTerm1FC)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm1FC
-                        ** (
-                            1
-                            / (
-                                self.var.lambda1[land_use_indices]
-                                / (self.var.lambda1[land_use_indices] + 1)
-                            )
-                        )
-                    )
-                    ** (
-                        self.var.lambda1[land_use_indices]
-                        / (self.var.lambda1[land_use_indices] + 1)
-                    )
-                )
-            )
-            kUnSat2FC = (
-                self.var.KSat2[land_use_indices]
-                * np.sqrt(satTerm2FC)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm2FC
-                        ** (
-                            1
-                            / (
-                                self.var.lambda2[land_use_indices]
-                                / (self.var.lambda2[land_use_indices] + 1)
-                            )
-                        )
-                    )
-                    ** (
-                        self.var.lambda2[land_use_indices]
-                        / (self.var.lambda2[land_use_indices] + 1)
-                    )
-                )
-            )
-            kUnSat3FC = (
-                self.var.KSat3[land_use_indices]
-                * np.sqrt(satTerm3FC)
-                * np.square(
-                    1
-                    - (
-                        1
-                        - satTerm3FC
-                        ** (
-                            1
-                            / (
-                                self.var.lambda3[land_use_indices]
-                                / (self.var.lambda3[land_use_indices] + 1)
-                            )
-                        )
-                    )
-                    ** (
-                        self.var.lambda3[land_use_indices]
-                        / (self.var.lambda3[land_use_indices] + 1)
-                    )
-                )
-            )
-            self.var.kunSatFC12[land_use_indices] = np.sqrt(kUnSat1FC * kUnSat2FC)
-            self.var.kunSatFC23[land_use_indices] = np.sqrt(kUnSat2FC * kUnSat3FC)
-
-        # for paddy irrigation flooded paddy fields
-        self.var.topwater = self.model.data.HRU.load_initial(
-            "topwater", default=self.var.full_compressed(0, dtype=np.float32)
-        )
-
         self.var.arnoBeta = self.var.full_compressed(np.nan, dtype=np.float32)
 
         # Improved Arno's scheme parameters: Hageman and Gates 2003
@@ -552,26 +123,6 @@ class landcoverType(object):
         # for CALIBRATION
         arnoBetaOro = arnoBetaOro + self.model.config["parameters"]["arnoBeta_add"]
         arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
-
-        initial_humidy = 0.5
-        self.var.w1 = self.model.data.HRU.load_initial(
-            "w1",
-            default=np.nan_to_num(
-                self.var.wwp1 + initial_humidy * (self.var.wfc1 - self.var.wwp1)
-            ),
-        )
-        self.var.w2 = self.model.data.HRU.load_initial(
-            "w2",
-            default=np.nan_to_num(
-                self.var.wwp2 + initial_humidy * (self.var.wfc2 - self.var.wwp2)
-            ),
-        )
-        self.var.w3 = self.model.data.HRU.load_initial(
-            "w3",
-            default=np.nan_to_num(
-                self.var.wwp3 + initial_humidy * (self.var.wfc3 - self.var.wwp3)
-            ),
-        )
 
         arnobeta_cover_types = {
             "forest": 0.2,
@@ -776,26 +327,11 @@ class landcoverType(object):
         groundwater_recharge += waterbed_recharge
 
     def step(self):
-        """
-        Dynamic part of the land cover type module
-
-        Calculating soil for each of the 6  land cover class
-
-        * calls evaporation_module.dynamic
-        * calls interception_module.dynamic
-        * calls soil_module.dynamic
-        * calls sealed_water_module.dynamic
-
-        And sums every thing up depending on the land cover type fraction
-        """
-
         timer = TimingModule("Landcover")
 
         if __debug__:
             interceptStor_pre = self.var.interceptStor.copy()
-            w1_pre = self.var.w1.copy()
-            w2_pre = self.var.w2.copy()
-            w3_pre = self.var.w3.copy()
+            w_pre = self.var.w.copy()
             topwater_pre = self.var.topwater.copy()
 
         crop_stage_lenghts = np.column_stack(
@@ -951,8 +487,11 @@ class landcoverType(object):
                     self.var.actBareSoilEvap,
                     openWaterEvap,
                 ],
-                prestorages=[w1_pre, w2_pre, w3_pre, topwater_pre],
-                poststorages=[self.var.w1, self.var.w2, self.var.w3, self.var.topwater],
+                prestorages=[w_pre, topwater_pre],
+                poststorages=[
+                    self.var.w,
+                    self.var.topwater,
+                ],
                 tollerance=1e-6,
             )
 
@@ -960,16 +499,12 @@ class landcoverType(object):
                 np.sum(self.var.SnowCoverS, axis=0)
                 / self.model.snowfrost_module.numberSnowLayers
                 + self.var.interceptStor
-                + self.var.w1
-                + self.var.w2
-                + self.var.w3
+                + self.var.w.sum(axis=0)
                 + self.var.topwater
             )
             totalstorage_pre = (
                 self.var.prevSnowCover
-                + w1_pre
-                + w2_pre
-                + w3_pre
+                + w_pre.sum(axis=0)
                 + topwater_pre
                 + interceptStor_pre
             )

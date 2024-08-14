@@ -1,12 +1,25 @@
-# -------------------------------------------------------------------------
-# Name:        Waterdemand module
-# Purpose:
+# --------------------------------------------------------------------------------
+# Description:
+# This file contains code that has been adapted from an original source available
+# in a public repository under the GNU General Public License. The original code
+# has been modified to fit the specific needs of this project.
 #
-# Author:      PB, JdB
+# Original Source:
+# Repository: https://github.com/iiasa/CWatM
 #
-# Created:     15/07/2016
-# Copyright:   (c) PB 2016
-# -------------------------------------------------------------------------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# --------------------------------------------------------------------------------
 
 import numpy as np
 
@@ -28,101 +41,6 @@ from geb.workflows import TimingModule, balance_check
 
 
 class water_demand:
-    """
-    WATERDEMAND
-
-    calculating water demand -
-    Industrial, domenstic on precalculated maps
-    Agricultural water demand based on water need by plants
-
-    **Global variables**
-
-    ====================  ================================================================================  =========
-    Variable [self.var]   Description                                                                       Unit
-    ====================  ================================================================================  =========
-    readAvlStorGroundwat  same as storGroundwater but equal to 0 when inferior to a treshold                m
-    nonFossilGroundwater  groundwater abstraction which is sustainable and not using fossil resources       m
-    waterbalance_module
-    waterBodyID           lakes/reservoirs map with a single ID for each lake/reservoir                     --
-    compress_LR           boolean map as mask map for compressing lake/reservoir                            --
-    decompress_LR         boolean map as mask map for decompressing lake/reservoir                          --
-    MtoM3                 Coefficient to change units                                                       --
-    lakeVolumeM3C         compressed map of lake volume                                                     m3
-    lakeStorageC                                                                                            m3
-    reservoirStorageM3C
-    lakeResStorage
-    waterBodyTypCTemp
-    Invseconds_per_timestep
-    cellArea              Cell area [m²] of each simulated mesh
-    smalllakeVolumeM3
-    smalllakeStorage
-    act_SurfaceWaterAbst
-    fracVegCover          Fraction of area covered by the corresponding landcover type
-    addtoevapotrans
-    M3toM                 Coefficient to change units                                                       --
-    act_irrConsumption    actual irrgation water consumption                                                m
-    channelStorageM3
-    act_bigLakeResAbst
-    act_smallLakeResAbst
-    returnFlow
-    modflowTopography
-    modflowDepth2
-    leakageC
-    domestic_water_demand
-    pot_domesticConsumpt
-    dom_efficiency
-    demand_unit
-    envFlow
-    industry_water_demand
-    pot_industryConsumpt
-    ind_efficiency
-    unmetDemandPaddy
-    unmetDemandNonpaddy
-    unmetDemand
-    efficiencyPaddy
-    efficiencyNonpaddy
-    returnfractionIrr
-    irrDemand
-    totalIrrDemand
-    livestock_water_demand
-    pot_livestockConsump
-    liv_efficiency
-    allocSegments
-    swAbstractionFractio
-    leakage
-    nonIrrReturnFlowFrac
-    nonIrruse
-    act_indDemand
-    act_domDemand
-    act_livDemand
-    nonIrrDemand
-    totalWaterDemand
-    act_irrWithdrawal
-    act_nonIrrWithdrawal
-    act_totalWaterWithdr
-    act_indConsumption
-    act_domConsumption
-    act_livConsumption
-    act_nonIrrConsumptio
-    act_totalIrrConsumpt
-    act_totalWaterConsum
-    returnflowIrr
-    pot_nonIrrConsumptio
-    readAvlChannelStorag
-    reservoir_command_ar
-    leakageC_daily
-    leakageC_daily_segme
-    pot_GroundwaterAbstr
-    renewableAvlWater
-    act_irrNonpaddyWithd
-    act_irrPaddyWithdraw
-    act_irrPaddyDemand
-    act_irrNonpaddyDeman
-    act_indWithdrawal
-    act_domWithdrawal
-    act_livWithdrawal
-    waterDemandLost"""
-
     def __init__(self, model):
         """
         Initial part of the water demand module
@@ -178,7 +96,7 @@ class water_demand:
             self.var.crop_map,
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values,
             self.var.land_use_type,
-            self.var.natural_crop_groups,
+            self.model.soil_module.natural_crop_groups,
         )
 
         # p is between 0 and 1 => if p =1 wcrit = wwp, if p= 0 wcrit = wfc
@@ -189,105 +107,53 @@ class water_demand:
 
         root_ratios = get_root_ratios(
             self.var.root_depth[nonpaddy_irrigated_land],
-            self.var.soil_layer_height[:, nonpaddy_irrigated_land],
+            self.model.soil_module.soil_layer_height[:, nonpaddy_irrigated_land],
         )
 
-        max_water_content1 = (
-            get_maximum_water_content(
-                self.var.wfc1[nonpaddy_irrigated_land],
-                self.var.wwp1[nonpaddy_irrigated_land],
-            )
-            * root_ratios[0]
-        )
-        max_water_content2 = (
-            get_maximum_water_content(
-                self.var.wfc2[nonpaddy_irrigated_land],
-                self.var.wwp2[nonpaddy_irrigated_land],
-            )
-            * root_ratios[1]
-        )
-        max_water_content3 = (
-            get_maximum_water_content(
-                self.var.wfc3[nonpaddy_irrigated_land],
-                self.var.wwp3[nonpaddy_irrigated_land],
-            )
-            * root_ratios[2]
-        )
         max_water_content = self.var.full_compressed(np.nan, dtype=np.float32)
         max_water_content[nonpaddy_irrigated_land] = (
-            max_water_content1 + max_water_content2 + max_water_content3
-        )
+            get_maximum_water_content(
+                self.model.soil_module.wfc[:, nonpaddy_irrigated_land],
+                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+            )
+            * root_ratios
+        ).sum(axis=0)
 
-        critical_water_level1 = (
-            get_critical_water_level(
-                p,
-                self.var.wfc1[nonpaddy_irrigated_land],
-                self.var.wwp1[nonpaddy_irrigated_land],
-            )
-            * root_ratios[0]
-        )
-        critical_water_level2 = (
-            get_critical_water_level(
-                p,
-                self.var.wfc2[nonpaddy_irrigated_land],
-                self.var.wwp2[nonpaddy_irrigated_land],
-            )
-            * root_ratios[1]
-        )
-        critical_water_level3 = (
-            get_critical_water_level(
-                p,
-                self.var.wfc3[nonpaddy_irrigated_land],
-                self.var.wwp3[nonpaddy_irrigated_land],
-            )
-            * root_ratios[2]
-        )
         critical_water_level = self.var.full_compressed(np.nan, dtype=np.float32)
         critical_water_level[nonpaddy_irrigated_land] = (
-            critical_water_level1 + critical_water_level2 + critical_water_level3
-        )
+            get_critical_water_level(
+                p,
+                self.model.soil_module.wfc[:, nonpaddy_irrigated_land],
+                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+            )
+            * root_ratios
+        ).sum(axis=0)
 
-        readily_available_water1 = (
-            get_available_water(
-                self.var.w1[nonpaddy_irrigated_land],
-                self.var.wwp1[nonpaddy_irrigated_land],
-            )
-            * root_ratios[0]
-        )
-        readily_available_water2 = (
-            get_available_water(
-                self.var.w2[nonpaddy_irrigated_land],
-                self.var.wwp2[nonpaddy_irrigated_land],
-            )
-            * root_ratios[1]
-        )
-        readily_available_water3 = (
-            get_available_water(
-                self.var.w3[nonpaddy_irrigated_land],
-                self.var.wwp3[nonpaddy_irrigated_land],
-            )
-            * root_ratios[2]
-        )
         readily_available_water = self.var.full_compressed(np.nan, dtype=np.float32)
         readily_available_water[nonpaddy_irrigated_land] = (
-            readily_available_water1
-            + readily_available_water2
-            + readily_available_water3
-        )
+            get_available_water(
+                self.var.w[:, nonpaddy_irrigated_land],
+                self.model.soil_module.wwp[:, nonpaddy_irrigated_land],
+            )
+            * root_ratios
+        ).sum(axis=0)
 
         # first 2 soil layers to estimate distribution between runoff and infiltration
-        soilWaterStorage = (
-            self.var.w1[nonpaddy_irrigated_land] + self.var.w2[nonpaddy_irrigated_land]
+        soil_water_storage = self.var.w[:2, nonpaddy_irrigated_land].sum(axis=0)
+        soil_water_storage_cap = self.model.soil_module.ws[
+            :2, nonpaddy_irrigated_land
+        ].sum(axis=0)
+
+        relative_saturation = soil_water_storage / soil_water_storage_cap
+
+        satAreaFrac = (
+            1 - (1 - relative_saturation) ** self.var.arnoBeta[nonpaddy_irrigated_land]
         )
-        soilWaterStorageCap = (
-            self.var.ws1[nonpaddy_irrigated_land]
-            + self.var.ws2[nonpaddy_irrigated_land]
-        )
-        relSat = soilWaterStorage / soilWaterStorageCap
-        satAreaFrac = 1 - (1 - relSat) ** self.var.arnoBeta[nonpaddy_irrigated_land]
         satAreaFrac = np.maximum(np.minimum(satAreaFrac, 1.0), 0.0)
 
-        store = soilWaterStorageCap / (self.var.arnoBeta[nonpaddy_irrigated_land] + 1)
+        store = soil_water_storage_cap / (
+            self.var.arnoBeta[nonpaddy_irrigated_land] + 1
+        )
         potBeta = (self.var.arnoBeta[nonpaddy_irrigated_land] + 1) / self.var.arnoBeta[
             nonpaddy_irrigated_land
         ]
@@ -334,16 +200,8 @@ class water_demand:
         return withdrawal
 
     def step(self, totalPotET):
-        """
-        Dynamic part of the water demand module
-
-        * calculate the fraction of water from surface water vs. groundwater
-        * get non-Irrigation water demand and its return flow fraction
-        """
-
         timer = TimingModule("Water demand")
 
-        # WATER DEMAND
         domestic_water_demand, domestic_water_efficiency = (
             self.households.water_demand()
         )
