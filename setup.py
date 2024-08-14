@@ -1,6 +1,6 @@
 from setuptools import setup
 from pathlib import Path
-from cwatm import __version__, __author__, __email__
+from cwatm import __version__
 
 setup(
     name="ABCWatM",
@@ -14,8 +14,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     url="https://github.com/GEB-model/ABCWatM",
-    author=__author__,
-    author_email=__email__,
     packages=[
         "cwatm",
         "cwatm.modules",
