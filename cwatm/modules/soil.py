@@ -222,24 +222,19 @@ def get_unsaturated_hydraulic_conductivity(
 
     See https://archive.org/details/watershedmanagem0000unse_d4j9/page/295/mode/1up?view=theater (p. 295)
     """
-    saturation_term = (w - wres) / (ws - wres)
-    if saturation_term < 0:
-        saturation_term = 0
-    elif saturation_term > 1:
-        saturation_term = 1
-
-    saturation_term_sqrt = saturation_term**0.5
+    effective_saturation = (w - wres) / (ws - wres)
+    if effective_saturation < 0:
+        effective_saturation = 0
+    elif effective_saturation > 1:
+        effective_saturation = 1
 
     n = lambda_ + 1
     m = 1 - 1 / n
 
-    inner_term = saturation_term ** (1 / m)
-    outer_term = 1 - (1 - inner_term) ** m
-
     return (
         saturated_hydraulic_conductivity
-        * saturation_term_sqrt
-        * (outer_term * outer_term)  # squaring by multiplying is faster than **2
+        * effective_saturation**0.5
+        * (1 - (1 - effective_saturation ** (1 / m)) ** m) ** 2
     )
 
 
