@@ -1,5 +1,4 @@
 # --------------------------------------------------------------------------------
-# Description:
 # This file contains code that has been adapted from an original source available
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
@@ -26,21 +25,6 @@ from geb.workflows import TimingModule, balance_check
 from numba import njit, prange
 
 
-def get_critical_soil_moisture_content(p, wfc, wwp):
-    """
-    "The critical soil moisture content is defined as the quantity of stored soil moisture below
-    which water uptake is impaired and the crop begins to close its stomata. It is not a fixed
-    value. Restriction of water uptake due to water stress starts at a higher water content
-    when the potential transpiration rate is higher" (Van Diepen et al., 1988: WOFOST 6.0, p.86)
-
-    A higher p value means that the critical soil moisture content is higher, i.e. the plant can
-    extract water from the soil at a lower soil moisture content. Thus when p is 1 the critical
-    soil moisture content is equal to the wilting point, and when p is 0 the critical soil moisture
-    content is equal to the field capacity.
-    """
-    return (1 - p) * (wfc - wwp) + wwp
-
-
 @njit(inline="always")
 def get_aeration_stress_threshold(
     ws, soil_layer_height, crop_aeration_stress_threshold
@@ -65,7 +49,7 @@ def get_aeration_stress_reduction_factor(
 
 
 @njit(inline="always")
-def get_critical_soil_moisture_content_numba(p, wfc, wwp):
+def get_critical_soil_moisture_content(p, wfc, wwp):
     """
     "The critical soil moisture content is defined as the quantity of stored soil moisture below
     which water uptake is impaired and the crop begins to close its stomata. It is not a fixed
@@ -88,6 +72,7 @@ def get_maximum_water_content(wfc, wwp):
     return wfc - wwp
 
 
+@njit
 def get_fraction_easily_available_soil_water(
     crop_group_number, potential_evapotranspiration
 ):
@@ -108,26 +93,17 @@ def get_fraction_easily_available_soil_water(
     np.ndarray
         The fraction of easily available soil water, p is closer to 0 if evapo is bigger and cropgroup is smaller
     """
-    potential_evapotranspiration_cm = potential_evapotranspiration * 100.0
 
-    p = 1 / (0.76 + 1.5 * potential_evapotranspiration_cm) - 0.10 * (
-        5 - crop_group_number
-    )
-
-    # Additional correction for crop groups 1 and 2
-    p = np.where(
-        crop_group_number <= 2.5,
-        p
-        + (potential_evapotranspiration_cm - 0.6)
-        / (crop_group_number * (crop_group_number + 3)),
-        p,
-    )
-    assert not (np.isnan(p)).any()
-    return np.clip(p, 0, 1)
+    p = np.zeros_like(crop_group_number)
+    for i in range(crop_group_number.size):
+        p[i] = get_fraction_easily_available_soil_water_single(
+            crop_group_number[i], potential_evapotranspiration[i]
+        )
+    return p
 
 
-@njit
-def get_fraction_easily_available_soil_water_numba(
+@njit(inline="always")
+def get_fraction_easily_available_soil_water_single(
     crop_group_number, potential_evapotranspiration
 ):
     """
@@ -185,12 +161,8 @@ def get_total_transpiration_reduction_factor(
     return transpiration_reduction_factor_total
 
 
-def get_transpiration_reduction_factor(w, wwp, wcrit):
-    return np.clip((w - wwp) / (wcrit - wwp), 0, 1)
-
-
-@njit
-def get_transpiration_reduction_factor_numba(w, wwp, wcrit):
+@njit(inline="always")
+def get_transpiration_reduction_factor_single(w, wwp, wcrit):
     nominator = w - wwp
     denominator = wcrit - wwp
     if denominator == 0:
@@ -206,23 +178,21 @@ def get_transpiration_reduction_factor_numba(w, wwp, wcrit):
     return factor
 
 
+@njit
 def get_root_ratios(
     root_depth,
     soil_layer_height,
 ):
-    remaining_root_depth = root_depth.copy()
     root_ratios = np.zeros_like(soil_layer_height)
-    for layer in range(soil_layer_height.shape[0]):
-        mask = remaining_root_depth > 0
-        root_ratios[layer, mask] = np.minimum(
-            remaining_root_depth[mask] / soil_layer_height[layer, mask], 1
+    for i in range(root_depth.size):
+        set_root_ratios_single(
+            root_depth[i], soil_layer_height[:, i], root_ratios[:, i]
         )
-        remaining_root_depth[mask] -= soil_layer_height[layer, mask]
     return root_ratios
 
 
-@njit
-def get_root_ratios_numba(root_depth, soil_layer_height, root_ratios):
+@njit(inline="always")
+def set_root_ratios_single(root_depth, soil_layer_height, root_ratios):
     remaining_root_depth = root_depth
     for layer in range(N_SOIL_LAYERS):
         root_ratios[layer] = min(remaining_root_depth / soil_layer_height[layer], 1)
@@ -392,11 +362,11 @@ def update_soil_water_storage(
         else:  #
             crop_group_number = crop_group_number_per_group[crop_map[i]]
 
-        p = get_fraction_easily_available_soil_water_numba(
+        p = get_fraction_easily_available_soil_water_single(
             crop_group_number, potential_evapotranspiration[i]
         )
 
-        root_ratios = get_root_ratios_numba(
+        root_ratios = set_root_ratios_single(
             root_depth[i],
             soil_layer_height[:, i],
             root_ratios_matrix[:, i],
@@ -412,10 +382,10 @@ def update_soil_water_storage(
             root_length_within_layer = soil_layer_height[layer, i] * root_ratios[layer]
 
             # Water stress
-            critical_soil_moisture_content = get_critical_soil_moisture_content_numba(
+            critical_soil_moisture_content = get_critical_soil_moisture_content(
                 p, wfc[layer, i], wwp[layer, i]
             )
-            transpiration_reduction_factor = get_transpiration_reduction_factor_numba(
+            transpiration_reduction_factor = get_transpiration_reduction_factor_single(
                 w[layer, i], wwp[layer, i], critical_soil_moisture_content
             )
 
