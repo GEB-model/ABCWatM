@@ -267,7 +267,6 @@ def update_soil_water_storage(
     arno_beta,
     capillar,
     capillary_rise_index,
-    percolation_impeded_ratio,
     crop_group_number_per_group,
     cPrefFlow,
     w,
@@ -640,26 +639,20 @@ def update_soil_water_storage(
                 if layer != 0:
                     w[layer, i] += percolation_matrix[layer - 1, i]
 
-            interflow_or_groundwater_recharge = (
-                percolation_to_groundwater + preferential_flow[i]
-            )
             if is_bioarea[i]:
-                interflow[i] = (
-                    percolation_impeded_ratio[i] * interflow_or_groundwater_recharge
-                )
-                groundwater_recharge[i] = interflow_or_groundwater_recharge * (
-                    1 - percolation_impeded_ratio[i]
+                groundwater_recharge[i] = (
+                    percolation_to_groundwater + preferential_flow[i]
                 )
 
 
 class Soil(object):
     def __init__(self, model, elevation_std):
         """
-        Initial part of the soil module
 
-        * Initialize all the hydraulic properties of soil
-        * Set soil depth
-
+        Notes:
+        - We don't consider that bedrock does not impede percolation in line with https://doi.org/10.1029/2018WR022920
+        which states that connection to the stream is the exception rather than the rule
+        A better implementation would be to consider travel distance. But this remains a topic for future work.
         """
         self.var = model.data.HRU
         self.model = model
@@ -723,21 +716,6 @@ class Soil(object):
             self.model.model_structure["grid"]["soil/ksat"], layer=None
         )
         self.ksat = self.model.data.to_HRU(data=ksat, fn=None)
-
-        # Fraction of area where percolation to groundwater is impeded [dimensionless]
-        self.var.percolationImp = self.model.data.to_HRU(
-            data=np.maximum(
-                0,
-                np.minimum(
-                    1,
-                    self.model.data.grid.load(
-                        self.model.model_structure["grid"]["soil/percolation_impeded"]
-                    )
-                    * self.model.config["parameters"]["factor_interflow"],
-                ),
-            ),
-            fn=None,
-        )
 
         # soil water depletion fraction, Van Diepen et al., 1988: WOFOST 6.0, p.86, Doorenbos et. al 1978
         # crop groups for formular in van Diepen et al, 1988
@@ -1015,7 +993,6 @@ class Soil(object):
             self.var.arnoBeta,
             capillar.astype(np.float32),
             self.var.capriseindex,
-            self.var.percolationImp,
             self.model.agents.crop_farmers.crop_data["crop_group_number"].values.astype(
                 np.float32
             ),
