@@ -1,5 +1,4 @@
 # --------------------------------------------------------------------------------
-# Description:
 # This file contains code that has been adapted from an original source available
 # in a public repository under the GNU General Public License. The original code
 # has been modified to fit the specific needs of this project.
