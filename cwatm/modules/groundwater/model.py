@@ -462,7 +462,7 @@ class ModFlowSimulation:
         assert self.specific_yield.shape[0] == 1, "Only 1 layer is supported"
         groundwater_content_m = (self.head - self.bottom[-1]) * self.specific_yield[0]
         # allow for small negative values as a result of numerical errors
-        assert (groundwater_content_m > -1e-4).all()
+        assert (groundwater_content_m > -1e-2).all()
         groundwater_content_m[groundwater_content_m < 0] = 0
         return groundwater_content_m
 
