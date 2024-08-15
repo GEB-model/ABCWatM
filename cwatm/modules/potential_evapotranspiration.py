@@ -28,9 +28,13 @@ from geb.workflows import TimingModule
 @njit(cache=True)
 def get_saturation_vapour_pressure(tasmin_C, tasmax_C):
     # http://www.fao.org/docrep/X0490E/x0490e07.htm   equation 11/12
-    ESatmin = 0.6108 * np.exp((17.27 * tasmin_C) / (tasmin_C + 237.3))
-    ESatmax = 0.6108 * np.exp((17.27 * tasmax_C) / (tasmax_C + 237.3))
-    saturated_vapour_pressure = (ESatmin + ESatmax) / 2.0  # [KPa]
+    ESatmin = np.float32(0.6108) * np.exp(
+        (np.float32(17.27) * tasmin_C) / (tasmin_C + np.float32(237.3))
+    )
+    ESatmax = np.float32(0.6108) * np.exp(
+        (np.float32(17.27) * tasmax_C) / (tasmax_C + np.float32(237.3))
+    )
+    saturated_vapour_pressure = (ESatmin + ESatmax) / np.float32(2.0)  # [KPa]
     return saturated_vapour_pressure
 
 
