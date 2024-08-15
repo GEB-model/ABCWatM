@@ -25,6 +25,21 @@ from geb.workflows import TimingModule, balance_check
 from numba import njit, prange
 
 
+def get_soil_moisture_at_pressure(
+    capillary_suction, bubbling_pressure_cm, thetas, thetar, lambda_
+):
+
+    alpha = bubbling_pressure_cm**-1
+    n = lambda_ + 1
+    m = 1 - 1 / n
+    phi = -capillary_suction
+
+    water_retention_curve = (1 / (1 + (alpha * phi) ** n)) ** m
+
+    theta = water_retention_curve * (thetas - thetar) + thetar
+    return theta
+
+
 @njit(inline="always")
 def get_aeration_stress_threshold(
     ws, soil_layer_height, crop_aeration_stress_threshold
@@ -238,7 +253,7 @@ def get_unsaturated_hydraulic_conductivity(
     )
 
 
-PERCOLATION_SUBSTEPS = 3
+PERCOLATION_SUBSTEPS = np.int32(3)
 
 
 @njit(cache=True, parallel=True)
@@ -275,7 +290,6 @@ def update_soil_water_storage(
     actual_bare_soil_evaporation_res,
     actual_total_transpiration,
     groundwater_recharge,
-    interflow,
     direct_runoff,
 ):
     """
@@ -309,18 +323,20 @@ def update_soil_water_storage(
         available_water_infiltration[i] = (
             natural_available_water_infiltration[i] + actual_irrigation_consumption[i]
         )
-        if available_water_infiltration[i] < 0:
-            available_water_infiltration[i] = 0
+        if available_water_infiltration[i] < np.float32(0):
+            available_water_infiltration[i] = np.float32(0)
         # paddy irrigated land
         if land_use_type[i] == 2:
-            if crop_kc[i] > 0.75:
+            if crop_kc[i] > np.float32(0.75):
                 topwater_res[i] += available_water_infiltration[i]
 
-            assert EWRef[i] >= 0
-            open_water_evaporation_res[i] = min(max(0.0, topwater_res[i]), EWRef[i])
+            assert EWRef[i] >= np.float32(0)
+            open_water_evaporation_res[i] = min(
+                max(np.float32(0.0), topwater_res[i]), EWRef[i]
+            )
             topwater_res[i] -= open_water_evaporation_res[i]
-            assert topwater_res[i] >= 0
-            if crop_kc[i] > 0.75:
+            assert topwater_res[i] >= np.float32(0)
+            if crop_kc[i] > np.float32(0.75):
                 available_water_infiltration[i] = topwater_res[i]
             else:
                 available_water_infiltration[i] += topwater_res[i]
@@ -328,7 +344,7 @@ def update_soil_water_storage(
             # TODO: Minor bug, this should only occur when topwater is above 0
             # fix this after completing soil module speedup
             potential_bare_soil_evaporation[i] = max(
-                0,
+                np.float32(0),
                 potential_bare_soil_evaporation[i] - open_water_evaporation_res[i],
             )
 
@@ -366,12 +382,12 @@ def update_soil_water_storage(
             root_ratios_matrix[:, i],
         )
 
-        total_transpiration_reduction_factor_water_stress = 0.0
-        total_aeration_stress = 0.0
-        total_root_length_rws_corrected = (
-            0.0  # check if same as total_transpiration_reduction_factor * root_depth
-        )
-        total_root_length_aeration_stress_corrected = 0.0
+        total_transpiration_reduction_factor_water_stress = np.float32(0.0)
+        total_aeration_stress = np.float32(0.0)
+        total_root_length_rws_corrected = np.float32(
+            0.0
+        )  # check if same as total_transpiration_reduction_factor * root_depth
+        total_root_length_aeration_stress_corrected = np.float32(0.0)
         for layer in range(N_SOIL_LAYERS):
             root_length_within_layer = soil_layer_height[layer, i] * root_ratios[layer]
 
@@ -397,7 +413,7 @@ def update_soil_water_storage(
 
             # Aeration stress
             aeration_stress_threshold = get_aeration_stress_threshold(
-                ws[layer, i], soil_layer_height[layer, i], 15
+                ws[layer, i], soil_layer_height[layer, i], np.float32(15)
             )  # 15 is placeholder for crop_aeration_threshold
             if w[layer, i] > aeration_stress_threshold:
                 aeration_days_counter[layer, i] += 1
@@ -411,7 +427,7 @@ def update_soil_water_storage(
             else:
                 # Reset aeration days counter where w <= waer
                 aeration_days_counter[layer, i] = 0
-                aeration_stress_reduction_factor = 1  # no stress
+                aeration_stress_reduction_factor = np.float32(1)  # no stress
 
             total_aeration_stress += (
                 aeration_stress_reduction_factor * root_length_within_layer
@@ -443,8 +459,8 @@ def update_soil_water_storage(
         # or full aeration stress, we can skip the loop
         if (
             not soil_is_frozen[i]
-            and total_transpiration_reduction_factor_water_stress > 0
-            and total_aeration_stress > 0
+            and total_transpiration_reduction_factor_water_stress > np.float32(0)
+            and total_aeration_stress > np.float32(0)
         ):
             maximum_transpiration = potential_transpiration[i] * min(
                 total_transpiration_reduction_factor_water_stress, total_aeration_stress
@@ -474,17 +490,19 @@ def update_soil_water_storage(
 
         if is_bioarea[i]:
             # limit the bare soil evaporation to the available water in the soil
-            if not soil_is_frozen[i] and topwater_res[i] == 0:
+            if not soil_is_frozen[i] and topwater_res[i] == np.float32(0):
                 actual_bare_soil_evaporation_res[i] = min(
                     potential_bare_soil_evaporation[i],
-                    max(w[0, i] - wres[0, i], 0),  # can never be lower than 0
+                    max(
+                        w[0, i] - wres[0, i], np.float32(0)
+                    ),  # can never be lower than 0
                 )
                 # remove the bare soil evaporation from the top layer
                 w[0, i] -= actual_bare_soil_evaporation_res[i]
             else:
                 # if the soil is frozen, no evaporation occurs
                 # if the field is flooded (paddy irrigation), no bare soil evaporation occurs
-                actual_bare_soil_evaporation_res[i] = 0
+                actual_bare_soil_evaporation_res[i] = np.float32(0)
 
     for i in prange(land_use_type.size):
         # estimate the infiltration capacity
@@ -492,37 +510,39 @@ def update_soil_water_storage(
         soil_water_storage = w[0, i] + w[1, i]
         soil_water_storage_max = ws[0, i] + ws[1, i]
         relative_saturation = soil_water_storage / soil_water_storage_max
-        if (
-            relative_saturation > 1
+        if relative_saturation > np.float32(
+            1
         ):  # cap the relative saturation at 1 - this should not happen
-            relative_saturation = 1
+            relative_saturation = np.float32(1)
 
         # Fraction of pixel that is at saturation as a function of
         # the ratio Theta1/ThetaS1. Distribution function taken from
         # Zhao,1977, as cited in Todini, 1996 (JoH 175, 339-382) Eq. A.4.
-        saturated_area_fraction = 1 - (1 - relative_saturation) ** arno_beta[i]
-        if saturated_area_fraction > 1:
-            saturated_area_fraction = 1
-        elif saturated_area_fraction < 0:
-            saturated_area_fraction = 0
+        saturated_area_fraction = (
+            np.float32(1) - (np.float32(1) - relative_saturation) ** arno_beta[i]
+        )
+        if saturated_area_fraction > np.float32(1):
+            saturated_area_fraction = np.float32(1)
+        elif saturated_area_fraction < np.float32(0):
+            saturated_area_fraction = np.float32(0)
 
         store = soil_water_storage_max / (
-            arno_beta[i] + 1
+            arno_beta[i] + np.float32(1)
         )  # it is unclear what "store" means exactly, refer to source material to improve variable name
-        pot_beta = (arno_beta[i] + 1) / arno_beta[i]  # idem
+        pot_beta = (arno_beta[i] + np.float32(1)) / arno_beta[i]  # idem
         potential_infiltration = store - store * (
-            1 - (1 - saturated_area_fraction) ** pot_beta
+            np.float32(1) - (np.float32(1) - saturated_area_fraction) ** pot_beta
         )
 
         # if soil is frozen, there is no preferential flow, also not on paddy fields
         if not soil_is_frozen[i] and land_use_type[i] != 2:
             preferential_flow[i] = (
                 available_water_infiltration[i] * relative_saturation**cPrefFlow
-            ) * (1 - capillary_rise_index[i])
+            ) * (np.float32(1) - capillary_rise_index[i])
 
         # no infiltration if the soil is frozen
         if soil_is_frozen[i]:
-            infiltration = 0
+            infiltration = np.float32(0)
         else:
             infiltration = min(
                 potential_infiltration,
@@ -532,17 +552,17 @@ def update_soil_water_storage(
         if is_bioarea[i]:
             direct_runoff[i] = max(
                 (available_water_infiltration[i] - infiltration - preferential_flow[i]),
-                0,
+                np.float32(0),
             )
 
         if land_use_type[i] == 2:
-            topwater_res[i] = max(0, topwater_res[i] - infiltration)
-            if crop_kc[i] > 0.75:
+            topwater_res[i] = max(np.float32(0), topwater_res[i] - infiltration)
+            if crop_kc[i] > np.float32(0.75):
                 # if paddy fields flooded only runoff if topwater > 0.05m
                 direct_runoff[i] = max(
-                    0, topwater_res[i] - 0.05
+                    0, topwater_res[i] - np.float32(0.05)
                 )  # TODO: Potential minor bug, should this be added to runoff instead of replacing runoff?
-            topwater_res[i] = max(0, topwater_res[i] - direct_runoff[i])
+            topwater_res[i] = max(np.float32(0), topwater_res[i] - direct_runoff[i])
 
         if is_bioarea[i]:
             direct_runoff[i] += runoff_from_groundwater[i]
@@ -560,7 +580,7 @@ def update_soil_water_storage(
         for layer in range(N_SOIL_LAYERS - 1):
             saturation_ratio = max(
                 (w[layer, i] - wres[layer, i]) / (wfc[layer, i] - wres[layer, i]),
-                0,
+                np.float32(0),
             )
             unsaturated_hydraulic_conductivity_layer_below = (
                 get_unsaturated_hydraulic_conductivity(
@@ -572,8 +592,9 @@ def update_soil_water_storage(
                 )
             )
             capillary_rise_soil = max(
-                0.0,
-                (1 - saturation_ratio) * unsaturated_hydraulic_conductivity_layer_below,
+                np.float32(0),
+                (np.float32(1) - saturation_ratio)
+                * unsaturated_hydraulic_conductivity_layer_below,
             )
             # penultimate layer, limit capillary rise to available water in bottom layer
             if layer == N_SOIL_LAYERS - 2:
@@ -594,7 +615,7 @@ def update_soil_water_storage(
 
     for i in prange(land_use_type.size):
         # percolcation (top to bottom soil layer)
-        percolation_to_groundwater = 0.0
+        percolation_to_groundwater = np.float32(0.0)
         for _ in range(PERCOLATION_SUBSTEPS):
             for layer in range(N_SOIL_LAYERS):
                 unsaturated_hydraulic_conductivity = (
@@ -610,12 +631,12 @@ def update_soil_water_storage(
                 # no percolation if the soil is frozen in the top 2 layers.
                 if not (soil_is_frozen[i] and (layer == 0 or layer == 1)):
                     # limit percolation by the available water in the layer
-                    available_water = max(w[layer, i] - wres[layer, i], 0)
+                    available_water = max(w[layer, i] - wres[layer, i], np.float32(0))
                     percolation = min(percolation, available_water)
                     if layer == N_SOIL_LAYERS - 1:  # last soil layer
                         # limit percolation by available water, and consider the capillary rise index
                         # TODO: Check how the capillary rise index works
-                        percolation *= 1 - capillary_rise_index[i]
+                        percolation *= np.float32(1) - capillary_rise_index[i]
                     else:
                         # limit percolation the remaining water storage capacity of the layer below
                         percolation = min(
@@ -671,25 +692,47 @@ class Soil(object):
 
         # set the frost index threshold as global variable for numba
         global FROST_INDEX_THRESHOLD
-        FROST_INDEX_THRESHOLD = self.var.FrostIndexThreshold
+        FROST_INDEX_THRESHOLD = np.float32(self.var.FrostIndexThreshold)
 
         # θ saturation, field capacity, wilting point and residual moisture content
         thetas = self.model.data.grid.load(
             self.model.model_structure["grid"]["soil/thetas"], layer=None
         )
         thetas = self.model.data.to_HRU(data=thetas, fn=None)
-        thetafc = self.model.data.grid.load(
-            self.model.model_structure["grid"]["soil/thetafc"], layer=None
-        )
-        thetafc = self.model.data.to_HRU(data=thetafc, fn=None)
-        thetawp = self.model.data.grid.load(
-            self.model.model_structure["grid"]["soil/thetawp"], layer=None
-        )
-        thetawp = self.model.data.to_HRU(data=thetawp, fn=None)
         thetar = self.model.data.grid.load(
             self.model.model_structure["grid"]["soil/thetar"], layer=None
         )
         thetar = self.model.data.to_HRU(data=thetar, fn=None)
+
+        bubbling_pressure_cm = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/bubbling_pressure_cm"], layer=None
+        )
+        bubbling_pressure_cm = self.model.data.to_HRU(
+            data=bubbling_pressure_cm, fn=None
+        )
+
+        lambda_pore_size_distribution = self.model.data.grid.load(
+            self.model.model_structure["grid"]["soil/lambda"], layer=None
+        )
+        lambda_pore_size_distribution = self.model.data.to_HRU(
+            data=lambda_pore_size_distribution, fn=None
+        )
+
+        thetafc = get_soil_moisture_at_pressure(
+            -100,  # assuming field capacity is at -100 cm (pF 2)
+            bubbling_pressure_cm,
+            thetas,
+            thetar,
+            lambda_pore_size_distribution,
+        )
+
+        thetawp = get_soil_moisture_at_pressure(
+            -(10**4.2),  # assuming wilting point is at -10^4.2 cm (pF 4.2)
+            bubbling_pressure_cm,
+            thetas,
+            thetar,
+            lambda_pore_size_distribution,
+        )
 
         self.ws = thetas * self.soil_layer_height
         self.wfc = thetafc * self.soil_layer_height
@@ -725,7 +768,9 @@ class Soil(object):
         self.natural_crop_groups = self.model.data.to_HRU(data=self.natural_crop_groups)
 
         # ------------ Preferential Flow constant ------------------------------------------
-        self.var.cPrefFlow = self.model.config["parameters"]["preferentialFlowConstant"]
+        self.var.cPrefFlow = np.float32(
+            self.model.config["parameters"]["preferentialFlowConstant"]
+        )
 
         self.var.arnoBeta = self.var.full_compressed(np.nan, dtype=np.float32)
 
@@ -735,9 +780,10 @@ class Soil(object):
         # oh: the standard deviation of orography, o0: minimum std dev, omax: max std dev
         arnoBetaOro = (elevation_std - 10.0) / (elevation_std + 1500.0)
 
-        # for CALIBRATION
-        arnoBetaOro = arnoBetaOro + self.model.config["parameters"]["arnoBeta_add"]
-        arnoBetaOro = np.minimum(1.2, np.maximum(0.01, arnoBetaOro))
+        arnoBetaOro += self.model.config["parameters"][
+            "arnoBeta_add"
+        ]  # calibration parameter
+        arnoBetaOro = np.clip(arnoBetaOro, 0.01, 1.2)
 
         arnobeta_cover_types = {
             "forest": 0.2,
@@ -1003,7 +1049,6 @@ class Soil(object):
             self.var.actBareSoilEvap,
             self.var.actTransTotal,
             groundwater_recharge,
-            interflow,
             direct_runoff,
         )
 
