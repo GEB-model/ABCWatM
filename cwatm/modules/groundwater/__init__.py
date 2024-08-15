@@ -142,7 +142,7 @@ class GroundWater:
 
         # capriseindex is 1 where capilary rise occurs
         self.model.data.HRU.capriseindex = self.model.data.to_HRU(
-            data=groundwater_drainage > 0
+            data=np.float32(groundwater_drainage > 0)
         )
 
     @property
